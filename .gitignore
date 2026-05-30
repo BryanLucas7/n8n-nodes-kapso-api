@@ -1,0 +1,13 @@
+node_modules
+.env
+.env.*
+!.env.example
+.DS_Store
+.tmp
+tmp
+dist
+coverage
+n8n-nodes-kapso-api-*.tgz
+npm-debug.log*
+yarn.lock
+.vscode/launch.json

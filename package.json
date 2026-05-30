@@ -1,0 +1,76 @@
+{
+  "name": "n8n-nodes-kapso-api",
+  "version": "0.3.0",
+  "description": "n8n community node for documented Kapso Platform and Meta-compatible WhatsApp APIs",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "kapso",
+    "whatsapp",
+    "whatsapp-business-platform"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/BryanLucas7/n8n-nodes-kapso-api#readme",
+  "bugs": {
+    "url": "https://github.com/BryanLucas7/n8n-nodes-kapso-api/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BryanLucas7/n8n-nodes-kapso-api.git"
+  },
+  "author": {
+    "name": "Kapso n8n Community Node Maintainers"
+  },
+  "engines": {
+    "node": ">=22.16",
+    "pnpm": ">=9.1"
+  },
+  "packageManager": "pnpm@9.1.4",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc && gulp build:icons",
+    "dev": "tsc --watch",
+    "format": "prettier nodes credentials --write",
+    "lint": "eslint nodes credentials package.json",
+    "lintfix": "eslint nodes credentials package.json --fix",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run test/unit",
+    "test:mock": "vitest run test/mock",
+    "test:live": "vitest run test/live",
+    "pack:local": "pnpm build && pnpm pack",
+    "prepublishOnly": "pnpm build && pnpm lint -c .eslintrc.prepublish.js nodes credentials package.json && pnpm test"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE.md"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/KapsoApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/KapsoApi/KapsoApi.node.js",
+      "dist/nodes/KapsoApi/KapsoTrigger.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@typescript-eslint/parser": "^8.27.0",
+    "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^8.57.1",
+    "eslint-plugin-n8n-nodes-base": "^1.16.3",
+    "gulp": "^5.0.0",
+    "n8n-workflow": "^2.16.0",
+    "nock": "^13.5.6",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2",
+    "vitest": "^2.1.9"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
