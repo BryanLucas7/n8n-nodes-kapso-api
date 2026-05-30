@@ -1,11 +1,5 @@
 import { INodeProperties } from 'n8n-workflow';
-import { CUSTOM_API_CALL, operationsRequiringJsonBody } from '../actions/operations';
-
-function operationKeysToOperations(keys: string[]): string[] {
-	return [...new Set(keys.map((key) => key.split(':')[1]))];
-}
-
-const bodyOperations = operationKeysToOperations(operationsRequiringJsonBody);
+import { CUSTOM_API_CALL } from '../actions/operations';
 
 const listSearchMode = (searchListMethod: string) => ({
 	displayName: 'From List',
@@ -178,6 +172,284 @@ export const resourceFields: INodeProperties[] = [
 			'Relative documented Kapso path under the selected API surface. Full URLs are rejected.',
 	},
 	{
+		displayName: 'Status',
+		name: 'conversationStatus',
+		type: 'options',
+		options: [
+			{ name: 'Active', value: 'active' },
+			{ name: 'Ended', value: 'ended' },
+		],
+		default: 'ended',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['conversation'],
+				operation: ['updateStatus'],
+			},
+		},
+		description: 'Kapso conversation status (`active` reopens, `ended` closes)',
+	},
+	{
+		displayName: 'WhatsApp ID',
+		name: 'contactWaId',
+		type: 'string',
+		default: '',
+		required: true,
+		placeholder: '+15551234567',
+		displayOptions: {
+			show: {
+				resource: ['contact'],
+				operation: ['create'],
+			},
+		},
+		description: 'Contact phone number in E.164 format',
+	},
+	{
+		displayName: 'Profile Name',
+		name: 'contactProfileName',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['contact'],
+				operation: ['create', 'update'],
+			},
+		},
+	},
+	{
+		displayName: 'Display Name',
+		name: 'contactDisplayName',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['contact'],
+				operation: ['create', 'update'],
+			},
+		},
+	},
+	{
+		displayName: 'Customer ID',
+		name: 'contactCustomerId',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['contact'],
+				operation: ['create', 'update'],
+			},
+		},
+		description: 'Optional Kapso customer UUID',
+	},
+	{
+		displayName: 'Metadata JSON',
+		name: 'contactMetadataJson',
+		type: 'json',
+		default: '{}',
+		displayOptions: {
+			show: {
+				resource: ['contact'],
+				operation: ['create', 'update'],
+			},
+		},
+		description: 'Optional custom metadata object',
+	},
+	{
+		displayName: 'Broadcast Name',
+		name: 'broadcastName',
+		type: 'string',
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['broadcast'],
+				operation: ['create'],
+			},
+		},
+	},
+	{
+		displayName: 'Phone Number Name or ID',
+		name: 'broadcastPhoneNumberId',
+		type: 'options',
+		default: '',
+		required: true,
+		typeOptions: {
+			loadOptionsMethod: 'getPhoneNumbers',
+		},
+		displayOptions: {
+			show: {
+				resource: ['broadcast'],
+				operation: ['create'],
+			},
+		},
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+	},
+	{
+		displayName: 'Template Name or ID',
+		name: 'broadcastTemplateId',
+		type: 'string',
+		default: '',
+		required: true,
+		placeholder: '784203120908608',
+		displayOptions: {
+			show: {
+				resource: ['broadcast'],
+				operation: ['create'],
+			},
+		},
+		description: 'Meta template ID (preferred) or Kapso template UUID',
+	},
+	{
+		displayName: 'Scheduled At',
+		name: 'scheduledAt',
+		type: 'dateTime',
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['broadcast'],
+				operation: ['schedule'],
+			},
+		},
+		description: 'ISO 8601 datetime when the broadcast should send',
+	},
+	{
+		displayName: 'Recipients',
+		name: 'broadcastRecipients',
+		type: 'fixedCollection',
+		typeOptions: {
+			multipleValues: true,
+		},
+		default: {},
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['broadcast'],
+				operation: ['addRecipients'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Recipient',
+				name: 'recipientValues',
+				values: [
+					{
+						displayName: 'Phone Number',
+						name: 'phoneNumber',
+						type: 'string',
+						default: '',
+						placeholder: '+15551234567',
+						description: 'E.164 phone number (required unless Contact ID is set)',
+					},
+					{
+						displayName: 'Contact ID',
+						name: 'whatsappContactId',
+						type: 'string',
+						default: '',
+						description: 'Optional existing Kapso contact UUID',
+					},
+				],
+			},
+		],
+	},
+	{
+		displayName: 'Recipients Body JSON (Advanced)',
+		name: 'recipientsBodyJson',
+		type: 'json',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['broadcast'],
+				operation: ['addRecipients'],
+			},
+		},
+		description:
+			'Optional full Kapso request body with `whatsapp_broadcast.recipients` and Meta template components. When set, it overrides the Recipients builder.',
+	},
+	{
+		displayName: 'Phone Number Name or ID',
+		name: 'ingestPhoneNumberId',
+		type: 'options',
+		default: '',
+		required: true,
+		typeOptions: {
+			loadOptionsMethod: 'getPhoneNumbers',
+		},
+		displayOptions: {
+			show: {
+				resource: ['media'],
+				operation: ['uploadFromUrl'],
+			},
+		},
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+	},
+	{
+		displayName: 'Source URL',
+		name: 'ingestSourceUrl',
+		type: 'string',
+		default: '',
+		required: true,
+		placeholder: 'https://example.com/image.png',
+		displayOptions: {
+			show: {
+				resource: ['media'],
+				operation: ['uploadFromUrl'],
+			},
+		},
+		description: 'Public URL of the media file to ingest',
+	},
+	{
+		displayName: 'Delivery',
+		name: 'ingestDelivery',
+		type: 'options',
+		options: [
+			{ name: 'Meta Media', value: 'meta_media' },
+			{ name: 'Kapso Media', value: 'kapso_media' },
+		],
+		default: 'meta_media',
+		displayOptions: {
+			show: {
+				resource: ['media'],
+				operation: ['uploadFromUrl'],
+			},
+		},
+	},
+	{
+		displayName: 'Users',
+		name: 'blockedUsers',
+		type: 'fixedCollection',
+		typeOptions: {
+			multipleValues: true,
+		},
+		default: {},
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['blockUser'],
+				operation: ['block', 'unblock'],
+			},
+		},
+		options: [
+			{
+				displayName: 'User',
+				name: 'userValues',
+				values: [
+					{
+						displayName: 'User Phone',
+						name: 'user',
+						type: 'string',
+						default: '',
+						required: true,
+						placeholder: '15551234567',
+						description: 'WhatsApp user phone number without plus sign',
+					},
+				],
+			},
+		],
+	},
+	{
 		displayName: 'Body JSON',
 		name: 'bodyJson',
 		type: 'json',
@@ -185,9 +457,9 @@ export const resourceFields: INodeProperties[] = [
 		required: true,
 		displayOptions: {
 			show: {
-				operation: bodyOperations,
+				operation: [CUSTOM_API_CALL],
 			},
 		},
-		description: 'Documented Kapso or Meta-compatible JSON request body',
+		description: 'Documented Kapso or Meta-compatible JSON request body for Custom API Call',
 	},
 ];

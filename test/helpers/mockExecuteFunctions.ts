@@ -69,6 +69,26 @@ const defaultParameters: Record<string, unknown> = {
 	customMethod: 'GET',
 	customApiSurface: 'platform',
 	customPath: '/whatsapp/phone_numbers',
+	conversationStatus: 'ended',
+	contactWaId: '+15551234567',
+	contactProfileName: 'John Doe',
+	contactDisplayName: 'John (VIP)',
+	contactCustomerId: '',
+	contactMetadataJson: '{}',
+	broadcastName: 'Weekend Sale',
+	broadcastPhoneNumberId: TEST_PHONE_NUMBER_ID,
+	broadcastTemplateId: '784203120908608',
+	scheduledAt: '2026-06-01T12:00:00.000Z',
+	broadcastRecipients: {
+		recipientValues: [{ phoneNumber: '+15551234567' }],
+	},
+	recipientsBodyJson: '',
+	ingestPhoneNumberId: TEST_PHONE_NUMBER_ID,
+	ingestSourceUrl: 'https://example.com/image.png',
+	ingestDelivery: 'meta_media',
+	blockedUsers: {
+		userValues: [{ user: '15551234567' }],
+	},
 };
 
 export function createMockExecuteFunctions(

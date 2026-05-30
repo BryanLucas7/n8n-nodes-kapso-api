@@ -122,73 +122,67 @@ export const advancedOptionsField: INodeProperties = {
 	},
 	options: [
 		{
-			displayName: 'Options',
-			name: 'options',
-			values: [
-				{
-					displayName: 'Additional Query Parameters',
-					name: 'queryJson',
-					type: 'json',
-					default: '{}',
-					displayOptions: {
-						show: {
-							'/operation': queryJsonOperations,
-						},
-					},
-					description:
-						'Optional query parameters as JSON for documented filters such as fields, status, page, and per_page',
+			displayName: 'Additional Query Parameters',
+			name: 'queryJson',
+			type: 'json',
+			default: '{}',
+			displayOptions: {
+				show: {
+					'/operation': queryJsonOperations,
 				},
-				{
-					displayName: 'Reply To Message ID',
-					name: 'replyToMessageId',
-					type: 'string',
-					default: '',
-					displayOptions: {
-						show: {
-							resource: ['message'],
-							'/operation': messageReplyOperations,
-						},
-					},
+			},
+			description:
+				'Optional query parameters as JSON for documented filters such as fields, status, page, and per_page',
+		},
+		{
+			displayName: 'Advanced Components JSON',
+			name: 'advancedComponentsJson',
+			type: 'json',
+			default: '[]',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['sendTemplate'],
 				},
-				{
-					displayName: 'Link Preview',
-					name: 'linkPreview',
-					type: 'boolean',
-					default: false,
-					displayOptions: {
-						show: {
-							resource: ['message'],
-							'/operation': ['sendText'],
-						},
-					},
+			},
+			description: 'Optional raw Meta template components array for expert use',
+		},
+		{
+			displayName: 'Link Preview',
+			name: 'linkPreview',
+			type: 'boolean',
+			default: false,
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['sendText'],
 				},
-				{
-					displayName: 'Request Body JSON (Advanced)',
-					name: 'bodyJson',
-					type: 'json',
-					default: '{}',
-					displayOptions: {
-						show: {
-							resource: ['message'],
-							'/operation': ['sendRaw'],
-						},
-					},
-					description: 'Full Meta-compatible message JSON body',
+			},
+		},
+		{
+			displayName: 'Reply To Message ID',
+			name: 'replyToMessageId',
+			type: 'string',
+			default: '',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': messageReplyOperations,
 				},
-				{
-					displayName: 'Advanced Components JSON',
-					name: 'advancedComponentsJson',
-					type: 'json',
-					default: '[]',
-					displayOptions: {
-						show: {
-							resource: ['message'],
-							'/operation': ['sendTemplate'],
-						},
-					},
-					description: 'Optional raw Meta template components array for expert use',
+			},
+		},
+		{
+			displayName: 'Request Body JSON (Advanced)',
+			name: 'bodyJson',
+			type: 'json',
+			default: '{}',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['sendRaw'],
 				},
-			],
+			},
+			description: 'Full Meta-compatible message JSON body',
 		},
 	],
 };

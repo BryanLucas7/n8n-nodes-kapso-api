@@ -64,18 +64,7 @@ export const operationOptionsByResource: Record<string, INodePropertyOptions[]> 
 
 export const resourcesWithPagination = ['message:list', 'broadcast:listRecipients'];
 
-export const operationsRequiringJsonBody = [
-	'media:uploadFromUrl',
-	'conversation:updateStatus',
-	'contact:create',
-	'contact:update',
-	'broadcast:create',
-	'broadcast:addRecipients',
-	'broadcast:schedule',
-	'blockUser:block',
-	'blockUser:unblock',
-	`${CUSTOM_API_CALL}:${CUSTOM_API_CALL}`,
-];
+export const operationsRequiringJsonBody = [`${CUSTOM_API_CALL}:${CUSTOM_API_CALL}`];
 
 export const messageSendOperations = [
 	'sendText',

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.2 - 2026-05-30
+
+- Fixed Additional Options collection so options like Link Preview and Reply To
+  Message ID appear when added (flattened collection structure).
+- Replaced generic Body JSON with Kapso-specific fields for conversation status,
+  contact create/update, broadcast create/schedule/recipients, media upload from
+  URL, and block/unblock users.
+- Body JSON remains only for Custom API Call, Send Raw JSON, and advanced
+  broadcast recipient overrides.
+
 ## 0.3.1 - 2026-05-30
 
 - Kapso API credentials now start with an empty API Key field instead of a

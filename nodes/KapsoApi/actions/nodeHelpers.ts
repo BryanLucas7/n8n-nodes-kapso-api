@@ -9,7 +9,7 @@ type FixedCollectionParameter = {
 	[key: string]: IDataObject[] | undefined;
 };
 
-type AdvancedOptionsParameter = {
+type AdvancedOptionsParameter = IDataObject & {
 	options?: Array<{
 		queryJson?: string;
 		bodyJson?: string;
@@ -82,10 +82,30 @@ function getAdvancedOptions(ef: IExecuteFunctions, itemIndex: number): AdvancedO
 function getAdvancedOptionValue(
 	ef: IExecuteFunctions,
 	itemIndex: number,
-	field: keyof NonNullable<AdvancedOptionsParameter['options']>[number],
+	field: string,
 ): string | boolean | undefined {
-	const options = getAdvancedOptions(ef, itemIndex).options ?? [];
-	return options[0]?.[field];
+	const advanced = getAdvancedOptions(ef, itemIndex);
+
+	if (field in advanced) {
+		return advanced[field] as string | boolean | undefined;
+	}
+
+	const legacyOptions = advanced.options ?? [];
+	return legacyOptions[0]?.[field as keyof (typeof legacyOptions)[number]];
+}
+
+export function getOptionalJsonObject(
+	ef: IExecuteFunctions,
+	name: string,
+	itemIndex: number,
+	label: string,
+): IDataObject | undefined {
+	const raw = getString(ef, name, itemIndex);
+	if (!raw.trim() || raw.trim() === '{}') {
+		return undefined;
+	}
+
+	return parseJsonObject(raw, label);
 }
 
 export function getReplyToMessageId(ef: IExecuteFunctions, itemIndex: number): string | undefined {

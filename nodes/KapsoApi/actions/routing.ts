@@ -28,6 +28,16 @@ import {
 	queryJson,
 	bodyJson,
 } from './nodeHelpers';
+import {
+	buildBlockUsersBody,
+	buildBroadcastAddRecipientsBody,
+	buildBroadcastCreateBody,
+	buildBroadcastScheduleBody,
+	buildContactCreateBody,
+	buildContactUpdateBody,
+	buildConversationStatusBody,
+	buildMediaIngestBody,
+} from './platformPayloads';
 import { CUSTOM_API_CALL, messageMediaOperations } from './operations';
 import { KapsoRequestArgs } from '../transport/types';
 
@@ -348,7 +358,7 @@ export function buildRequest(
 			api: 'platform',
 			method: 'POST' as IHttpRequestMethods,
 			path: '/whatsapp/media',
-			body: bodyJson(ef, itemIndex),
+			body: buildMediaIngestBody(ef, itemIndex),
 		}),
 		'media:getUrl': () => ({
 			api: 'whatsapp',
@@ -382,7 +392,7 @@ export function buildRequest(
 			api: 'platform',
 			method: 'PATCH' as IHttpRequestMethods,
 			path: `/whatsapp/conversations/${conversationId()}`,
-			body: bodyJson(ef, itemIndex),
+			body: buildConversationStatusBody(ef, itemIndex),
 		}),
 		'contact:get': () => ({
 			api: 'platform',
@@ -394,13 +404,13 @@ export function buildRequest(
 			api: 'platform',
 			method: 'POST' as IHttpRequestMethods,
 			path: '/whatsapp/contacts',
-			body: bodyJson(ef, itemIndex),
+			body: buildContactCreateBody(ef, itemIndex),
 		}),
 		'contact:update': () => ({
 			api: 'platform',
 			method: 'PATCH' as IHttpRequestMethods,
 			path: `/whatsapp/contacts/${contactIdentifier()}`,
-			body: bodyJson(ef, itemIndex),
+			body: buildContactUpdateBody(ef, itemIndex),
 		}),
 		'contact:erase': () => ({
 			api: 'platform',
@@ -418,13 +428,13 @@ export function buildRequest(
 			api: 'platform',
 			method: 'POST' as IHttpRequestMethods,
 			path: '/whatsapp/broadcasts',
-			body: bodyJson(ef, itemIndex),
+			body: buildBroadcastCreateBody(ef, itemIndex),
 		}),
 		'broadcast:addRecipients': () => ({
 			api: 'platform',
 			method: 'POST' as IHttpRequestMethods,
 			path: `/whatsapp/broadcasts/${broadcastId()}/recipients`,
-			body: bodyJson(ef, itemIndex),
+			body: buildBroadcastAddRecipientsBody(ef, itemIndex),
 		}),
 		'broadcast:listRecipients': () => ({
 			api: 'platform',
@@ -442,7 +452,7 @@ export function buildRequest(
 			api: 'platform',
 			method: 'POST' as IHttpRequestMethods,
 			path: `/whatsapp/broadcasts/${broadcastId()}/schedule`,
-			body: bodyJson(ef, itemIndex),
+			body: buildBroadcastScheduleBody(ef, itemIndex),
 		}),
 		'broadcast:cancel': () => ({
 			api: 'platform',
@@ -454,13 +464,13 @@ export function buildRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: `/${phoneNumberId()}/block_users`,
-			body: bodyJson(ef, itemIndex),
+			body: buildBlockUsersBody(ef, itemIndex),
 		}),
 		'blockUser:unblock': () => ({
 			api: 'whatsapp',
 			method: 'DELETE' as IHttpRequestMethods,
 			path: `/${phoneNumberId()}/block_users`,
-			body: bodyJson(ef, itemIndex),
+			body: buildBlockUsersBody(ef, itemIndex),
 		}),
 	};
 

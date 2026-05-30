@@ -45,14 +45,10 @@ describe('nodeHelpers', () => {
 	it('parses advanced query and body JSON parameters', () => {
 		const ef = createMockExecuteFunctions({
 			advancedOptions: {
-				options: [
-					{
-						queryJson: '{"page":2,"status":"open"}',
-						bodyJson: '{"type":"text","text":{"body":"Hi"}}',
-						replyToMessageId: 'wamid.parent',
-						linkPreview: true,
-					},
-				],
+				queryJson: '{"page":2,"status":"open"}',
+				bodyJson: '{"type":"text","text":{"body":"Hi"}}',
+				replyToMessageId: 'wamid.parent',
+				linkPreview: true,
 			},
 		});
 
@@ -63,6 +59,21 @@ describe('nodeHelpers', () => {
 		});
 		expect(getReplyToMessageId(ef, 0)).toBe('wamid.parent');
 		expect(getBoolean(ef, 'typingIndicator', 0)).toBe(false);
+	});
+
+	it('supports legacy nested advanced options shape', () => {
+		const ef = createMockExecuteFunctions({
+			advancedOptions: {
+				options: [
+					{
+						replyToMessageId: 'wamid.legacy',
+						linkPreview: false,
+					},
+				],
+			},
+		});
+
+		expect(getReplyToMessageId(ef, 0)).toBe('wamid.legacy');
 	});
 
 	it('parses top-level body JSON for admin operations', () => {
