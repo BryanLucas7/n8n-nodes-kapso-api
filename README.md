@@ -50,13 +50,7 @@ Create a credential named **Kapso API**.
 Fields:
 
 - **Base URL**: defaults to `https://api.kapso.ai`.
-- **API Key**: defaults to the n8n expression `{{$env.KAPSO_API_KEY}}`.
-
-Recommended environment configuration:
-
-```bash
-export KAPSO_API_KEY="your_kapso_project_api_key"
-```
+- **API Key**: your Kapso project API key (field starts empty).
 
 The node sends the API key as:
 

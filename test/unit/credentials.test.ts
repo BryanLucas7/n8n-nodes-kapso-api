@@ -7,6 +7,7 @@ describe('KapsoApi credentials', () => {
 
 		expect(credentials.name).toBe('kapsoApi');
 		expect(credentials.properties.map((property) => property.name)).toEqual(['baseUrl', 'apiKey']);
+		expect(credentials.properties.find((property) => property.name === 'apiKey')?.default).toBe('');
 		expect(credentials.authenticate).toMatchObject({
 			type: 'generic',
 			properties: {

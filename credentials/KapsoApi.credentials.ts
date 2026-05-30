@@ -24,12 +24,12 @@ export class KapsoApi implements ICredentialType {
 			displayName: 'API Key',
 			name: 'apiKey',
 			type: 'string',
-			default: '={{$env.KAPSO_API_KEY}}',
+			default: '',
 			typeOptions: {
 				password: true,
 			},
-			description:
-				'Kapso project API key. Prefer setting KAPSO_API_KEY in the n8n environment and leaving this expression as-is.',
+			description: 'Kapso project API key from your Kapso dashboard.',
+			required: true,
 		},
 	];
 

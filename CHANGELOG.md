@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 - 2026-05-30
+
+- Kapso API credentials now start with an empty API Key field instead of a
+  pre-filled `{{$env.KAPSO_API_KEY}}` expression.
+
 ## 0.3.0 - 2026-05-30
 
 Initial public release of the Kapso n8n community node package.
