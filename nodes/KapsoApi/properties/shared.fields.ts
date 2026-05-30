@@ -1,9 +1,7 @@
 import { INodeProperties } from 'n8n-workflow';
 import {
-	messageMediaOperations,
 	messageSendOperations,
 	messageReplyOperations,
-	messageAdvancedOperations,
 	operationOptionsByResource,
 	resourcesWithPagination,
 	CUSTOM_API_CALL,
@@ -28,8 +26,6 @@ const phoneNumberIdOperations = [
 ];
 
 const messageReplyOperationValues = [...messageReplyOperations];
-
-const messageAdvancedOperationValues = [...messageAdvancedOperations];
 
 export const phoneNumberIdField: INodeProperties = {
 	displayName: 'Phone Number Name or ID',
@@ -100,6 +96,8 @@ export const paginationFields: INodeProperties[] = [
 	},
 ];
 
+const messageOperationsWithoutAdvancedOptions = ['sendContact', 'sendReaction', 'markRead'] as const;
+
 export const advancedOptionsField: INodeProperties = {
 	displayName: 'Additional Options',
 	name: 'advancedOptions',
@@ -107,16 +105,13 @@ export const advancedOptionsField: INodeProperties = {
 	placeholder: 'Add Option',
 	default: {},
 	displayOptions: {
-		show: [
-			{
-				resource: ['message'],
-				operation: messageAdvancedOperationValues,
-			},
-			{
-				resource: [CUSTOM_API_CALL],
-				operation: [CUSTOM_API_CALL],
-			},
-		],
+		show: {
+			resource: ['message', CUSTOM_API_CALL],
+		},
+		hide: {
+			resource: ['message'],
+			operation: [...messageOperationsWithoutAdvancedOptions],
+		},
 	},
 	options: [
 		{
