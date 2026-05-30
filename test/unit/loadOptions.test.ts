@@ -6,7 +6,7 @@ import {
 	searchConversations,
 } from '../../nodes/KapsoApi/loadOptions/listSearch';
 import { getPhoneNumbers } from '../../nodes/KapsoApi/loadOptions/phoneNumbers';
-import { getMessageTemplates } from '../../nodes/KapsoApi/loadOptions/templates';
+import { getMessageTemplates, getBroadcastTemplates } from '../../nodes/KapsoApi/loadOptions/templates';
 import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
 
 function createLoadOptionsContext(
@@ -86,6 +86,49 @@ describe('loadOptions getMessageTemplates', () => {
 			{
 				name: 'hello_world · en_US · APPROVED',
 				value: 'hello_world',
+			},
+		]);
+	});
+});
+
+describe('loadOptions getBroadcastTemplates', () => {
+	it('loads approved template Meta IDs from the selected broadcast phone number', async () => {
+		const request = vi
+			.fn()
+			.mockResolvedValueOnce({
+				data: {
+					phone_number_id: '111',
+					business_account_id: 'waba-1',
+				},
+			})
+			.mockResolvedValueOnce({
+				data: [
+					{
+						id: '784203120908608',
+						name: 'weekend_sale',
+						language: 'en_US',
+						status: 'APPROVED',
+					},
+				],
+			});
+
+		const context = {
+			getCredentials: vi.fn().mockResolvedValue({
+				baseUrl: 'https://api.kapso.ai',
+				apiKey: 'test-key',
+			}),
+			getCurrentNodeParameter: vi.fn((name: string) => {
+				if (name === 'broadcastPhoneNumberId') return '111';
+				return undefined;
+			}),
+			getNode: vi.fn().mockReturnValue({ name: 'kapsoApi' }),
+			helpers: { request },
+		} as never;
+
+		expect(await getBroadcastTemplates.call(context)).toEqual([
+			{
+				name: 'weekend_sale · en_US · APPROVED (784203120908608)',
+				value: '784203120908608',
 			},
 		]);
 	});

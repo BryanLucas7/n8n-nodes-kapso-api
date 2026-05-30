@@ -26,6 +26,7 @@ import {
 	getReplyToMessageId,
 	getString,
 	queryJson,
+	buildMessageQuery,
 	bodyJson,
 } from './nodeHelpers';
 import {
@@ -301,7 +302,7 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'GET' as IHttpRequestMethods,
 			path: phonePath,
-			query: queryJson(ef, itemIndex),
+			query: buildMessageQuery(ef, itemIndex, 'list'),
 		};
 	}
 
@@ -314,7 +315,7 @@ export function buildMessageRequest(
 				itemIndex,
 				`/${pathId(getString(ef, 'messageId', itemIndex), 'Message ID')}`,
 			),
-			query: queryJson(ef, itemIndex),
+			query: buildMessageQuery(ef, itemIndex, 'get'),
 		};
 	}
 
@@ -446,7 +447,6 @@ export function buildRequest(
 			api: 'platform',
 			method: 'POST' as IHttpRequestMethods,
 			path: `/whatsapp/broadcasts/${broadcastId()}/send`,
-			body: Object.keys(bodyJson(ef, itemIndex)).length ? bodyJson(ef, itemIndex) : undefined,
 		}),
 		'broadcast:schedule': () => ({
 			api: 'platform',
@@ -458,7 +458,6 @@ export function buildRequest(
 			api: 'platform',
 			method: 'POST' as IHttpRequestMethods,
 			path: `/whatsapp/broadcasts/${broadcastId()}/cancel`,
-			body: Object.keys(bodyJson(ef, itemIndex)).length ? bodyJson(ef, itemIndex) : undefined,
 		}),
 		'blockUser:block': () => ({
 			api: 'whatsapp',

@@ -5,6 +5,7 @@ import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
 
 const kapsoApiRequestMock = vi.fn();
 const requestPaginatedMock = vi.fn();
+const requestMessageListAllMock = vi.fn();
 
 vi.mock('../../nodes/KapsoApi/transport/request', () => ({
 	kapsoApiRequest: (...args: unknown[]) => kapsoApiRequestMock(...args),
@@ -12,6 +13,7 @@ vi.mock('../../nodes/KapsoApi/transport/request', () => ({
 
 vi.mock('../../nodes/KapsoApi/transport/pagination', () => ({
 	requestPaginated: (...args: unknown[]) => requestPaginatedMock(...args),
+	requestMessageListAll: (...args: unknown[]) => requestMessageListAllMock(...args),
 }));
 
 describe('KapsoApi node execute', () => {
@@ -20,6 +22,7 @@ describe('KapsoApi node execute', () => {
 	beforeEach(() => {
 		kapsoApiRequestMock.mockReset();
 		requestPaginatedMock.mockReset();
+		requestMessageListAllMock.mockReset();
 	});
 
 	it('returns JSON items for a standard platform request', async () => {
@@ -36,8 +39,11 @@ describe('KapsoApi node execute', () => {
 		expect(kapsoApiRequestMock).toHaveBeenCalledOnce();
 	});
 
-	it('uses requestPaginated when returnAll is enabled', async () => {
-		requestPaginatedMock.mockResolvedValue({ data: [{ id: 1 }, { id: 2 }], meta: { paginated: true } });
+	it('uses requestMessageListAll when message list returnAll is enabled', async () => {
+		requestMessageListAllMock.mockResolvedValue({
+			data: [{ id: 1 }, { id: 2 }],
+			meta: { paginated: true },
+		});
 		const ef = createMockExecuteFunctions({
 			resource: 'message',
 			operation: 'list',
@@ -49,8 +55,28 @@ describe('KapsoApi node execute', () => {
 		const [items] = await node.execute.call(ef);
 
 		expect(items[0].json).toMatchObject({ data: [{ id: 1 }, { id: 2 }] });
-		expect(requestPaginatedMock).toHaveBeenCalledOnce();
+		expect(requestMessageListAllMock).toHaveBeenCalledOnce();
+		expect(requestPaginatedMock).not.toHaveBeenCalled();
 		expect(kapsoApiRequestMock).not.toHaveBeenCalled();
+	});
+
+	it('uses kapsoApiRequest with limit for a single message list page', async () => {
+		kapsoApiRequestMock.mockResolvedValue({ data: [{ id: 'msg-1' }] });
+		const ef = createMockExecuteFunctions({
+			resource: 'message',
+			operation: 'list',
+			perPage: 25,
+		});
+
+		await node.execute.call(ef);
+
+		expect(kapsoApiRequestMock).toHaveBeenCalledWith(
+			ef,
+			expect.objectContaining({
+				query: expect.objectContaining({ limit: 25 }),
+			}),
+			0,
+		);
 	});
 
 	it('uploads binary media via multipart form data', async () => {
@@ -147,6 +173,7 @@ describe('KapsoApi node execute', () => {
 		expect(node.methods?.loadOptions).toMatchObject({
 			getPhoneNumbers: expect.any(Function),
 			getMessageTemplates: expect.any(Function),
+			getBroadcastTemplates: expect.any(Function),
 		});
 		expect(node.methods?.listSearch).toMatchObject({
 			searchConversations: expect.any(Function),

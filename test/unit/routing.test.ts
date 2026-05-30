@@ -110,6 +110,39 @@ describe('routing', () => {
 		}
 	}
 
+	it('builds broadcast send and cancel without request body', () => {
+		const sendRequest = buildRequest(
+			createMockExecuteFunctions({ resource: 'broadcast', operation: 'send' }),
+			'broadcast',
+			'send',
+			0,
+		);
+		const cancelRequest = buildRequest(
+			createMockExecuteFunctions({ resource: 'broadcast', operation: 'cancel' }),
+			'broadcast',
+			'cancel',
+			0,
+		);
+
+		expect(sendRequest.body).toBeUndefined();
+		expect(cancelRequest.body).toBeUndefined();
+	});
+
+	it('builds message list query from dedicated filter fields', () => {
+		const ef = createMockExecuteFunctions({
+			resource: 'message',
+			operation: 'list',
+			messageListDirection: 'outbound',
+			messageResponseFields: 'kapso(direction,status)',
+		});
+
+		const request = buildRequest(ef, 'message', 'list', 0);
+
+		expect(request.query).toEqual({
+			direction: 'outbound',
+			fields: 'kapso(direction,status)',
+		});
+	});
 	it('builds custom API call requests', () => {
 		const ef = createMockExecuteFunctions({
 			resource: CUSTOM_API_CALL,

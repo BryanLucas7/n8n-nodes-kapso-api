@@ -1,10 +1,33 @@
 import { ApplicationError, IDataObject, IExecuteFunctions } from 'n8n-workflow';
-import { parseJsonObject } from '../transport/json';
+import { parseJsonObject, parseJsonValue } from '../transport/json';
 import {
 	getFixedCollectionItems,
 	getOptionalJsonObject,
 	getString,
 } from './nodeHelpers';
+
+type BodyParameterCollection = {
+	bodyParameterValues?: Array<{ parameterName?: string; parameterText: string }>;
+};
+
+type ButtonParameterCollection = {
+	buttonParameterValues?: Array<{
+		buttonSubType?: string;
+		buttonIndex?: number;
+		buttonText: string;
+	}>;
+};
+
+type BroadcastRecipientInput = {
+	phoneNumber?: string;
+	whatsappContactId?: string;
+	bodyParameters?: BodyParameterCollection;
+	headerType?: string;
+	headerText?: string;
+	headerImageUrl?: string;
+	buttonParameters?: ButtonParameterCollection;
+	recipientComponentsJson?: string;
+};
 
 export function buildConversationStatusBody(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	return {
@@ -74,6 +97,59 @@ export function buildBroadcastScheduleBody(ef: IExecuteFunctions, itemIndex: num
 	};
 }
 
+function buildRecipientTemplateComponents(entry: BroadcastRecipientInput): IDataObject[] | undefined {
+	const advancedJson = entry.recipientComponentsJson?.trim();
+	if (advancedJson) {
+		const parsed = parseJsonValue(advancedJson, 'Advanced Components JSON');
+		return Array.isArray(parsed) ? (parsed as IDataObject[]) : undefined;
+	}
+
+	const components: IDataObject[] = [];
+
+	if (entry.headerType === 'text' && entry.headerText) {
+		components.push({
+			type: 'header',
+			parameters: [{ type: 'text', text: entry.headerText }],
+		});
+	} else if (entry.headerType === 'image' && entry.headerImageUrl) {
+		components.push({
+			type: 'header',
+			parameters: [{ type: 'image', image: { link: entry.headerImageUrl } }],
+		});
+	}
+
+	const bodyParams = entry.bodyParameters?.bodyParameterValues ?? [];
+	if (bodyParams.length > 0) {
+		components.push({
+			type: 'body',
+			parameters: bodyParams.map((parameter) => {
+				const value: IDataObject = {
+					type: 'text',
+					text: parameter.parameterText,
+				};
+
+				if (parameter.parameterName) {
+					value.parameter_name = parameter.parameterName;
+				}
+
+				return value;
+			}),
+		});
+	}
+
+	const buttonParams = entry.buttonParameters?.buttonParameterValues ?? [];
+	buttonParams.forEach((button) => {
+		components.push({
+			type: 'button',
+			sub_type: button.buttonSubType || 'url',
+			index: button.buttonIndex ?? 0,
+			parameters: [{ type: 'text', text: button.buttonText }],
+		});
+	});
+
+	return components.length > 0 ? components : undefined;
+}
+
 export function buildBroadcastAddRecipientsBody(
 	ef: IExecuteFunctions,
 	itemIndex: number,
@@ -83,10 +159,12 @@ export function buildBroadcastAddRecipientsBody(
 		return parseJsonObject(advancedJson, 'Recipients Body JSON');
 	}
 
-	const recipients = getFixedCollectionItems<{
-		phoneNumber: string;
-		whatsappContactId?: string;
-	}>(ef, 'broadcastRecipients', 'recipientValues', itemIndex).map((entry) => {
+	const recipients = getFixedCollectionItems<BroadcastRecipientInput>(
+		ef,
+		'broadcastRecipients',
+		'recipientValues',
+		itemIndex,
+	).map((entry) => {
 		const recipient: IDataObject = {};
 
 		if (entry.whatsappContactId) {
@@ -95,6 +173,11 @@ export function buildBroadcastAddRecipientsBody(
 
 		if (entry.phoneNumber) {
 			recipient.phone_number = entry.phoneNumber;
+		}
+
+		const components = buildRecipientTemplateComponents(entry);
+		if (components) {
+			recipient.components = components;
 		}
 
 		return recipient;

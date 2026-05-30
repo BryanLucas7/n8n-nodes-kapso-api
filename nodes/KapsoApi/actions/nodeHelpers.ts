@@ -125,6 +125,42 @@ export function queryJson(ef: IExecuteFunctions, itemIndex: number): IDataObject
 	return parseJsonObject(raw, 'Additional Query Parameters');
 }
 
+export function buildMessageQuery(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	operation: 'list' | 'get',
+): IDataObject {
+	const query: IDataObject = { ...queryJson(ef, itemIndex) };
+
+	if (operation === 'list') {
+		const conversationId = getString(ef, 'messageListConversationId', itemIndex);
+		if (conversationId) query.conversation_id = conversationId;
+
+		const direction = getString(ef, 'messageListDirection', itemIndex);
+		if (direction) query.direction = direction;
+
+		const status = getString(ef, 'messageListStatus', itemIndex);
+		if (status) query.status = status;
+
+		const since = getString(ef, 'messageListSince', itemIndex);
+		if (since) query.since = since;
+
+		const until = getString(ef, 'messageListUntil', itemIndex);
+		if (until) query.until = until;
+
+		const after = getString(ef, 'messageListAfter', itemIndex);
+		if (after) query.after = after;
+
+		const before = getString(ef, 'messageListBefore', itemIndex);
+		if (before) query.before = before;
+	}
+
+	const fields = getString(ef, 'messageResponseFields', itemIndex);
+	if (fields) query.fields = fields;
+
+	return query;
+}
+
 export function bodyJson(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	return parseJsonObject(ef.getNodeParameter('bodyJson', itemIndex, '{}') as string, 'Body JSON');
 }

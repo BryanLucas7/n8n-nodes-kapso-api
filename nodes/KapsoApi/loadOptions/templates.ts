@@ -1,4 +1,4 @@
-import { ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
+import { IDataObject, ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
 import {
 	extractResponseData,
 	kapsoLoadOptionsRequest,
@@ -7,8 +7,23 @@ import {
 	toOptions,
 } from './helpers';
 
-async function fetchApprovedTemplates(context: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	const wabaId = await resolveBusinessAccountId(context);
+function templateIdValue(entry: IDataObject): string {
+	return String(entry.id ?? entry.meta_template_id ?? '');
+}
+
+function broadcastTemplateLabel(entry: IDataObject): string {
+	const id = templateIdValue(entry);
+	const base = templateLabel(entry);
+	return id ? `${base} (${id})` : base;
+}
+
+async function fetchApprovedTemplates(
+	context: ILoadOptionsFunctions,
+	phoneParameterName: string,
+	valueFn: (entry: IDataObject) => string,
+	labelFn: (entry: IDataObject) => string,
+): Promise<INodePropertyOptions[]> {
+	const wabaId = await resolveBusinessAccountId(context, phoneParameterName);
 	if (!wabaId) {
 		return [];
 	}
@@ -25,13 +40,20 @@ async function fetchApprovedTemplates(context: ILoadOptionsFunctions): Promise<I
 
 	const entries = extractResponseData(response);
 
-	return toOptions(
-		entries,
-		templateLabel,
-		(entry) => String(entry.name ?? ''),
-	);
+	return toOptions(entries, labelFn, valueFn);
 }
 
 export async function getMessageTemplates(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-	return fetchApprovedTemplates(this);
+	return fetchApprovedTemplates(
+		this,
+		'phoneNumberId',
+		(entry) => String(entry.name ?? ''),
+		templateLabel,
+	);
+}
+
+export async function getBroadcastTemplates(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	return fetchApprovedTemplates(this, 'broadcastPhoneNumberId', templateIdValue, broadcastTemplateLabel);
 }

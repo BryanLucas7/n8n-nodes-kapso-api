@@ -288,17 +288,21 @@ export const resourceFields: INodeProperties[] = [
 	{
 		displayName: 'Template Name or ID',
 		name: 'broadcastTemplateId',
-		type: 'string',
+		type: 'options',
 		default: '',
 		required: true,
-		placeholder: '784203120908608',
+		typeOptions: {
+			loadOptionsMethod: 'getBroadcastTemplates',
+			loadOptionsDependsOn: ['broadcastPhoneNumberId'],
+		},
 		displayOptions: {
 			show: {
 				resource: ['broadcast'],
 				operation: ['create'],
 			},
 		},
-		description: 'Meta template ID (preferred) or Kapso template UUID',
+		description:
+			'Approved template Meta ID from the selected phone number. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Scheduled At',
@@ -348,6 +352,125 @@ export const resourceFields: INodeProperties[] = [
 						type: 'string',
 						default: '',
 						description: 'Optional existing Kapso contact UUID',
+					},
+					{
+						displayName: 'Body Parameters',
+						name: 'bodyParameters',
+						type: 'fixedCollection',
+						typeOptions: {
+							multipleValues: true,
+						},
+						default: {},
+						options: [
+							{
+								displayName: 'Parameter',
+								name: 'bodyParameterValues',
+								values: [
+									{
+										displayName: 'Parameter Name',
+										name: 'parameterName',
+										type: 'string',
+										default: '',
+										placeholder: 'first_name',
+										description:
+											'Named template variable when the template uses named parameters',
+									},
+									{
+										displayName: 'Text',
+										name: 'parameterText',
+										type: 'string',
+										default: '',
+										required: true,
+									},
+								],
+							},
+						],
+					},
+					{
+						displayName: 'Header Type',
+						name: 'headerType',
+						type: 'options',
+						options: [
+							{ name: 'None', value: 'none' },
+							{ name: 'Text', value: 'text' },
+							{ name: 'Image URL', value: 'image' },
+						],
+						default: 'none',
+					},
+					{
+						displayName: 'Header Text',
+						name: 'headerText',
+						type: 'string',
+						default: '',
+						displayOptions: {
+							show: {
+								headerType: ['text'],
+							},
+						},
+					},
+					{
+						displayName: 'Header Image URL',
+						name: 'headerImageUrl',
+						type: 'string',
+						default: '',
+						placeholder: 'https://cdn.example.com/banner.jpg',
+						displayOptions: {
+							show: {
+								headerType: ['image'],
+							},
+						},
+					},
+					{
+						displayName: 'Button Parameters',
+						name: 'buttonParameters',
+						type: 'fixedCollection',
+						typeOptions: {
+							multipleValues: true,
+						},
+						default: {},
+						options: [
+							{
+								displayName: 'Button',
+								name: 'buttonParameterValues',
+								values: [
+									{
+										displayName: 'Sub Type',
+										name: 'buttonSubType',
+										type: 'options',
+										options: [
+											{ name: 'URL', value: 'url' },
+											{ name: 'Quick Reply', value: 'quick_reply' },
+										],
+										default: 'url',
+									},
+									{
+										displayName: 'Index',
+										name: 'buttonIndex',
+										type: 'number',
+										default: 0,
+										typeOptions: {
+											minValue: 0,
+										},
+									},
+									{
+										displayName: 'Text',
+										name: 'buttonText',
+										type: 'string',
+										default: '',
+										required: true,
+										description: 'Dynamic button value (for example a URL suffix or payload)',
+									},
+								],
+							},
+						],
+					},
+					{
+						displayName: 'Advanced Components JSON',
+						name: 'recipientComponentsJson',
+						type: 'json',
+						default: '',
+						description:
+							'Optional raw Meta components array for this recipient. Overrides the body, header, and button fields above.',
 					},
 				],
 			},

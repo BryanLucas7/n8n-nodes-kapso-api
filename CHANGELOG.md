@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.3 - 2026-05-30
+
+- Broadcast Create now loads approved templates from the selected phone number
+  (Meta template ID dropdown).
+- Broadcast Add Recipients builder supports body, header, and button template
+  components per recipient, with optional Advanced Components JSON override.
+- Message List and Get expose documented filter fields (conversation, direction,
+  status, time range, cursors, response fields) instead of relying only on
+  Additional Options query JSON.
+- Message List pagination now uses Kapso cursor parameters (`limit`, `after`).
+- Broadcast Send and Cancel no longer attach an empty JSON body.
+
 ## 0.3.2 - 2026-05-30
 
 - Fixed Additional Options collection so options like Link Preview and Reply To

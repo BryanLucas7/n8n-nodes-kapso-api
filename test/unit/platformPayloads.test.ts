@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildBlockUsersBody,
+	buildBroadcastAddRecipientsBody,
 	buildBroadcastCreateBody,
 	buildContactCreateBody,
 	buildConversationStatusBody,
@@ -77,6 +78,65 @@ describe('platformPayloads', () => {
 		expect(buildBlockUsersBody(ef, 0)).toEqual({
 			block_users: [{ user: '15551234567' }],
 			messaging_product: 'whatsapp',
+		});
+	});
+
+	it('builds broadcast recipients with template components', () => {
+		const ef = createMockExecuteFunctions({
+			broadcastRecipients: {
+				recipientValues: [
+					{
+						phoneNumber: '+14155550123',
+						bodyParameters: {
+							bodyParameterValues: [
+								{ parameterName: 'first_name', parameterText: 'John' },
+								{ parameterName: 'discount', parameterText: 'SAVE50' },
+							],
+						},
+						headerType: 'image',
+						headerImageUrl: 'https://cdn.example.com/banner.jpg',
+						buttonParameters: {
+							buttonParameterValues: [
+								{ buttonSubType: 'url', buttonIndex: 0, buttonText: 'promo-code-12345' },
+							],
+						},
+					},
+				],
+			},
+		});
+
+		expect(buildBroadcastAddRecipientsBody(ef, 0)).toEqual({
+			whatsapp_broadcast: {
+				recipients: [
+					{
+						phone_number: '+14155550123',
+						components: [
+							{
+								type: 'header',
+								parameters: [
+									{
+										type: 'image',
+										image: { link: 'https://cdn.example.com/banner.jpg' },
+									},
+								],
+							},
+							{
+								type: 'body',
+								parameters: [
+									{ type: 'text', parameter_name: 'first_name', text: 'John' },
+									{ type: 'text', parameter_name: 'discount', text: 'SAVE50' },
+								],
+							},
+							{
+								type: 'button',
+								sub_type: 'url',
+								index: 0,
+								parameters: [{ type: 'text', text: 'promo-code-12345' }],
+							},
+						],
+					},
+				],
+			},
 		});
 	});
 });

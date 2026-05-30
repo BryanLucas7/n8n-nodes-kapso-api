@@ -3,6 +3,7 @@ import {
 	asJsonItems,
 	advancedBodyJson,
 	bodyJson,
+	buildMessageQuery,
 	getBoolean,
 	getFixedCollectionItems,
 	getNumber,
@@ -92,6 +93,30 @@ describe('nodeHelpers', () => {
 		});
 
 		expect(() => queryJson(ef, 0)).toThrow(/Additional Query Parameters must be valid JSON object syntax/);
+	});
+
+	it('merges message list filters with additional query parameters', () => {
+		const ef = createMockExecuteFunctions({
+			messageListConversationId: 'conv-123',
+			messageListDirection: 'inbound',
+			messageListStatus: 'delivered',
+			messageListSince: '2024-01-15T00:00:00.000Z',
+			messageListAfter: 'cursor-after',
+			messageResponseFields: 'kapso()',
+			advancedOptions: {
+				queryJson: '{"limit":50}',
+			},
+		});
+
+		expect(buildMessageQuery(ef, 0, 'list')).toEqual({
+			limit: 50,
+			conversation_id: 'conv-123',
+			direction: 'inbound',
+			status: 'delivered',
+			since: '2024-01-15T00:00:00.000Z',
+			after: 'cursor-after',
+			fields: 'kapso()',
+		});
 	});
 
 	it('maps array and object responses to n8n items', () => {

@@ -22,6 +22,59 @@ function responseHasNextPage(response: KapsoListResponse, currentPage: number): 
 	return typeof totalPages === 'number' && currentPage < totalPages;
 }
 
+type MessageListResponse = {
+	data?: IDataObject[];
+	paging?: {
+		cursors?: {
+			after?: string;
+		};
+	};
+};
+
+export async function requestMessageListAll(
+	ef: IExecuteFunctions,
+	baseArgs: KapsoRequestArgs,
+	limit: number,
+	itemIndex: number,
+): Promise<unknown> {
+	const collected: IDataObject[] = [];
+	let after: string | undefined;
+
+	for (;;) {
+		const query = cleanObject({
+			...(baseArgs.query ?? {}),
+			limit,
+			...(after ? { after } : {}),
+		});
+
+		const response = (await kapsoApiRequest(
+			ef,
+			{
+				...baseArgs,
+				query,
+			},
+			itemIndex,
+		)) as MessageListResponse;
+
+		if (Array.isArray(response.data)) {
+			collected.push(...response.data);
+		}
+
+		after = response.paging?.cursors?.after;
+		if (!after) {
+			break;
+		}
+	}
+
+	return {
+		data: collected,
+		meta: {
+			returned: collected.length,
+			paginated: true,
+		},
+	};
+}
+
 export async function requestPaginated(
 	ef: IExecuteFunctions,
 	baseArgs: KapsoRequestArgs,

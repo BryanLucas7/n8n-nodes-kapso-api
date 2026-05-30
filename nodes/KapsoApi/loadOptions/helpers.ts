@@ -119,8 +119,11 @@ export function businessAccountIdFromEntry(entry: IDataObject): string {
 
 export async function resolveBusinessAccountId(
 	context: ILoadOptionsFunctions,
+	phoneParameterName = 'phoneNumberId',
 ): Promise<string | undefined> {
-	const phoneNumberId = context.getCurrentNodeParameter('phoneNumberId') as string | undefined;
+	const phoneNumberId = context.getCurrentNodeParameter(phoneParameterName) as
+		| string
+		| undefined;
 	if (!phoneNumberId) {
 		return undefined;
 	}

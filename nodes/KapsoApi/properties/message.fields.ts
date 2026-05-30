@@ -480,6 +480,123 @@ export const messageFields: INodeProperties[] = [
 		},
 	},
 	{
+		displayName: 'Conversation ID',
+		name: 'messageListConversationId',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['list'],
+			},
+		},
+		description: 'Filter messages by Kapso conversation UUID',
+	},
+	{
+		displayName: 'Direction',
+		name: 'messageListDirection',
+		type: 'options',
+		options: [
+			{ name: 'All', value: '' },
+			{ name: 'Inbound', value: 'inbound' },
+			{ name: 'Outbound', value: 'outbound' },
+		],
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['list'],
+			},
+		},
+	},
+	{
+		displayName: 'Status',
+		name: 'messageListStatus',
+		type: 'options',
+		options: [
+			{ name: 'All', value: '' },
+			{ name: 'Pending', value: 'pending' },
+			{ name: 'Sent', value: 'sent' },
+			{ name: 'Delivered', value: 'delivered' },
+			{ name: 'Read', value: 'read' },
+			{ name: 'Failed', value: 'failed' },
+		],
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['list'],
+			},
+		},
+	},
+	{
+		displayName: 'Since',
+		name: 'messageListSince',
+		type: 'dateTime',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['list'],
+			},
+		},
+		description: 'Include messages created on or after this time (ISO 8601)',
+	},
+	{
+		displayName: 'Until',
+		name: 'messageListUntil',
+		type: 'dateTime',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['list'],
+			},
+		},
+		description: 'Include messages created on or before this time (ISO 8601)',
+	},
+	{
+		displayName: 'After Cursor',
+		name: 'messageListAfter',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['list'],
+			},
+		},
+		description: 'Cursor for the next page (from the previous response paging.cursors.after)',
+	},
+	{
+		displayName: 'Before Cursor',
+		name: 'messageListBefore',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['list'],
+			},
+		},
+		description: 'Cursor for the previous page (from the previous response paging.cursors.before)',
+	},
+	{
+		displayName: 'Response Fields',
+		name: 'messageResponseFields',
+		type: 'string',
+		default: '',
+		placeholder: 'kapso(direction,status,processing_status)',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['list', 'get'],
+			},
+		},
+		description:
+			'Optional Meta `fields` query parameter. Use `kapso()` to include Kapso-specific extensions.',
+	},
+	{
 		displayName: 'Typing Indicator',
 		name: 'typingIndicator',
 		type: 'boolean',

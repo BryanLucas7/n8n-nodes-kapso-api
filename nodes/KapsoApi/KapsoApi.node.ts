@@ -17,6 +17,7 @@ import {
 import { resourcesWithPagination } from './actions/operations';
 import { buildRequest, pathId } from './actions/routing';
 import {
+	getBroadcastTemplates,
 	getMessageTemplates,
 	getPhoneNumbers,
 	searchBroadcasts,
@@ -24,7 +25,7 @@ import {
 	searchConversations,
 } from './loadOptions';
 import { kapsoNodeProperties } from './properties';
-import { requestPaginated } from './transport/pagination';
+import { requestPaginated, requestMessageListAll } from './transport/pagination';
 import { kapsoApiRequest } from './transport/request';
 
 export class KapsoApi implements INodeType {
@@ -32,6 +33,7 @@ export class KapsoApi implements INodeType {
 		loadOptions: {
 			getPhoneNumbers,
 			getMessageTemplates,
+			getBroadcastTemplates,
 		},
 		listSearch: {
 			searchConversations,
@@ -145,22 +147,50 @@ export class KapsoApi implements INodeType {
 				const perPage = getNumber(this, 'perPage', itemIndex, 20);
 				const page = getNumber(this, 'page', itemIndex, 1);
 
-				const response = isPaginated
-					? await requestPaginated(
-							this,
-							{
-								...requestArgs,
-								query: {
-									...(requestArgs.query ?? {}),
-									page,
-									per_page: perPage,
+				let response: unknown;
+
+				if (opKey === 'message:list') {
+					const listQuery = {
+						...(requestArgs.query ?? {}),
+						limit: perPage,
+					};
+
+					response = returnAll
+						? await requestMessageListAll(
+								this,
+								{
+									...requestArgs,
+									query: listQuery,
 								},
+								perPage,
+								itemIndex,
+							)
+						: await kapsoApiRequest(
+								this,
+								{
+									...requestArgs,
+									query: listQuery,
+								},
+								itemIndex,
+							);
+				} else if (isPaginated) {
+					response = await requestPaginated(
+						this,
+						{
+							...requestArgs,
+							query: {
+								...(requestArgs.query ?? {}),
+								page,
+								per_page: perPage,
 							},
-							returnAll,
-							perPage,
-							itemIndex,
-						)
-					: await kapsoApiRequest(this, requestArgs, itemIndex);
+						},
+						returnAll,
+						perPage,
+						itemIndex,
+					);
+				} else {
+					response = await kapsoApiRequest(this, requestArgs, itemIndex);
+				}
 
 				returnData.push(...asJsonItems(response, itemIndex));
 			} catch (error) {
