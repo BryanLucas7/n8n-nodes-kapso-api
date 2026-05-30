@@ -9,7 +9,8 @@ describe('message routing builders', () => {
 			resource: 'message',
 			operation: 'sendText',
 			advancedOptions: {
-				options: [{ replyToMessageId: 'wamid.parent', linkPreview: true }],
+				replyToMessageId: 'wamid.parent',
+				linkPreview: true,
 			},
 		});
 

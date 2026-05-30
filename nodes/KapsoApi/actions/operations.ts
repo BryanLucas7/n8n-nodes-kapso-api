@@ -81,3 +81,21 @@ export const messageSendOperations = [
 ] as const;
 
 export const messageMediaOperations = ['sendImage', 'sendVideo', 'sendAudio', 'sendDocument'] as const;
+
+export const messageReplyOperations = [
+	'sendText',
+	...messageMediaOperations,
+	'sendButtons',
+	'sendList',
+] as const;
+
+export const messageAdvancedOperations = [
+	'sendText',
+	...messageMediaOperations,
+	'sendButtons',
+	'sendList',
+	'sendTemplate',
+	'sendRaw',
+	'list',
+	'get',
+] as const;

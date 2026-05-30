@@ -2,12 +2,12 @@ import { INodeProperties } from 'n8n-workflow';
 import {
 	messageMediaOperations,
 	messageSendOperations,
+	messageReplyOperations,
+	messageAdvancedOperations,
 	operationOptionsByResource,
-	resourceOptions,
 	resourcesWithPagination,
+	CUSTOM_API_CALL,
 } from '../actions/operations';
-
-const allResourceValues = resourceOptions.map((option) => option.value as string);
 
 function operationKeysToOperations(keys: string[]): string[] {
 	return [...new Set(keys.map((key) => key.split(':')[1]))];
@@ -21,27 +21,15 @@ const phoneNumberIdOperations = [
 	'list',
 	'get',
 	'uploadBinary',
+	'getUrl',
+	'delete',
 	'block',
 	'unblock',
 ];
 
-const messageReplyOperations = [
-	'sendText',
-	...messageMediaOperations,
-	'sendButtons',
-	'sendList',
-];
+const messageReplyOperationValues = [...messageReplyOperations];
 
-const queryJsonOperations = [
-	...paginatedOperations,
-	'get',
-	'list',
-	'markRead',
-	'getUrl',
-	'erase',
-	'cancel',
-	'send',
-];
+const messageAdvancedOperationValues = [...messageAdvancedOperations];
 
 export const phoneNumberIdField: INodeProperties = {
 	displayName: 'Phone Number Name or ID',
@@ -69,7 +57,7 @@ export const paginationFields: INodeProperties[] = [
 		default: false,
 		displayOptions: {
 			show: {
-				resource: allResourceValues,
+				resource: ['message', 'broadcast'],
 				operation: paginatedOperations,
 			},
 		},
@@ -85,11 +73,12 @@ export const paginationFields: INodeProperties[] = [
 		},
 		displayOptions: {
 			show: {
-				resource: allResourceValues,
+				resource: ['broadcast'],
 				operation: paginatedOperations,
 				returnAll: [false],
 			},
 		},
+		description: 'Page number for platform paginated endpoints such as broadcast list recipients',
 	},
 	{
 		displayName: 'Per Page',
@@ -102,10 +91,12 @@ export const paginationFields: INodeProperties[] = [
 		},
 		displayOptions: {
 			show: {
-				resource: allResourceValues,
+				resource: ['message', 'broadcast'],
 				operation: paginatedOperations,
 			},
 		},
+		description:
+			'Results per request. For List Messages this maps to the Kapso `limit` query parameter (max 100).',
 	},
 ];
 
@@ -116,24 +107,18 @@ export const advancedOptionsField: INodeProperties = {
 	placeholder: 'Add Option',
 	default: {},
 	displayOptions: {
-		show: {
-			resource: allResourceValues,
-		},
+		show: [
+			{
+				resource: ['message'],
+				operation: messageAdvancedOperationValues,
+			},
+			{
+				resource: [CUSTOM_API_CALL],
+				operation: [CUSTOM_API_CALL],
+			},
+		],
 	},
 	options: [
-		{
-			displayName: 'Additional Query Parameters',
-			name: 'queryJson',
-			type: 'json',
-			default: '{}',
-			displayOptions: {
-				show: {
-					'/operation': queryJsonOperations,
-				},
-			},
-			description:
-				'Optional query parameters as JSON for documented filters such as fields, status, page, and per_page',
-		},
 		{
 			displayName: 'Advanced Components JSON',
 			name: 'advancedComponentsJson',
@@ -148,6 +133,91 @@ export const advancedOptionsField: INodeProperties = {
 			description: 'Optional raw Meta template components array for expert use',
 		},
 		{
+			displayName: 'After Cursor',
+			name: 'messageListAfter',
+			type: 'string',
+			default: '',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list'],
+				},
+			},
+			description: 'Cursor for the next page (from the previous response paging.cursors.after)',
+		},
+		{
+			displayName: 'Before Cursor',
+			name: 'messageListBefore',
+			type: 'string',
+			default: '',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list'],
+				},
+			},
+			description: 'Cursor for the previous page (from the previous response paging.cursors.before)',
+		},
+		{
+			displayName: 'Conversation ID',
+			name: 'messageListConversationId',
+			type: 'string',
+			default: '',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list'],
+				},
+			},
+			description: 'Filter messages by Kapso conversation UUID',
+		},
+		{
+			displayName: 'Custom Response Fields',
+			name: 'messageResponseFields',
+			type: 'string',
+			default: '',
+			placeholder: 'kapso(direction,status,processing_status)',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list', 'get'],
+				},
+			},
+			description:
+				'Optional Meta `fields` query override. When set, it replaces the Include Kapso Extensions toggle.',
+		},
+		{
+			displayName: 'Direction',
+			name: 'messageListDirection',
+			type: 'options',
+			options: [
+				{ name: 'All', value: '' },
+				{ name: 'Inbound', value: 'inbound' },
+				{ name: 'Outbound', value: 'outbound' },
+			],
+			default: '',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list'],
+				},
+			},
+		},
+		{
+			displayName: 'Include Kapso Extensions',
+			name: 'includeKapsoExtensions',
+			type: 'boolean',
+			default: true,
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list', 'get'],
+				},
+			},
+			description:
+				'Whether to request Kapso-specific message fields via `fields=kapso()`. Disable to use only Meta fields, or override with Custom Response Fields.',
+		},
+		{
 			displayName: 'Link Preview',
 			name: 'linkPreview',
 			type: 'boolean',
@@ -160,6 +230,47 @@ export const advancedOptionsField: INodeProperties = {
 			},
 		},
 		{
+			displayName: 'Query Parameters',
+			name: 'customQueryParameters',
+			type: 'fixedCollection',
+			typeOptions: {
+				multipleValues: true,
+				sortable: true,
+			},
+			default: {},
+			displayOptions: {
+				show: {
+					'/resource': [CUSTOM_API_CALL],
+					'/operation': [CUSTOM_API_CALL],
+				},
+			},
+			description: 'Optional query string parameters appended to the custom API request',
+			options: [
+				{
+					displayName: 'Parameter',
+					name: 'parameterValues',
+					values: [
+						{
+							displayName: 'Name',
+							name: 'name',
+							type: 'string',
+							default: '',
+							required: true,
+							placeholder: 'page',
+						},
+						{
+							displayName: 'Value',
+							name: 'value',
+							type: 'string',
+							default: '',
+							required: true,
+							placeholder: '1',
+						},
+					],
+				},
+			],
+		},
+		{
 			displayName: 'Reply To Message ID',
 			name: 'replyToMessageId',
 			type: 'string',
@@ -167,7 +278,7 @@ export const advancedOptionsField: INodeProperties = {
 			displayOptions: {
 				show: {
 					'/resource': ['message'],
-					'/operation': messageReplyOperations,
+					'/operation': messageReplyOperationValues,
 				},
 			},
 		},
@@ -183,6 +294,52 @@ export const advancedOptionsField: INodeProperties = {
 				},
 			},
 			description: 'Full Meta-compatible message JSON body',
+		},
+		{
+			displayName: 'Since',
+			name: 'messageListSince',
+			type: 'dateTime',
+			default: '',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list'],
+				},
+			},
+			description: 'Include messages created on or after this time (ISO 8601)',
+		},
+		{
+			displayName: 'Status',
+			name: 'messageListStatus',
+			type: 'options',
+			options: [
+				{ name: 'All', value: '' },
+				{ name: 'Pending', value: 'pending' },
+				{ name: 'Sent', value: 'sent' },
+				{ name: 'Delivered', value: 'delivered' },
+				{ name: 'Read', value: 'read' },
+				{ name: 'Failed', value: 'failed' },
+			],
+			default: '',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list'],
+				},
+			},
+		},
+		{
+			displayName: 'Until',
+			name: 'messageListUntil',
+			type: 'dateTime',
+			default: '',
+			displayOptions: {
+				show: {
+					'/resource': ['message'],
+					'/operation': ['list'],
+				},
+			},
+			description: 'Include messages created on or before this time (ISO 8601)',
 		},
 	],
 };

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.4 - 2026-05-30
+
+- Removed legacy query JSON compatibility and nested Additional Options shapes.
+- Additional Options now appears only for Message and Custom API Call operations,
+  with each sub-field scoped to its specific operation.
+- Message List/Get now expose Include Kapso Extensions toggle and custom response
+  fields instead of JSON query parameters.
+- Media Get URL and Delete now require the Phone Number field for Kapso proxy
+  queries.
+- Custom API Call uses a Query Parameters collection instead of JSON.
+
 ## 0.3.3 - 2026-05-30
 
 - Broadcast Create now loads approved templates from the selected phone number

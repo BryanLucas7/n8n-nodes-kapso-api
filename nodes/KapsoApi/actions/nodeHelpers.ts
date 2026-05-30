@@ -9,15 +9,7 @@ type FixedCollectionParameter = {
 	[key: string]: IDataObject[] | undefined;
 };
 
-type AdvancedOptionsParameter = IDataObject & {
-	options?: Array<{
-		queryJson?: string;
-		bodyJson?: string;
-		replyToMessageId?: string;
-		linkPreview?: boolean;
-		advancedComponentsJson?: string;
-	}>;
-};
+type AdvancedOptionsParameter = IDataObject;
 
 export function getString(ef: IExecuteFunctions, name: string, itemIndex: number): string {
 	return getResourceParameter(ef, name, itemIndex);
@@ -90,8 +82,41 @@ function getAdvancedOptionValue(
 		return advanced[field] as string | boolean | undefined;
 	}
 
-	const legacyOptions = advanced.options ?? [];
-	return legacyOptions[0]?.[field as keyof (typeof legacyOptions)[number]];
+	return undefined;
+}
+
+export function getAdvancedOptionString(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	name: string,
+): string {
+	const fromAdvanced = getAdvancedOptionValue(ef, itemIndex, name);
+	return typeof fromAdvanced === 'string' ? fromAdvanced : '';
+}
+
+export function getAdvancedOptionBoolean(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	name: string,
+	defaultValue: boolean,
+): boolean {
+	const fromAdvanced = getAdvancedOptionValue(ef, itemIndex, name);
+	return typeof fromAdvanced === 'boolean' ? fromAdvanced : defaultValue;
+}
+
+export function getAdvancedFixedCollectionItems<T extends IDataObject>(
+	ef: IExecuteFunctions,
+	collectionName: string,
+	itemName: string,
+	itemIndex: number,
+): T[] {
+	const advanced = getAdvancedOptions(ef, itemIndex);
+	const fromAdvanced = advanced[collectionName] as FixedCollectionParameter | undefined;
+	if (fromAdvanced && Array.isArray(fromAdvanced[itemName])) {
+		return fromAdvanced[itemName] as T[];
+	}
+
+	return [];
 }
 
 export function getOptionalJsonObject(
@@ -116,49 +141,6 @@ export function getReplyToMessageId(ef: IExecuteFunctions, itemIndex: number): s
 export function getLinkPreview(ef: IExecuteFunctions, itemIndex: number, fallback: boolean): boolean {
 	const linkPreview = getAdvancedOptionValue(ef, itemIndex, 'linkPreview');
 	return typeof linkPreview === 'boolean' ? linkPreview : fallback;
-}
-
-export function queryJson(ef: IExecuteFunctions, itemIndex: number): IDataObject {
-	const queryJsonValue = getAdvancedOptionValue(ef, itemIndex, 'queryJson');
-	const raw =
-		typeof queryJsonValue === 'string' && queryJsonValue.trim() ? queryJsonValue : '{}';
-	return parseJsonObject(raw, 'Additional Query Parameters');
-}
-
-export function buildMessageQuery(
-	ef: IExecuteFunctions,
-	itemIndex: number,
-	operation: 'list' | 'get',
-): IDataObject {
-	const query: IDataObject = { ...queryJson(ef, itemIndex) };
-
-	if (operation === 'list') {
-		const conversationId = getString(ef, 'messageListConversationId', itemIndex);
-		if (conversationId) query.conversation_id = conversationId;
-
-		const direction = getString(ef, 'messageListDirection', itemIndex);
-		if (direction) query.direction = direction;
-
-		const status = getString(ef, 'messageListStatus', itemIndex);
-		if (status) query.status = status;
-
-		const since = getString(ef, 'messageListSince', itemIndex);
-		if (since) query.since = since;
-
-		const until = getString(ef, 'messageListUntil', itemIndex);
-		if (until) query.until = until;
-
-		const after = getString(ef, 'messageListAfter', itemIndex);
-		if (after) query.after = after;
-
-		const before = getString(ef, 'messageListBefore', itemIndex);
-		if (before) query.before = before;
-	}
-
-	const fields = getString(ef, 'messageResponseFields', itemIndex);
-	if (fields) query.fields = fields;
-
-	return query;
 }
 
 export function bodyJson(ef: IExecuteFunctions, itemIndex: number): IDataObject {

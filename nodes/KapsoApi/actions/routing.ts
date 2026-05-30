@@ -25,10 +25,9 @@ import {
 	getLinkPreview,
 	getReplyToMessageId,
 	getString,
-	queryJson,
-	buildMessageQuery,
 	bodyJson,
 } from './nodeHelpers';
+import { buildMessageQuery, buildOperationQuery } from './queryBuilders';
 import {
 	buildBlockUsersBody,
 	buildBroadcastAddRecipientsBody,
@@ -328,7 +327,7 @@ export function buildRequest(
 	operation: string,
 	itemIndex: number,
 ): KapsoRequestArgs {
-	const query = queryJson(ef, itemIndex);
+	const query = buildOperationQuery(ef, resource, operation, itemIndex);
 	if (resource === CUSTOM_API_CALL || operation === CUSTOM_API_CALL) {
 		const method = getString(ef, 'customMethod', itemIndex) as IHttpRequestMethods;
 		const body = bodyJson(ef, itemIndex);

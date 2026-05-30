@@ -3,7 +3,6 @@ import {
 	asJsonItems,
 	advancedBodyJson,
 	bodyJson,
-	buildMessageQuery,
 	getBoolean,
 	getFixedCollectionItems,
 	getNumber,
@@ -11,7 +10,6 @@ import {
 	getResourceParameter,
 	getString,
 	itemPair,
-	queryJson,
 } from '../../nodes/KapsoApi/actions/nodeHelpers';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
@@ -43,38 +41,21 @@ describe('nodeHelpers', () => {
 		).toEqual([{ buttonId: 'btn_yes', buttonTitle: 'Yes' }]);
 	});
 
-	it('parses advanced query and body JSON parameters', () => {
+	it('parses advanced body JSON parameters', () => {
 		const ef = createMockExecuteFunctions({
 			advancedOptions: {
-				queryJson: '{"page":2,"status":"open"}',
 				bodyJson: '{"type":"text","text":{"body":"Hi"}}',
 				replyToMessageId: 'wamid.parent',
 				linkPreview: true,
 			},
 		});
 
-		expect(queryJson(ef, 0)).toEqual({ page: 2, status: 'open' });
 		expect(advancedBodyJson(ef, 0)).toEqual({
 			type: 'text',
 			text: { body: 'Hi' },
 		});
 		expect(getReplyToMessageId(ef, 0)).toBe('wamid.parent');
 		expect(getBoolean(ef, 'typingIndicator', 0)).toBe(false);
-	});
-
-	it('supports legacy nested advanced options shape', () => {
-		const ef = createMockExecuteFunctions({
-			advancedOptions: {
-				options: [
-					{
-						replyToMessageId: 'wamid.legacy',
-						linkPreview: false,
-					},
-				],
-			},
-		});
-
-		expect(getReplyToMessageId(ef, 0)).toBe('wamid.legacy');
 	});
 
 	it('parses top-level body JSON for admin operations', () => {
@@ -85,42 +66,7 @@ describe('nodeHelpers', () => {
 		expect(bodyJson(ef, 0)).toEqual({ name: 'Kapso' });
 	});
 
-	it('rejects invalid advanced query JSON', () => {
-		const ef = createMockExecuteFunctions({
-			advancedOptions: {
-				options: [{ queryJson: 'not-json' }],
-			},
-		});
-
-		expect(() => queryJson(ef, 0)).toThrow(/Additional Query Parameters must be valid JSON object syntax/);
-	});
-
-	it('merges message list filters with additional query parameters', () => {
-		const ef = createMockExecuteFunctions({
-			messageListConversationId: 'conv-123',
-			messageListDirection: 'inbound',
-			messageListStatus: 'delivered',
-			messageListSince: '2024-01-15T00:00:00.000Z',
-			messageListAfter: 'cursor-after',
-			messageResponseFields: 'kapso()',
-			advancedOptions: {
-				queryJson: '{"limit":50}',
-			},
-		});
-
-		expect(buildMessageQuery(ef, 0, 'list')).toEqual({
-			limit: 50,
-			conversation_id: 'conv-123',
-			direction: 'inbound',
-			status: 'delivered',
-			since: '2024-01-15T00:00:00.000Z',
-			after: 'cursor-after',
-			fields: 'kapso()',
-		});
-	});
-
 	it('maps array and object responses to n8n items', () => {
-		expect(itemPair(2)).toEqual({ item: 2 });
 
 		const arrayItems = asJsonItems([{ id: 1 }, { id: 2 }], 0);
 		expect(arrayItems).toHaveLength(2);

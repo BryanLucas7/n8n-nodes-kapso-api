@@ -132,15 +132,16 @@ describe('routing', () => {
 		const ef = createMockExecuteFunctions({
 			resource: 'message',
 			operation: 'list',
-			messageListDirection: 'outbound',
-			messageResponseFields: 'kapso(direction,status)',
+			advancedOptions: {
+				messageListDirection: 'outbound',
+				includeKapsoExtensions: false,
+			},
 		});
 
 		const request = buildRequest(ef, 'message', 'list', 0);
 
 		expect(request.query).toEqual({
 			direction: 'outbound',
-			fields: 'kapso(direction,status)',
 		});
 	});
 	it('builds custom API call requests', () => {
