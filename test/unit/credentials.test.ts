@@ -6,7 +6,11 @@ describe('KapsoApi credentials', () => {
 		const credentials = new KapsoApi();
 
 		expect(credentials.name).toBe('kapsoApi');
-		expect(credentials.properties.map((property) => property.name)).toEqual(['baseUrl', 'apiKey']);
+		expect(credentials.properties.map((property) => property.name)).toEqual([
+			'baseUrl',
+			'apiKey',
+			'webhookSecret',
+		]);
 		expect(credentials.properties.find((property) => property.name === 'apiKey')?.default).toBe('');
 		expect(credentials.authenticate).toMatchObject({
 			type: 'generic',

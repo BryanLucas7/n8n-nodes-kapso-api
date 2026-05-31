@@ -68,6 +68,22 @@ describe('platformPayloads', () => {
 		});
 	});
 
+	it('builds media ingest body with meta resumable asset delivery', () => {
+		const ef = createMockExecuteFunctions({
+			ingestPhoneNumberId: '1234567890',
+			ingestSourceUrl: 'https://example.com/video.mp4',
+			ingestDelivery: 'meta_resumable_asset',
+		});
+
+		expect(buildMediaIngestBody(ef, 0)).toEqual({
+			media_ingest: {
+				phone_number_id: '1234567890',
+				source: 'https://example.com/video.mp4',
+				delivery: 'meta_resumable_asset',
+			},
+		});
+	});
+
 	it('builds block users body', () => {
 		const ef = createMockExecuteFunctions({
 			blockedUsers: {
@@ -77,7 +93,6 @@ describe('platformPayloads', () => {
 
 		expect(buildBlockUsersBody(ef, 0)).toEqual({
 			block_users: [{ user: '15551234567' }],
-			messaging_product: 'whatsapp',
 		});
 	});
 
@@ -94,7 +109,7 @@ describe('platformPayloads', () => {
 							],
 						},
 						headerType: 'image',
-						headerImageUrl: 'https://cdn.example.com/banner.jpg',
+						headerMediaUrl: 'https://cdn.example.com/banner.jpg',
 						buttonParameters: {
 							buttonParameterValues: [
 								{ buttonSubType: 'url', buttonIndex: 0, buttonText: 'promo-code-12345' },
@@ -130,7 +145,7 @@ describe('platformPayloads', () => {
 							{
 								type: 'button',
 								sub_type: 'url',
-								index: 0,
+								index: '0',
 								parameters: [{ type: 'text', text: 'promo-code-12345' }],
 							},
 						],
@@ -138,5 +153,85 @@ describe('platformPayloads', () => {
 				],
 			},
 		});
+	});
+
+	it('builds broadcast recipients with MPM template button sections', () => {
+		const ef = createMockExecuteFunctions({
+			broadcastRecipients: {
+				recipientValues: [
+					{
+						phoneNumber: '+14155550123',
+						buttonParameters: {
+							buttonParameterValues: [
+								{
+									buttonSubType: 'mpm',
+									buttonIndex: 0,
+									mpmThumbnailProductRetailerId: 'SKU_1',
+									mpmSectionValues: {
+										sectionValues: [
+											{
+												sectionTitle: 'Popular',
+												productValues: {
+													productItems: [
+														{ productRetailerId: 'SKU_1' },
+														{ productRetailerId: 'SKU_2' },
+													],
+												},
+											},
+										],
+									},
+								},
+							],
+						},
+					},
+				],
+			},
+		});
+
+		expect(buildBroadcastAddRecipientsBody(ef, 0)).toEqual({
+			whatsapp_broadcast: {
+				recipients: [
+					{
+						phone_number: '+14155550123',
+						components: [
+							{
+								type: 'button',
+								sub_type: 'mpm',
+								index: '0',
+								parameters: [
+									{
+										type: 'action',
+										action: {
+											thumbnail_product_retailer_id: 'SKU_1',
+											sections: [
+												{
+													title: 'Popular',
+													product_items: [
+														{ product_retailer_id: 'SKU_1' },
+														{ product_retailer_id: 'SKU_2' },
+													],
+												},
+											],
+										},
+									},
+								],
+							},
+						],
+					},
+				],
+			},
+		});
+	});
+
+	it('rejects broadcast recipients without phone number or contact ID', () => {
+		const ef = createMockExecuteFunctions({
+			broadcastRecipients: {
+				recipientValues: [{}],
+			},
+		});
+
+		expect(() => buildBroadcastAddRecipientsBody(ef, 0)).toThrow(
+			'Each broadcast recipient requires a phone number or contact ID.',
+		);
 	});
 });

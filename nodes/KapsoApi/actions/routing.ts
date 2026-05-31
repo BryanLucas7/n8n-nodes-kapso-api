@@ -1,28 +1,40 @@
 import {
 	ApplicationError,
+	IDataObject,
 	IExecuteFunctions,
 	IHttpRequestMethods,
 } from 'n8n-workflow';
 import {
 	buildButtonsMessage,
+	buildCallPermissionMessage,
+	buildCatalogMessage,
 	buildContactMessage,
+	buildCtaUrlMessage,
+	buildFlowMessage,
 	buildListMessage,
+	buildLocationMessage,
 	buildMarkReadMessage,
 	buildMediaMessage,
+	buildProductListMessage,
+	buildProductMessage,
 	buildReactionMessage,
+	buildRequestLocationMessage,
+	buildStickerMessage,
 	buildTemplateMessageFromParams,
 	buildTextMessage,
+	type CtaHeaderType,
 	type KapsoButtonInput,
 	type KapsoContactInput,
 	type KapsoListSectionInput,
-	type KapsoTemplateButtonParam,
+	type KapsoProductSectionInput,
 } from './messagePayloads';
+import { buildSendTemplateComponentsInput } from './templateInput';
 import {
-	advancedBodyJson,
-	advancedComponentsJson,
 	getBoolean,
 	getFixedCollectionItems,
 	getLinkPreview,
+	getNumber,
+	getOptionalJsonObject,
 	getReplyToMessageId,
 	getString,
 	bodyJson,
@@ -40,6 +52,7 @@ import {
 } from './platformPayloads';
 import { CUSTOM_API_CALL, messageMediaOperations } from './operations';
 import { KapsoRequestArgs } from '../transport/types';
+import { assertCustomRelativePath, requireNonEmptyString } from './validation';
 
 export function pathId(value: string, label: string): string {
 	if (!value) {
@@ -58,11 +71,37 @@ export function customRelativePath(value: string): string {
 		throw new ApplicationError('Custom Relative Path must be relative, for example /whatsapp/phone_numbers.');
 	}
 
+	assertCustomRelativePath(value);
+
 	if (!value.startsWith('/')) {
 		return `/${value}`;
 	}
 
 	return value;
+}
+
+export function resolveWhatsappCustomPath(
+	phoneNumberId: string,
+	relativePath: string,
+): string {
+	const path = customRelativePath(relativePath);
+
+	if (!phoneNumberId || /^\/\d+/.test(path) || path.startsWith('/whatsapp')) {
+		return path;
+	}
+
+	return `/${phoneNumberId}${path}`;
+}
+
+function assertWhatsappCustomPhoneRequired(phoneNumberId: string, relativePath: string): void {
+	const path = customRelativePath(relativePath);
+	const needsPhonePrefix = !(/^\/\d+/.test(path) || path.startsWith('/whatsapp'));
+
+	if (needsPhonePrefix && !phoneNumberId) {
+		throw new ApplicationError(
+			'Phone Number is required for WhatsApp API paths such as /messages.',
+		);
+	}
 }
 
 function messagePath(ef: IExecuteFunctions, itemIndex: number, suffix = ''): string {
@@ -122,6 +161,36 @@ function extractListRows(
 	return [];
 }
 
+function extractProductRetailerIds(productItems: unknown): string[] {
+	if (!productItems) {
+		return [];
+	}
+
+	if (Array.isArray(productItems)) {
+		return productItems.flatMap((entry) => {
+			if (entry && typeof entry === 'object' && 'productRetailerId' in entry) {
+				return [String(entry.productRetailerId)];
+			}
+
+			if (entry && typeof entry === 'object' && Array.isArray((entry as { product?: unknown[] }).product)) {
+				return ((entry as { product: Array<{ productRetailerId: string }> }).product ?? []).map(
+					(product) => product.productRetailerId,
+				);
+			}
+
+			return [];
+		});
+	}
+
+	if (typeof productItems === 'object' && Array.isArray((productItems as { product?: unknown[] }).product)) {
+		return ((productItems as { product: Array<{ productRetailerId: string }> }).product ?? []).map(
+			(product) => product.productRetailerId,
+		);
+	}
+
+	return [];
+}
+
 export function buildMessageRequest(
 	ef: IExecuteFunctions,
 	operation: string,
@@ -139,13 +208,16 @@ export function buildMessageRequest(
 			body: buildTextMessage(
 				to,
 				getString(ef, 'textBody', itemIndex),
-				getLinkPreview(ef, itemIndex, getBoolean(ef, 'previewUrl', itemIndex)),
+				getLinkPreview(ef, itemIndex, false),
 				replyToMessageId,
 			),
 		};
 	}
 
 	if ((messageMediaOperations as readonly string[]).includes(operation)) {
+		const isVoiceNote =
+			operation === 'sendAudio' && getBoolean(ef, 'sendAsVoiceNote', itemIndex);
+
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
@@ -155,9 +227,10 @@ export function buildMessageRequest(
 				mediaOperationType(operation),
 				getString(ef, 'mediaSource', itemIndex) as 'id' | 'link',
 				getString(ef, 'mediaValue', itemIndex),
-				getString(ef, 'caption', itemIndex),
+				operation === 'sendAudio' ? undefined : getString(ef, 'caption', itemIndex) || undefined,
 				getString(ef, 'filename', itemIndex),
 				replyToMessageId,
+				isVoiceNote,
 			),
 		};
 	}
@@ -178,7 +251,12 @@ export function buildMessageRequest(
 				to,
 				getString(ef, 'bodyText', itemIndex),
 				buttons,
+				getString(ef, 'buttonHeaderType', itemIndex) || 'none',
 				getString(ef, 'headerText', itemIndex) || undefined,
+				(getString(ef, 'buttonHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+				getString(ef, 'buttonHeaderMediaUrl', itemIndex) || undefined,
+				getString(ef, 'buttonHeaderMediaId', itemIndex) || undefined,
+				getString(ef, 'buttonHeaderDocumentFilename', itemIndex) || undefined,
 				getString(ef, 'footerText', itemIndex) || undefined,
 				replyToMessageId,
 			),
@@ -210,8 +288,189 @@ export function buildMessageRequest(
 				getString(ef, 'listButtonText', itemIndex),
 				listSections,
 				getString(ef, 'footerText', itemIndex) || undefined,
+				getString(ef, 'listHeaderType', itemIndex) || 'none',
+				getString(ef, 'listHeaderText', itemIndex) || undefined,
+				(getString(ef, 'listHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+				getString(ef, 'listHeaderMediaUrl', itemIndex) || undefined,
+				getString(ef, 'listHeaderMediaId', itemIndex) || undefined,
+				getString(ef, 'listHeaderDocumentFilename', itemIndex) || undefined,
 				replyToMessageId,
 			),
+		};
+	}
+
+	if (operation === 'sendLocation') {
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildLocationMessage(
+				to,
+				getNumber(ef, 'locationLatitude', itemIndex, 0),
+				getNumber(ef, 'locationLongitude', itemIndex, 0),
+				getString(ef, 'locationName', itemIndex) || undefined,
+				getString(ef, 'locationAddress', itemIndex) || undefined,
+				replyToMessageId,
+			),
+		};
+	}
+
+	if (operation === 'sendSticker') {
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildStickerMessage(
+				to,
+				getString(ef, 'stickerSource', itemIndex) as 'id' | 'link',
+				getString(ef, 'stickerValue', itemIndex),
+				replyToMessageId,
+			),
+		};
+	}
+
+	if (operation === 'requestLocation') {
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildRequestLocationMessage(to, getString(ef, 'bodyText', itemIndex)),
+		};
+	}
+
+	if (operation === 'sendCtaUrl') {
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildCtaUrlMessage(
+				to,
+				getString(ef, 'bodyText', itemIndex),
+				getString(ef, 'ctaButtonLabel', itemIndex),
+				getString(ef, 'ctaButtonUrl', itemIndex),
+				getString(ef, 'ctaHeaderType', itemIndex) as CtaHeaderType,
+				getString(ef, 'ctaHeaderText', itemIndex) || undefined,
+				(getString(ef, 'ctaHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+				getString(ef, 'ctaHeaderMediaUrl', itemIndex) || undefined,
+				getString(ef, 'ctaHeaderMediaId', itemIndex) || undefined,
+				getString(ef, 'ctaHeaderDocumentFilename', itemIndex) || undefined,
+				getString(ef, 'footerText', itemIndex) || undefined,
+				replyToMessageId,
+			),
+		};
+	}
+
+	if (operation === 'sendProduct') {
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildProductMessage(
+				to,
+				getString(ef, 'catalogId', itemIndex),
+				getString(ef, 'productRetailerId', itemIndex),
+				getString(ef, 'bodyText', itemIndex) || undefined,
+				replyToMessageId,
+			),
+		};
+	}
+
+	if (operation === 'sendProductList') {
+		const sectionValues = getFixedCollectionItems<IDataObject & {
+			sectionTitle: string;
+			productItems?: IDataObject | IDataObject[];
+		}>(ef, 'productSections', 'sectionValues', itemIndex);
+
+		const productSections: KapsoProductSectionInput[] = sectionValues.map((section) => ({
+			sectionTitle: section.sectionTitle,
+			productRetailerIds: extractProductRetailerIds(section.productItems),
+		}));
+
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildProductListMessage(
+				to,
+				getString(ef, 'catalogId', itemIndex),
+				getString(ef, 'bodyText', itemIndex),
+				productSections,
+				getString(ef, 'productListHeaderType', itemIndex) || 'text',
+				getString(ef, 'productListHeaderText', itemIndex) || undefined,
+				(getString(ef, 'productListHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+				getString(ef, 'productListHeaderMediaUrl', itemIndex) || undefined,
+				getString(ef, 'productListHeaderMediaId', itemIndex) || undefined,
+				getString(ef, 'productListHeaderDocumentFilename', itemIndex) || undefined,
+				getString(ef, 'footerText', itemIndex) || undefined,
+				replyToMessageId,
+			),
+		};
+	}
+
+	if (operation === 'sendCatalog') {
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildCatalogMessage(
+				to,
+				getString(ef, 'bodyText', itemIndex),
+				getString(ef, 'catalogThumbnailProductId', itemIndex),
+				replyToMessageId,
+			),
+		};
+	}
+
+	if (operation === 'sendFlow') {
+		const flowAction = getString(ef, 'flowAction', itemIndex) as 'navigate' | 'data_exchange';
+		const flowId = getString(ef, 'flowId', itemIndex) || undefined;
+		const flowName = getString(ef, 'flowName', itemIndex) || undefined;
+
+		if (!flowId && !flowName) {
+			throw new ApplicationError('Provide a Flow ID or Flow Name.');
+		}
+
+		if (flowId && flowName) {
+			throw new ApplicationError('Provide only one of Flow ID or Flow Name.');
+		}
+
+		const flowCta = requireNonEmptyString(getString(ef, 'flowCta', itemIndex), 'Flow CTA');
+		const flowToken = requireNonEmptyString(getString(ef, 'flowToken', itemIndex), 'Flow token');
+
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildFlowMessage(
+				to,
+				getString(ef, 'bodyText', itemIndex),
+				flowCta,
+				flowToken,
+				getString(ef, 'flowMessageVersion', itemIndex) || '3',
+				flowAction,
+				getString(ef, 'flowScreen', itemIndex) || undefined,
+				getOptionalJsonObject(ef, 'flowInitialDataJson', itemIndex, 'Flow Initial Data JSON'),
+				replyToMessageId,
+				(getString(ef, 'flowMode', itemIndex) || undefined) as 'draft' | 'published' | undefined,
+				getString(ef, 'flowHeaderType', itemIndex) || undefined,
+				getString(ef, 'flowHeaderText', itemIndex) || undefined,
+				(getString(ef, 'flowHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+				getString(ef, 'flowHeaderMediaUrl', itemIndex) || undefined,
+				getString(ef, 'flowHeaderMediaId', itemIndex) || undefined,
+				getString(ef, 'flowHeaderDocumentFilename', itemIndex) || undefined,
+				getString(ef, 'flowFooterText', itemIndex) || undefined,
+				flowId,
+				flowName,
+			),
+		};
+	}
+
+	if (operation === 'sendCallPermission') {
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildCallPermissionMessage(to, getString(ef, 'bodyText', itemIndex)),
 		};
 	}
 
@@ -232,20 +491,6 @@ export function buildMessageRequest(
 	}
 
 	if (operation === 'sendTemplate') {
-		const bodyParams = getFixedCollectionItems<{ parameterText: string }>(
-			ef,
-			'templateBodyParameters',
-			'parameterValues',
-			itemIndex,
-		).map((entry) => entry.parameterText);
-
-		const buttonParams = getFixedCollectionItems<KapsoTemplateButtonParam>(
-			ef,
-			'templateButtonParameters',
-			'buttonValues',
-			itemIndex,
-		);
-
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
@@ -254,15 +499,13 @@ export function buildMessageRequest(
 				to,
 				getString(ef, 'templateName', itemIndex),
 				getString(ef, 'languageCode', itemIndex),
-				bodyParams,
-				getString(ef, 'headerParameter', itemIndex) || undefined,
-				buttonParams,
-				advancedComponentsJson(ef, itemIndex),
+				buildSendTemplateComponentsInput(ef, itemIndex),
 			),
 		};
 	}
 
 	if (operation === 'sendReaction') {
+		const removeReaction = getBoolean(ef, 'removeReaction', itemIndex);
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
@@ -270,7 +513,7 @@ export function buildMessageRequest(
 			body: buildReactionMessage(
 				to,
 				getString(ef, 'reactionMessageId', itemIndex),
-				getString(ef, 'emoji', itemIndex),
+				removeReaction ? '' : getString(ef, 'emoji', itemIndex),
 			),
 		};
 	}
@@ -284,15 +527,6 @@ export function buildMessageRequest(
 				getString(ef, 'messageId', itemIndex),
 				getBoolean(ef, 'typingIndicator', itemIndex),
 			),
-		};
-	}
-
-	if (operation === 'sendRaw') {
-		return {
-			api: 'whatsapp',
-			method: 'POST' as IHttpRequestMethods,
-			path: phonePath,
-			body: advancedBodyJson(ef, itemIndex),
 		};
 	}
 
@@ -332,11 +566,22 @@ export function buildRequest(
 		const method = getString(ef, 'customMethod', itemIndex) as IHttpRequestMethods;
 		const body = bodyJson(ef, itemIndex);
 		const hasBody = Object.keys(body).length > 0;
+		const api = getString(ef, 'customApiSurface', itemIndex) as KapsoRequestArgs['api'];
+		const relativePath = getString(ef, 'customPath', itemIndex);
+		const phoneNumberId = getString(ef, 'phoneNumberId', itemIndex);
+		if (api === 'whatsapp') {
+			assertWhatsappCustomPhoneRequired(phoneNumberId, relativePath);
+		}
+
+		const path =
+			api === 'whatsapp'
+				? resolveWhatsappCustomPath(phoneNumberId, relativePath)
+				: customRelativePath(relativePath);
 
 		return {
-			api: getString(ef, 'customApiSurface', itemIndex) as KapsoRequestArgs['api'],
+			api,
 			method,
-			path: customRelativePath(getString(ef, 'customPath', itemIndex)),
+			path,
 			query,
 			...(method !== 'GET' || hasBody ? { body } : {}),
 		};
@@ -388,6 +633,12 @@ export function buildRequest(
 			path: `/whatsapp/conversations/${conversationId()}`,
 			query,
 		}),
+		'conversation:list': () => ({
+			api: 'platform',
+			method: 'GET' as IHttpRequestMethods,
+			path: '/whatsapp/conversations',
+			query,
+		}),
 		'conversation:updateStatus': () => ({
 			api: 'platform',
 			method: 'PATCH' as IHttpRequestMethods,
@@ -398,6 +649,12 @@ export function buildRequest(
 			api: 'platform',
 			method: 'GET' as IHttpRequestMethods,
 			path: `/whatsapp/contacts/${contactIdentifier()}`,
+			query,
+		}),
+		'contact:list': () => ({
+			api: 'platform',
+			method: 'GET' as IHttpRequestMethods,
+			path: '/whatsapp/contacts',
 			query,
 		}),
 		'contact:create': () => ({
@@ -422,6 +679,12 @@ export function buildRequest(
 			api: 'platform',
 			method: 'GET' as IHttpRequestMethods,
 			path: `/whatsapp/broadcasts/${broadcastId()}`,
+			query,
+		}),
+		'broadcast:list': () => ({
+			api: 'platform',
+			method: 'GET' as IHttpRequestMethods,
+			path: '/whatsapp/broadcasts',
 			query,
 		}),
 		'broadcast:create': () => ({
@@ -469,6 +732,17 @@ export function buildRequest(
 			method: 'DELETE' as IHttpRequestMethods,
 			path: `/${phoneNumberId()}/block_users`,
 			body: buildBlockUsersBody(ef, itemIndex),
+		}),
+		'platformMessage:list': () => ({
+			api: 'platform',
+			method: 'GET' as IHttpRequestMethods,
+			path: '/whatsapp/messages',
+			query,
+		}),
+		'platformMessage:get': () => ({
+			api: 'platform',
+			method: 'GET' as IHttpRequestMethods,
+			path: `/whatsapp/messages/${pathId(getString(ef, 'platformMessageId', itemIndex), 'Message ID')}`,
 		}),
 	};
 

@@ -1,5 +1,6 @@
 import { INodeProperties } from 'n8n-workflow';
 import { CUSTOM_API_CALL } from '../actions/operations';
+import { templateButtonParameterValues } from './templateShared.fields';
 
 const listSearchMode = (searchListMethod: string) => ({
 	displayName: 'From List',
@@ -169,7 +170,7 @@ export const resourceFields: INodeProperties[] = [
 		},
 		placeholder: '/whatsapp/contacts',
 		description:
-			'Relative documented Kapso path under the selected API surface. Full URLs are rejected.',
+			'Relative path under the selected API surface. For WhatsApp API with Phone Number set, use paths such as /messages and the phone ID is prefixed automatically.',
 	},
 	{
 		displayName: 'Status',
@@ -202,7 +203,7 @@ export const resourceFields: INodeProperties[] = [
 				operation: ['create'],
 			},
 		},
-		description: 'Contact phone number in E.164 format',
+		description: 'Contact phone number in E.164 format with plus sign (Kapso Platform API)',
 	},
 	{
 		displayName: 'Profile Name',
@@ -344,7 +345,8 @@ export const resourceFields: INodeProperties[] = [
 						type: 'string',
 						default: '',
 						placeholder: '+15551234567',
-						description: 'E.164 phone number (required unless Contact ID is set)',
+						description:
+							'E.164 phone number with plus sign (Kapso Platform API). Required unless Contact ID is set.',
 					},
 					{
 						displayName: 'Contact ID',
@@ -387,15 +389,33 @@ export const resourceFields: INodeProperties[] = [
 						],
 					},
 					{
+						displayName: 'Component Mode',
+						name: 'componentMode',
+						type: 'options',
+						options: [
+							{ name: 'Standard', value: 'standard' },
+							{ name: 'Carousel', value: 'carousel' },
+						],
+						default: 'standard',
+					},
+					{
 						displayName: 'Header Type',
 						name: 'headerType',
 						type: 'options',
 						options: [
 							{ name: 'None', value: 'none' },
 							{ name: 'Text', value: 'text' },
-							{ name: 'Image URL', value: 'image' },
+							{ name: 'Image', value: 'image' },
+							{ name: 'Video', value: 'video' },
+							{ name: 'Document', value: 'document' },
+							{ name: 'Location', value: 'location' },
 						],
 						default: 'none',
+						displayOptions: {
+							show: {
+								componentMode: ['standard'],
+							},
+						},
 					},
 					{
 						displayName: 'Header Text',
@@ -404,19 +424,99 @@ export const resourceFields: INodeProperties[] = [
 						default: '',
 						displayOptions: {
 							show: {
+								componentMode: ['standard'],
 								headerType: ['text'],
 							},
 						},
 					},
 					{
-						displayName: 'Header Image URL',
-						name: 'headerImageUrl',
+						displayName: 'Header Media Source',
+						name: 'headerMediaSource',
+						type: 'options',
+						options: [
+							{ name: 'Public Link', value: 'link' },
+							{ name: 'Media ID', value: 'id' },
+						],
+						default: 'link',
+						displayOptions: {
+							show: {
+								componentMode: ['standard'],
+								headerType: ['image', 'video', 'document'],
+							},
+						},
+					},
+					{
+						displayName: 'Header Media URL',
+						name: 'headerMediaUrl',
 						type: 'string',
 						default: '',
 						placeholder: 'https://cdn.example.com/banner.jpg',
 						displayOptions: {
 							show: {
-								headerType: ['image'],
+								componentMode: ['standard'],
+								headerType: ['image', 'video', 'document'],
+								headerMediaSource: ['link'],
+							},
+						},
+					},
+					{
+						displayName: 'Header Media ID',
+						name: 'headerMediaId',
+						type: 'string',
+						default: '',
+						displayOptions: {
+							show: {
+								componentMode: ['standard'],
+								headerType: ['image', 'video', 'document'],
+								headerMediaSource: ['id'],
+							},
+						},
+					},
+					{
+						displayName: 'Header Latitude',
+						name: 'headerLatitude',
+						type: 'string',
+						default: '',
+						displayOptions: {
+							show: {
+								componentMode: ['standard'],
+								headerType: ['location'],
+							},
+						},
+					},
+					{
+						displayName: 'Header Longitude',
+						name: 'headerLongitude',
+						type: 'string',
+						default: '',
+						displayOptions: {
+							show: {
+								componentMode: ['standard'],
+								headerType: ['location'],
+							},
+						},
+					},
+					{
+						displayName: 'Header Location Name',
+						name: 'headerLocationName',
+						type: 'string',
+						default: '',
+						displayOptions: {
+							show: {
+								componentMode: ['standard'],
+								headerType: ['location'],
+							},
+						},
+					},
+					{
+						displayName: 'Header Location Address',
+						name: 'headerLocationAddress',
+						type: 'string',
+						default: '',
+						displayOptions: {
+							show: {
+								componentMode: ['standard'],
+								headerType: ['location'],
 							},
 						},
 					},
@@ -432,33 +532,117 @@ export const resourceFields: INodeProperties[] = [
 							{
 								displayName: 'Button',
 								name: 'buttonParameterValues',
+								values: templateButtonParameterValues,
+							},
+						],
+					},
+					{
+						displayName: 'Carousel Cards',
+						name: 'carouselCards',
+						type: 'fixedCollection',
+						typeOptions: {
+							multipleValues: true,
+						},
+						default: {},
+						displayOptions: {
+							show: {
+								componentMode: ['carousel'],
+							},
+						},
+						description:
+							'Each card must match the approved template carousel card count and card_index order',
+						options: [
+							{
+								displayName: 'Card',
+								name: 'cardValues',
 								values: [
 									{
-										displayName: 'Sub Type',
-										name: 'buttonSubType',
-										type: 'options',
-										options: [
-											{ name: 'URL', value: 'url' },
-											{ name: 'Quick Reply', value: 'quick_reply' },
-										],
-										default: 'url',
-									},
-									{
-										displayName: 'Index',
-										name: 'buttonIndex',
+										displayName: 'Card Index',
+										name: 'cardIndex',
 										type: 'number',
 										default: 0,
-										typeOptions: {
-											minValue: 0,
+										required: true,
+										typeOptions: { minValue: 0 },
+									},
+									{
+										displayName: 'Header Type',
+										name: 'cardHeaderType',
+										type: 'options',
+										options: [
+											{ name: 'Image', value: 'image' },
+											{ name: 'Video', value: 'video' },
+										],
+										default: 'image',
+									},
+									{
+										displayName: 'Header Media Source',
+										name: 'cardHeaderMediaSource',
+										type: 'options',
+										options: [
+											{ name: 'Public Link', value: 'link' },
+											{ name: 'Media ID', value: 'id' },
+										],
+										default: 'link',
+									},
+									{
+										displayName: 'Header Media URL',
+										name: 'cardHeaderMediaUrl',
+										type: 'string',
+										default: '',
+										displayOptions: {
+											show: { cardHeaderMediaSource: ['link'] },
 										},
 									},
 									{
-										displayName: 'Text',
-										name: 'buttonText',
+										displayName: 'Header Media ID',
+										name: 'cardHeaderMediaId',
 										type: 'string',
 										default: '',
-										required: true,
-										description: 'Dynamic button value (for example a URL suffix or payload)',
+										displayOptions: {
+											show: { cardHeaderMediaSource: ['id'] },
+										},
+									},
+									{
+										displayName: 'Body Parameters',
+										name: 'cardBodyParameters',
+										type: 'fixedCollection',
+										typeOptions: { multipleValues: true },
+										default: {},
+										options: [
+											{
+												displayName: 'Parameter',
+												name: 'parameterValues',
+												values: [
+													{
+														displayName: 'Parameter Name',
+														name: 'parameterName',
+														type: 'string',
+														default: '',
+													},
+													{
+														displayName: 'Text',
+														name: 'parameterText',
+														type: 'string',
+														default: '',
+														required: true,
+													},
+												],
+											},
+										],
+									},
+									{
+										displayName: 'Button Parameters',
+										name: 'cardButtonParameters',
+										type: 'fixedCollection',
+										typeOptions: { multipleValues: true },
+										default: {},
+										options: [
+											{
+												displayName: 'Button',
+												name: 'buttonValues',
+												values: templateButtonParameterValues,
+											},
+										],
 									},
 								],
 							},
@@ -529,7 +713,7 @@ export const resourceFields: INodeProperties[] = [
 		type: 'options',
 		options: [
 			{ name: 'Meta Media', value: 'meta_media' },
-			{ name: 'Kapso Media', value: 'kapso_media' },
+			{ name: 'Meta Resumable Asset', value: 'meta_resumable_asset' },
 		],
 		default: 'meta_media',
 		displayOptions: {
@@ -566,7 +750,7 @@ export const resourceFields: INodeProperties[] = [
 						default: '',
 						required: true,
 						placeholder: '15551234567',
-						description: 'WhatsApp user phone number without plus sign',
+						description: 'WhatsApp user phone number without plus sign (Meta block_users API)',
 					},
 				],
 			},
@@ -577,12 +761,12 @@ export const resourceFields: INodeProperties[] = [
 		name: 'bodyJson',
 		type: 'json',
 		default: '{}',
-		required: true,
 		displayOptions: {
 			show: {
 				operation: [CUSTOM_API_CALL],
+				customMethod: ['POST', 'PATCH', 'PUT', 'DELETE'],
 			},
 		},
-		description: 'Documented Kapso or Meta-compatible JSON request body for Custom API Call',
+		description: 'Optional Kapso or Meta-compatible JSON request body for Custom API Call',
 	},
 ];

@@ -1,11 +1,14 @@
 import { INodeProperties } from 'n8n-workflow';
 import { messageMediaOperations, messageSendOperations } from '../actions/operations';
+import {
+	templateButtonParameterValues,
+	templateHeaderTypeOptions,
+} from './templateShared.fields';
 
-const messageRecipientOperations = [
-	...messageSendOperations.filter((operation) => operation !== 'sendRaw'),
-];
+const messageRecipientOperations = [...messageSendOperations];
 
 const messageMediaOps = [...messageMediaOperations];
+const messageCaptionOperations = ['sendImage', 'sendVideo', 'sendDocument'];
 
 export const messageFields: INodeProperties[] = [
 	{
@@ -21,7 +24,7 @@ export const messageFields: INodeProperties[] = [
 				operation: messageRecipientOperations,
 			},
 		},
-		description: 'Recipient phone number in international format without plus sign',
+		description: 'Recipient phone number in international format without plus sign (Meta WhatsApp send API)',
 	},
 	{
 		displayName: 'Text',
@@ -77,7 +80,7 @@ export const messageFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['message'],
-				operation: messageMediaOps,
+				operation: messageCaptionOperations,
 			},
 		},
 	},
@@ -106,7 +109,17 @@ export const messageFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['message'],
-				operation: ['sendButtons', 'sendList'],
+				operation: [
+					'sendButtons',
+					'sendList',
+					'sendCtaUrl',
+					'sendProduct',
+					'sendProductList',
+					'sendCatalog',
+					'sendFlow',
+					'requestLocation',
+					'sendCallPermission',
+				],
 			},
 		},
 	},
@@ -158,6 +171,7 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendButtons'],
+				buttonHeaderType: ['text'],
 			},
 		},
 	},
@@ -169,7 +183,7 @@ export const messageFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				resource: ['message'],
-				operation: ['sendButtons', 'sendList'],
+				operation: ['sendButtons', 'sendList', 'sendCtaUrl', 'sendProductList'],
 			},
 		},
 	},
@@ -295,29 +309,107 @@ export const messageFields: INodeProperties[] = [
 						default: '',
 					},
 					{
-						displayName: 'Phone Number',
-						name: 'phoneNumber',
+						displayName: 'Middle Name',
+						name: 'middleName',
 						type: 'string',
 						default: '',
+					},
+					{
+						displayName: 'Name Prefix',
+						name: 'namePrefix',
+						type: 'string',
+						default: '',
+						placeholder: 'Dr.',
+					},
+					{
+						displayName: 'Name Suffix',
+						name: 'nameSuffix',
+						type: 'string',
+						default: '',
+						placeholder: 'Jr.',
+					},
+					{
+						displayName: 'Birthday',
+						name: 'birthday',
+						type: 'string',
+						default: '',
+						placeholder: '1990-01-01',
+						description: 'ISO 8601 date (YYYY-MM-DD)',
+					},
+					{
+						displayName: 'Phones',
+						name: 'phones',
+						type: 'fixedCollection',
+						typeOptions: { multipleValues: true },
+						default: {},
 						required: true,
-					},
-					{
-						displayName: 'Phone Type',
-						name: 'phoneType',
-						type: 'options',
 						options: [
-							{ name: 'Mobile', value: 'MOBILE' },
-							{ name: 'Work', value: 'WORK' },
-							{ name: 'Home', value: 'HOME' },
+							{
+								displayName: 'Phone',
+								name: 'phoneValues',
+								values: [
+									{
+										displayName: 'Phone Number',
+										name: 'phoneNumber',
+										type: 'string',
+										default: '',
+										required: true,
+									},
+									{
+										displayName: 'Phone Type',
+										name: 'phoneType',
+										type: 'options',
+										options: [
+											{ name: 'Mobile', value: 'MOBILE' },
+											{ name: 'Work', value: 'WORK' },
+											{ name: 'Home', value: 'HOME' },
+											{ name: 'Main', value: 'MAIN' },
+										],
+										default: 'MOBILE',
+									},
+									{
+										displayName: 'WhatsApp ID',
+										name: 'waId',
+										type: 'string',
+										default: '',
+										description: 'Optional WhatsApp user ID for this phone entry',
+									},
+								],
+							},
 						],
-						default: 'MOBILE',
 					},
 					{
-						displayName: 'Email',
-						name: 'email',
-						type: 'string',
-						placeholder: 'name@email.com',
-						default: '',
+						displayName: 'Emails',
+						name: 'emails',
+						type: 'fixedCollection',
+						typeOptions: { multipleValues: true },
+						default: {},
+						options: [
+							{
+								displayName: 'Email',
+								name: 'emailValues',
+								values: [
+									{
+										displayName: 'Email',
+										name: 'email',
+										type: 'string',
+										placeholder: 'name@email.com',
+										default: '',
+										required: true,
+									},
+									{
+										displayName: 'Email Type',
+										name: 'emailType',
+										type: 'options',
+										options: [
+											{ name: 'Work', value: 'WORK' },
+											{ name: 'Home', value: 'HOME' },
+										],
+										default: 'WORK',
+									},
+								],
+							},
+						],
 					},
 					{
 						displayName: 'Organization',
@@ -326,10 +418,109 @@ export const messageFields: INodeProperties[] = [
 						default: '',
 					},
 					{
-						displayName: 'URL',
-						name: 'url',
+						displayName: 'Organization Department',
+						name: 'orgDepartment',
 						type: 'string',
 						default: '',
+					},
+					{
+						displayName: 'Organization Title',
+						name: 'orgTitle',
+						type: 'string',
+						default: '',
+					},
+					{
+						displayName: 'URLs',
+						name: 'urls',
+						type: 'fixedCollection',
+						typeOptions: { multipleValues: true },
+						default: {},
+						options: [
+							{
+								displayName: 'URL',
+								name: 'urlValues',
+								values: [
+									{
+										displayName: 'URL',
+										name: 'url',
+										type: 'string',
+										default: '',
+										required: true,
+									},
+									{
+										displayName: 'URL Type',
+										name: 'urlType',
+										type: 'options',
+										options: [
+											{ name: 'Work', value: 'WORK' },
+											{ name: 'Home', value: 'HOME' },
+										],
+										default: 'WORK',
+									},
+								],
+							},
+						],
+					},
+					{
+						displayName: 'Addresses',
+						name: 'addresses',
+						type: 'fixedCollection',
+						typeOptions: { multipleValues: true },
+						default: {},
+						options: [
+							{
+								displayName: 'Address',
+								name: 'addressValues',
+								values: [
+									{
+										displayName: 'Street',
+										name: 'street',
+										type: 'string',
+										default: '',
+									},
+									{
+										displayName: 'City',
+										name: 'city',
+										type: 'string',
+										default: '',
+									},
+									{
+										displayName: 'State',
+										name: 'state',
+										type: 'string',
+										default: '',
+									},
+									{
+										displayName: 'ZIP',
+										name: 'zip',
+										type: 'string',
+										default: '',
+									},
+									{
+										displayName: 'Country',
+										name: 'country',
+										type: 'string',
+										default: '',
+									},
+									{
+										displayName: 'Country Code',
+										name: 'countryCode',
+										type: 'string',
+										default: '',
+									},
+									{
+										displayName: 'Address Type',
+										name: 'addressType',
+										type: 'options',
+										options: [
+											{ name: 'Work', value: 'WORK' },
+											{ name: 'Home', value: 'HOME' },
+										],
+										default: 'WORK',
+									},
+								],
+							},
+						],
 					},
 				],
 			},
@@ -379,6 +570,7 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
 			},
 		},
 		options: [
@@ -386,6 +578,15 @@ export const messageFields: INodeProperties[] = [
 				displayName: 'Parameter',
 				name: 'parameterValues',
 				values: [
+					{
+						displayName: 'Parameter Name',
+						name: 'parameterName',
+						type: 'string',
+						default: '',
+						placeholder: 'first_name',
+						description:
+							'Named template variable when the template uses named parameters',
+					},
 					{
 						displayName: 'Text',
 						name: 'parameterText',
@@ -398,17 +599,270 @@ export const messageFields: INodeProperties[] = [
 		],
 	},
 	{
-		displayName: 'Header Parameter',
-		name: 'headerParameter',
-		type: 'string',
-		default: '',
+		displayName: 'Component Mode',
+		name: 'templateComponentMode',
+		type: 'options',
+		options: [
+			{ name: 'Standard', value: 'standard' },
+			{ name: 'Carousel', value: 'carousel' },
+		],
+		default: 'standard',
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},
 		},
-		description: 'Text header parameter for text-based templates',
+		description:
+			'Carousel mode builds a template carousel component. Card count must match the approved template.',
+	},
+	{
+		displayName: 'Header Type',
+		name: 'templateHeaderType',
+		type: 'options',
+		options: templateHeaderTypeOptions,
+		default: 'none',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Text',
+		name: 'templateHeaderText',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+				templateHeaderType: ['text'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Media Source',
+		name: 'templateHeaderMediaSource',
+		type: 'options',
+		options: [
+			{ name: 'Public Link', value: 'link' },
+			{ name: 'Media ID', value: 'id' },
+		],
+		default: 'link',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+				templateHeaderType: ['image', 'video', 'document'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Media URL',
+		name: 'templateHeaderMediaUrl',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+				templateHeaderType: ['image', 'video', 'document'],
+				templateHeaderMediaSource: ['link'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Media ID',
+		name: 'templateHeaderMediaId',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+				templateHeaderType: ['image', 'video', 'document'],
+				templateHeaderMediaSource: ['id'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Latitude',
+		name: 'templateHeaderLatitude',
+		type: 'string',
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+				templateHeaderType: ['location'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Longitude',
+		name: 'templateHeaderLongitude',
+		type: 'string',
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+				templateHeaderType: ['location'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Location Name',
+		name: 'templateHeaderLocationName',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+				templateHeaderType: ['location'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Location Address',
+		name: 'templateHeaderLocationAddress',
+		type: 'string',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
+				templateHeaderType: ['location'],
+			},
+		},
+	},
+	{
+		displayName: 'Carousel Cards',
+		name: 'templateCarouselCards',
+		type: 'fixedCollection',
+		typeOptions: {
+			multipleValues: true,
+		},
+		default: {},
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateComponentMode: ['carousel'],
+			},
+		},
+		description:
+			'Each card must match the approved template carousel card count and card_index order',
+		options: [
+			{
+				displayName: 'Card',
+				name: 'cardValues',
+				values: [
+					{
+						displayName: 'Card Index',
+						name: 'cardIndex',
+						type: 'number',
+						default: 0,
+						required: true,
+						typeOptions: { minValue: 0 },
+					},
+					{
+						displayName: 'Header Type',
+						name: 'cardHeaderType',
+						type: 'options',
+						options: [
+							{ name: 'Image', value: 'image' },
+							{ name: 'Video', value: 'video' },
+						],
+						default: 'image',
+					},
+					{
+						displayName: 'Header Media Source',
+						name: 'cardHeaderMediaSource',
+						type: 'options',
+						options: [
+							{ name: 'Public Link', value: 'link' },
+							{ name: 'Media ID', value: 'id' },
+						],
+						default: 'link',
+					},
+					{
+						displayName: 'Header Media URL',
+						name: 'cardHeaderMediaUrl',
+						type: 'string',
+						default: '',
+						displayOptions: {
+							show: { cardHeaderMediaSource: ['link'] },
+						},
+					},
+					{
+						displayName: 'Header Media ID',
+						name: 'cardHeaderMediaId',
+						type: 'string',
+						default: '',
+						displayOptions: {
+							show: { cardHeaderMediaSource: ['id'] },
+						},
+					},
+					{
+						displayName: 'Body Parameters',
+						name: 'cardBodyParameters',
+						type: 'fixedCollection',
+						typeOptions: { multipleValues: true },
+						default: {},
+						options: [
+							{
+								displayName: 'Parameter',
+								name: 'parameterValues',
+								values: [
+									{
+										displayName: 'Parameter Name',
+										name: 'parameterName',
+										type: 'string',
+										default: '',
+									},
+									{
+										displayName: 'Text',
+										name: 'parameterText',
+										type: 'string',
+										default: '',
+										required: true,
+									},
+								],
+							},
+						],
+					},
+					{
+						displayName: 'Button Parameters',
+						name: 'cardButtonParameters',
+						type: 'fixedCollection',
+						typeOptions: { multipleValues: true },
+						default: {},
+						options: [
+							{
+								displayName: 'Button',
+								name: 'buttonValues',
+								values: templateButtonParameterValues,
+							},
+						],
+					},
+				],
+			},
+		],
 	},
 	{
 		displayName: 'Button Parameters',
@@ -422,21 +876,14 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
+				templateComponentMode: ['standard'],
 			},
 		},
 		options: [
 			{
 				displayName: 'Button',
 				name: 'buttonValues',
-				values: [
-					{
-						displayName: 'Text',
-						name: 'buttonText',
-						type: 'string',
-						default: '',
-						required: true,
-					},
-				],
+				values: templateButtonParameterValues,
 			},
 		],
 	},
@@ -454,6 +901,19 @@ export const messageFields: INodeProperties[] = [
 		},
 	},
 	{
+		displayName: 'Remove Reaction',
+		name: 'removeReaction',
+		type: 'boolean',
+		default: false,
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendReaction'],
+			},
+		},
+		description: 'Whether to send an empty emoji to remove the reaction from the message',
+	},
+	{
 		displayName: 'Emoji',
 		name: 'emoji',
 		type: 'string',
@@ -463,6 +923,7 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendReaction'],
+				removeReaction: [false],
 			},
 		},
 	},

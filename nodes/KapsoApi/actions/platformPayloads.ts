@@ -1,5 +1,11 @@
 import { ApplicationError, IDataObject, IExecuteFunctions } from 'n8n-workflow';
-import { parseJsonObject, parseJsonValue } from '../transport/json';
+import { parseJsonObject } from '../transport/json';
+import {
+	buildMetaTemplateComponents,
+	type TemplateButtonParameterInput,
+	type TemplateComponentsInput,
+} from './templateComponents';
+import { buildRecipientTemplateComponentsInput } from './templateInput';
 import {
 	getFixedCollectionItems,
 	getOptionalJsonObject,
@@ -11,22 +17,29 @@ type BodyParameterCollection = {
 };
 
 type ButtonParameterCollection = {
-	buttonParameterValues?: Array<{
-		buttonSubType?: string;
-		buttonIndex?: number;
-		buttonText: string;
-	}>;
+	buttonParameterValues?: TemplateButtonParameterInput[];
 };
 
-type BroadcastRecipientInput = {
+type BroadcastRecipientInput = Omit<
+	TemplateComponentsInput,
+	'bodyParameters' | 'buttonParameters' | 'carouselCards' | 'advancedComponentsJson'
+> & {
 	phoneNumber?: string;
 	whatsappContactId?: string;
 	bodyParameters?: BodyParameterCollection;
-	headerType?: string;
-	headerText?: string;
-	headerImageUrl?: string;
 	buttonParameters?: ButtonParameterCollection;
 	recipientComponentsJson?: string;
+	carouselCards?: {
+		cardValues?: Array<{
+			cardIndex: number;
+			cardHeaderType?: string;
+			cardHeaderMediaSource?: string;
+			cardHeaderMediaUrl?: string;
+			cardHeaderMediaId?: string;
+			cardBodyParameters?: BodyParameterCollection;
+			cardButtonParameters?: ButtonParameterCollection;
+		}>;
+	};
 };
 
 export function buildConversationStatusBody(ef: IExecuteFunctions, itemIndex: number): IDataObject {
@@ -98,56 +111,7 @@ export function buildBroadcastScheduleBody(ef: IExecuteFunctions, itemIndex: num
 }
 
 function buildRecipientTemplateComponents(entry: BroadcastRecipientInput): IDataObject[] | undefined {
-	const advancedJson = entry.recipientComponentsJson?.trim();
-	if (advancedJson) {
-		const parsed = parseJsonValue(advancedJson, 'Advanced Components JSON');
-		return Array.isArray(parsed) ? (parsed as IDataObject[]) : undefined;
-	}
-
-	const components: IDataObject[] = [];
-
-	if (entry.headerType === 'text' && entry.headerText) {
-		components.push({
-			type: 'header',
-			parameters: [{ type: 'text', text: entry.headerText }],
-		});
-	} else if (entry.headerType === 'image' && entry.headerImageUrl) {
-		components.push({
-			type: 'header',
-			parameters: [{ type: 'image', image: { link: entry.headerImageUrl } }],
-		});
-	}
-
-	const bodyParams = entry.bodyParameters?.bodyParameterValues ?? [];
-	if (bodyParams.length > 0) {
-		components.push({
-			type: 'body',
-			parameters: bodyParams.map((parameter) => {
-				const value: IDataObject = {
-					type: 'text',
-					text: parameter.parameterText,
-				};
-
-				if (parameter.parameterName) {
-					value.parameter_name = parameter.parameterName;
-				}
-
-				return value;
-			}),
-		});
-	}
-
-	const buttonParams = entry.buttonParameters?.buttonParameterValues ?? [];
-	buttonParams.forEach((button) => {
-		components.push({
-			type: 'button',
-			sub_type: button.buttonSubType || 'url',
-			index: button.buttonIndex ?? 0,
-			parameters: [{ type: 'text', text: button.buttonText }],
-		});
-	});
-
-	return components.length > 0 ? components : undefined;
+	return buildMetaTemplateComponents(buildRecipientTemplateComponentsInput(entry));
 }
 
 export function buildBroadcastAddRecipientsBody(
@@ -165,6 +129,10 @@ export function buildBroadcastAddRecipientsBody(
 		'recipientValues',
 		itemIndex,
 	).map((entry) => {
+		if (!entry.phoneNumber?.trim() && !entry.whatsappContactId?.trim()) {
+			throw new ApplicationError('Each broadcast recipient requires a phone number or contact ID.');
+		}
+
 		const recipient: IDataObject = {};
 
 		if (entry.whatsappContactId) {
@@ -218,6 +186,5 @@ export function buildBlockUsersBody(ef: IExecuteFunctions, itemIndex: number): I
 
 	return {
 		block_users: users,
-		messaging_product: 'whatsapp',
 	};
 }

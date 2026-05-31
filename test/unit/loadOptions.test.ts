@@ -135,33 +135,55 @@ describe('loadOptions getBroadcastTemplates', () => {
 });
 
 describe('listSearch', () => {
-	it('returns five conversations and a pagination token', async () => {
-		const context = createLoadOptionsContext(
-			{
-				data: [
-					{ id: 'conv-1', phone_number: '5511999999999', status: 'open' },
-					{ id: 'conv-2', phone_number: '5511888888888', status: 'closed' },
-				],
-				meta: { page: 1, total_pages: 3 },
-			},
-			{ phoneNumberId: '111' },
-		);
+	it('returns conversations with cursor pagination', async () => {
+		const request = vi.fn().mockResolvedValue({
+			data: [
+				{ id: 'conv-1', phone_number: '5511999999999', status: 'open' },
+				{ id: 'conv-2', phone_number: '5511888888888', status: 'closed' },
+			],
+			paging: { cursors: { after: 'cursor-page-2' } },
+		});
+
+		const context = {
+			getCredentials: vi.fn().mockResolvedValue({
+				baseUrl: 'https://api.kapso.ai',
+				apiKey: 'test-key',
+			}),
+			getCurrentNodeParameter: vi.fn((name: string) => (name === 'phoneNumberId' ? '111' : undefined)),
+			getNode: vi.fn().mockReturnValue({ name: 'kapsoApi', type: 'n8n-nodes-kapso-api.kapsoApi' }),
+			helpers: { request },
+		} as never;
 
 		const result = await searchConversations.call(context);
 
 		expect(result.results).toHaveLength(2);
 		expect(result.results[0].value).toBe('conv-1');
-		expect(result.paginationToken).toBe('2');
+		expect(result.paginationToken).toBe('cursor-page-2');
+		expect(request).toHaveBeenCalledWith(
+			expect.objectContaining({
+				qs: expect.objectContaining({
+					limit: 5,
+					phone_number_id: '111',
+				}),
+			}),
+		);
 	});
 
-	it('filters contacts client-side by search text', async () => {
-		const context = createLoadOptionsContext({
-			data: [
-				{ id: 'c-1', name: 'Alice', phone_number: '551111' },
-				{ id: 'c-2', name: 'Bob', phone_number: '552222' },
-			],
-			meta: { page: 1, total_pages: 1 },
+	it('searches contacts through the API profile filter', async () => {
+		const request = vi.fn().mockResolvedValue({
+			data: [{ id: 'c-1', name: 'Alice', phone_number: '551111' }],
+			paging: { cursors: {} },
 		});
+
+		const context = {
+			getCredentials: vi.fn().mockResolvedValue({
+				baseUrl: 'https://api.kapso.ai',
+				apiKey: 'test-key',
+			}),
+			getCurrentNodeParameter: vi.fn(),
+			getNode: vi.fn().mockReturnValue({ name: 'kapsoApi', type: 'n8n-nodes-kapso-api.kapsoApi' }),
+			helpers: { request },
+		} as never;
 
 		const result = await searchContacts.call(context, 'alice');
 
@@ -171,6 +193,62 @@ describe('listSearch', () => {
 				value: 'c-1',
 			},
 		]);
+		expect(request).toHaveBeenCalledWith(
+			expect.objectContaining({
+				qs: expect.objectContaining({
+					limit: 5,
+					profile_name_contains: 'alice',
+				}),
+			}),
+		);
+	});
+
+	it('searches contacts by phone digits via wa_id_contains', async () => {
+		const request = vi.fn().mockResolvedValue({
+			data: [{ id: 'c-2', name: 'Bob', phone_number: '5511999999999' }],
+			paging: { cursors: {} },
+		});
+
+		const context = {
+			getCredentials: vi.fn().mockResolvedValue({
+				baseUrl: 'https://api.kapso.ai',
+				apiKey: 'test-key',
+			}),
+			getCurrentNodeParameter: vi.fn(),
+			getNode: vi.fn().mockReturnValue({ name: 'kapsoApi', type: 'n8n-nodes-kapso-api.kapsoApi' }),
+			helpers: { request },
+		} as never;
+
+		await searchContacts.call(context, '5511999999999');
+
+		expect(request).toHaveBeenCalledWith(
+			expect.objectContaining({
+				qs: expect.objectContaining({
+					wa_id_contains: '5511999999999',
+				}),
+			}),
+		);
+	});
+
+	it('omits contacts without a platform id from locator results', async () => {
+		const request = vi.fn().mockResolvedValue({
+			data: [{ name: 'No Id', phone_number: '551111' }],
+			paging: { cursors: {} },
+		});
+
+		const context = {
+			getCredentials: vi.fn().mockResolvedValue({
+				baseUrl: 'https://api.kapso.ai',
+				apiKey: 'test-key',
+			}),
+			getCurrentNodeParameter: vi.fn(),
+			getNode: vi.fn().mockReturnValue({ name: 'kapsoApi', type: 'n8n-nodes-kapso-api.kapsoApi' }),
+			helpers: { request },
+		} as never;
+
+		const result = await searchContacts.call(context);
+
+		expect(result.results).toEqual([]);
 	});
 
 	it('searches broadcasts without requiring a phone number', async () => {

@@ -3,6 +3,8 @@ export type KapsoWebhookEvent = {
 	value: string;
 };
 
+export const KAPSO_WEBHOOK_UNKNOWN_EVENT = '__kapso_unknown__';
+
 export const KAPSO_WEBHOOK_EVENTS: KapsoWebhookEvent[] = [
 	{ name: 'Message Received', value: 'whatsapp.message.received' },
 	{ name: 'Message Sent', value: 'whatsapp.message.sent' },
@@ -12,4 +14,5 @@ export const KAPSO_WEBHOOK_EVENTS: KapsoWebhookEvent[] = [
 	{ name: 'Conversation Created', value: 'whatsapp.conversation.created' },
 	{ name: 'Conversation Ended', value: 'whatsapp.conversation.ended' },
 	{ name: 'Conversation Inactive', value: 'whatsapp.conversation.inactive' },
+	{ name: 'Other Event', value: KAPSO_WEBHOOK_UNKNOWN_EVENT },
 ];

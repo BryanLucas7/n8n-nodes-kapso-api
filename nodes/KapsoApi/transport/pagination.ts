@@ -5,14 +5,9 @@ import { KapsoListResponse, KapsoRequestArgs } from './types';
 
 export function buildPaginationQuery(
 	query: IDataObject,
-	returnAll: boolean,
 	page: number,
 	perPage: number,
 ): IDataObject {
-	if (returnAll) {
-		return cleanObject({ ...query, page, per_page: perPage });
-	}
-
 	return cleanObject({ ...query, page, per_page: perPage });
 }
 
@@ -22,7 +17,7 @@ function responseHasNextPage(response: KapsoListResponse, currentPage: number): 
 	return typeof totalPages === 'number' && currentPage < totalPages;
 }
 
-type MessageListResponse = {
+type CursorListResponse = {
 	data?: IDataObject[];
 	paging?: {
 		cursors?: {
@@ -31,7 +26,9 @@ type MessageListResponse = {
 	};
 };
 
-export async function requestMessageListAll(
+export const CURSOR_LIST_MAX_PAGES = 100;
+
+export async function requestCursorListAll(
 	ef: IExecuteFunctions,
 	baseArgs: KapsoRequestArgs,
 	limit: number,
@@ -39,6 +36,8 @@ export async function requestMessageListAll(
 ): Promise<unknown> {
 	const collected: IDataObject[] = [];
 	let after: string | undefined;
+	const seenCursors = new Set<string>();
+	let pageCount = 0;
 
 	for (;;) {
 		const query = cleanObject({
@@ -54,16 +53,24 @@ export async function requestMessageListAll(
 				query,
 			},
 			itemIndex,
-		)) as MessageListResponse;
+		)) as CursorListResponse;
 
 		if (Array.isArray(response.data)) {
 			collected.push(...response.data);
 		}
 
-		after = response.paging?.cursors?.after;
-		if (!after) {
+		const nextAfter = response.paging?.cursors?.after;
+		if (!nextAfter) {
 			break;
 		}
+
+		if (seenCursors.has(nextAfter) || pageCount >= CURSOR_LIST_MAX_PAGES) {
+			break;
+		}
+
+		seenCursors.add(nextAfter);
+		after = nextAfter;
+		pageCount += 1;
 	}
 
 	return {
@@ -73,6 +80,15 @@ export async function requestMessageListAll(
 			paginated: true,
 		},
 	};
+}
+
+export async function requestMessageListAll(
+	ef: IExecuteFunctions,
+	baseArgs: KapsoRequestArgs,
+	limit: number,
+	itemIndex: number,
+): Promise<unknown> {
+	return requestCursorListAll(ef, baseArgs, limit, itemIndex);
 }
 
 export async function requestPaginated(
@@ -94,7 +110,7 @@ export async function requestPaginated(
 			ef,
 			{
 				...baseArgs,
-				query: buildPaginationQuery(baseArgs.query ?? {}, true, page, perPage),
+				query: buildPaginationQuery(baseArgs.query ?? {}, page, perPage),
 			},
 			itemIndex,
 		)) as KapsoListResponse;

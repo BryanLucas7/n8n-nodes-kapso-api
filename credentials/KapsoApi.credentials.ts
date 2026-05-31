@@ -31,6 +31,17 @@ export class KapsoApi implements ICredentialType {
 			description: 'Kapso project API key from your Kapso dashboard.',
 			required: true,
 		},
+		{
+			displayName: 'Webhook Secret',
+			name: 'webhookSecret',
+			type: 'string',
+			default: '',
+			typeOptions: {
+				password: true,
+			},
+			description:
+				'Webhook signing secret from Kapso (required by Kapso Trigger for X-Webhook-Signature verification).',
+		},
 	];
 
 	authenticate: IAuthenticateGeneric = {

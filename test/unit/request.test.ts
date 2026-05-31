@@ -117,7 +117,6 @@ describe('Kapso pagination query', () => {
 					status: 'connected',
 					name_contains: 'Support',
 				},
-				false,
 				3,
 				25,
 			),

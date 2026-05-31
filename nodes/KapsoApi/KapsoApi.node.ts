@@ -14,7 +14,7 @@ import {
 	getString,
 	itemPair,
 } from './actions/nodeHelpers';
-import { resourcesWithPagination } from './actions/operations';
+import { resourcesWithCursorPagination, resourcesWithPagination } from './actions/operations';
 import { buildRequest, pathId } from './actions/routing';
 import {
 	getBroadcastTemplates,
@@ -25,7 +25,7 @@ import {
 	searchConversations,
 } from './loadOptions';
 import { kapsoNodeProperties } from './properties';
-import { requestPaginated, requestMessageListAll } from './transport/pagination';
+import { requestCursorListAll, requestPaginated } from './transport/pagination';
 import { kapsoApiRequest } from './transport/request';
 
 export class KapsoApi implements INodeType {
@@ -149,14 +149,14 @@ export class KapsoApi implements INodeType {
 
 				let response: unknown;
 
-				if (opKey === 'message:list') {
+				if (resourcesWithCursorPagination.includes(opKey)) {
 					const listQuery = {
 						...(requestArgs.query ?? {}),
 						limit: perPage,
 					};
 
 					response = returnAll
-						? await requestMessageListAll(
+						? await requestCursorListAll(
 								this,
 								{
 									...requestArgs,

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	asJsonItems,
-	advancedBodyJson,
 	bodyJson,
 	getBoolean,
 	getFixedCollectionItems,
@@ -41,19 +40,14 @@ describe('nodeHelpers', () => {
 		).toEqual([{ buttonId: 'btn_yes', buttonTitle: 'Yes' }]);
 	});
 
-	it('parses advanced body JSON parameters', () => {
+	it('parses advanced option helpers', () => {
 		const ef = createMockExecuteFunctions({
 			advancedOptions: {
-				bodyJson: '{"type":"text","text":{"body":"Hi"}}',
 				replyToMessageId: 'wamid.parent',
 				linkPreview: true,
 			},
 		});
 
-		expect(advancedBodyJson(ef, 0)).toEqual({
-			type: 'text',
-			text: { body: 'Hi' },
-		});
 		expect(getReplyToMessageId(ef, 0)).toBe('wamid.parent');
 		expect(getBoolean(ef, 'typingIndicator', 0)).toBe(false);
 	});

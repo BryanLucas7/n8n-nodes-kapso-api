@@ -8,6 +8,7 @@ describe('KapsoTrigger node', () => {
 
 		expect(node.description.outputs).toHaveLength(KAPSO_WEBHOOK_EVENTS.length);
 		expect(node.description.outputNames).toHaveLength(KAPSO_WEBHOOK_EVENTS.length);
+		expect(node.description.credentials).toEqual([{ name: 'kapsoApi', required: true }]);
 		expect(node.webhook).toBeTypeOf('function');
 		expect(node.description.webhooks?.[0]?.path).toBe('kapso');
 	});

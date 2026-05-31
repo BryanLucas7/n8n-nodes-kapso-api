@@ -5,7 +5,7 @@ import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
 
 const kapsoApiRequestMock = vi.fn();
 const requestPaginatedMock = vi.fn();
-const requestMessageListAllMock = vi.fn();
+const requestCursorListAllMock = vi.fn();
 
 vi.mock('../../nodes/KapsoApi/transport/request', () => ({
 	kapsoApiRequest: (...args: unknown[]) => kapsoApiRequestMock(...args),
@@ -13,7 +13,7 @@ vi.mock('../../nodes/KapsoApi/transport/request', () => ({
 
 vi.mock('../../nodes/KapsoApi/transport/pagination', () => ({
 	requestPaginated: (...args: unknown[]) => requestPaginatedMock(...args),
-	requestMessageListAll: (...args: unknown[]) => requestMessageListAllMock(...args),
+	requestCursorListAll: (...args: unknown[]) => requestCursorListAllMock(...args),
 }));
 
 describe('KapsoApi node execute', () => {
@@ -22,7 +22,7 @@ describe('KapsoApi node execute', () => {
 	beforeEach(() => {
 		kapsoApiRequestMock.mockReset();
 		requestPaginatedMock.mockReset();
-		requestMessageListAllMock.mockReset();
+		requestCursorListAllMock.mockReset();
 	});
 
 	it('returns JSON items for a standard platform request', async () => {
@@ -39,8 +39,8 @@ describe('KapsoApi node execute', () => {
 		expect(kapsoApiRequestMock).toHaveBeenCalledOnce();
 	});
 
-	it('uses requestMessageListAll when message list returnAll is enabled', async () => {
-		requestMessageListAllMock.mockResolvedValue({
+	it('uses requestCursorListAll when message list returnAll is enabled', async () => {
+		requestCursorListAllMock.mockResolvedValue({
 			data: [{ id: 1 }, { id: 2 }],
 			meta: { paginated: true },
 		});
@@ -55,9 +55,27 @@ describe('KapsoApi node execute', () => {
 		const [items] = await node.execute.call(ef);
 
 		expect(items[0].json).toMatchObject({ data: [{ id: 1 }, { id: 2 }] });
-		expect(requestMessageListAllMock).toHaveBeenCalledOnce();
+		expect(requestCursorListAllMock).toHaveBeenCalledOnce();
 		expect(requestPaginatedMock).not.toHaveBeenCalled();
 		expect(kapsoApiRequestMock).not.toHaveBeenCalled();
+	});
+
+	it('uses requestCursorListAll when platform message list returnAll is enabled', async () => {
+		requestCursorListAllMock.mockResolvedValue({
+			data: [{ id: 'msg-1' }],
+			meta: { paginated: true },
+		});
+		const ef = createMockExecuteFunctions({
+			resource: 'platformMessage',
+			operation: 'list',
+			returnAll: true,
+			perPage: 50,
+		});
+
+		const [items] = await node.execute.call(ef);
+
+		expect(items[0].json).toMatchObject({ data: [{ id: 'msg-1' }] });
+		expect(requestCursorListAllMock).toHaveBeenCalledOnce();
 	});
 
 	it('uses kapsoApiRequest with limit for a single message list page', async () => {

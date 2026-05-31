@@ -147,16 +147,94 @@ export function bodyJson(ef: IExecuteFunctions, itemIndex: number): IDataObject 
 	return parseJsonObject(ef.getNodeParameter('bodyJson', itemIndex, '{}') as string, 'Body JSON');
 }
 
-export function advancedBodyJson(ef: IExecuteFunctions, itemIndex: number): IDataObject {
-	const bodyJsonValue = getAdvancedOptionValue(ef, itemIndex, 'bodyJson');
-	const raw =
-		typeof bodyJsonValue === 'string' && bodyJsonValue.trim() ? bodyJsonValue : '{}';
-	return parseJsonObject(raw, 'Request Body JSON (Advanced)');
-}
-
 export function advancedComponentsJson(ef: IExecuteFunctions, itemIndex: number): string | undefined {
 	const value = getAdvancedOptionValue(ef, itemIndex, 'advancedComponentsJson');
 	return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function getPlatformListOptions(ef: IExecuteFunctions, itemIndex: number): AdvancedOptionsParameter {
+	return ef.getNodeParameter('platformListOptions', itemIndex, {}) as AdvancedOptionsParameter;
+}
+
+function getPlatformListOptionValue(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	field: string,
+): string | boolean | undefined {
+	const options = getPlatformListOptions(ef, itemIndex);
+	if (field in options) {
+		return options[field] as string | boolean | undefined;
+	}
+	return undefined;
+}
+
+export function getPlatformListOptionString(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	name: string,
+): string {
+	const value = getPlatformListOptionValue(ef, itemIndex, name);
+	return typeof value === 'string' ? value : '';
+}
+
+export function getPlatformListOptionBoolean(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	name: string,
+	defaultValue: boolean,
+): boolean {
+	const value = getPlatformListOptionValue(ef, itemIndex, name);
+	return typeof value === 'boolean' ? value : defaultValue;
+}
+
+function getPlatformMessageListOptions(ef: IExecuteFunctions, itemIndex: number): AdvancedOptionsParameter {
+	return ef.getNodeParameter('platformMessageListOptions', itemIndex, {}) as AdvancedOptionsParameter;
+}
+
+function getPlatformMessageListOptionValue(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	field: string,
+): string | boolean | undefined {
+	const options = getPlatformMessageListOptions(ef, itemIndex);
+	if (field in options) {
+		return options[field] as string | boolean | undefined;
+	}
+	return undefined;
+}
+
+export function getPlatformMessageListOptionString(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	name: string,
+): string {
+	const value = getPlatformMessageListOptionValue(ef, itemIndex, name);
+	return typeof value === 'string' ? value : '';
+}
+
+function getBroadcastListOptions(ef: IExecuteFunctions, itemIndex: number): AdvancedOptionsParameter {
+	return ef.getNodeParameter('broadcastListOptions', itemIndex, {}) as AdvancedOptionsParameter;
+}
+
+function getBroadcastListOptionValue(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	field: string,
+): string | boolean | undefined {
+	const options = getBroadcastListOptions(ef, itemIndex);
+	if (field in options) {
+		return options[field] as string | boolean | undefined;
+	}
+	return undefined;
+}
+
+export function getBroadcastListOptionString(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	name: string,
+): string {
+	const value = getBroadcastListOptionValue(ef, itemIndex, name);
+	return typeof value === 'string' ? value : '';
 }
 
 export function itemPair(itemIndex: number): { item: number } {

@@ -1,6 +1,7 @@
 import { INodeProperties } from 'n8n-workflow';
 import { resourceOptions } from '../actions/operations';
 import { messageFields } from './message.fields';
+import { messageExtendedFields } from './messageExtended.fields';
 import {
 	advancedOptionsField,
 	operationProperties,
@@ -8,6 +9,9 @@ import {
 	phoneNumberIdField,
 } from './shared.fields';
 import { resourceFields } from './resource.fields';
+import { platformListOptionsField } from './platformList.fields';
+import { platformMessageFields } from './platformMessage.fields';
+import { broadcastListOptionsField } from './broadcastList.fields';
 
 export const kapsoNodeProperties: INodeProperties[] = [
 	{
@@ -21,7 +25,11 @@ export const kapsoNodeProperties: INodeProperties[] = [
 	...operationProperties(),
 	phoneNumberIdField,
 	...messageFields,
+	...messageExtendedFields,
 	...resourceFields,
+	...platformMessageFields,
 	...paginationFields,
+	platformListOptionsField,
+	broadcastListOptionsField,
 	advancedOptionsField,
 ];

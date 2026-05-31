@@ -1,3 +1,4 @@
+import { createHmac } from 'crypto';
 import { describe, expect, it, vi } from 'vitest';
 import { IWebhookFunctions } from 'n8n-workflow';
 import { KAPSO_WEBHOOK_EVENTS } from '../../nodes/KapsoApi/trigger/events';
@@ -6,6 +7,26 @@ import {
 	makeKapsoWebhookHandler,
 	resolveKapsoWebhookEvent,
 } from '../../nodes/KapsoApi/trigger/trigger';
+
+const WEBHOOK_SECRET = 'test-webhook-secret';
+
+function signBody(body: Record<string, unknown>): string {
+	return createHmac('sha256', WEBHOOK_SECRET)
+		.update(JSON.stringify(body))
+		.digest('hex');
+}
+
+function createWebhookContext(
+	body: Record<string, unknown>,
+	headers: Record<string, string> = {},
+): IWebhookFunctions {
+	return {
+		getBodyData: () => body,
+		getHeaderData: () => headers,
+		getCredentials: vi.fn().mockResolvedValue({ webhookSecret: WEBHOOK_SECRET }),
+		getRequestObject: () => ({ rawBody: Buffer.from(JSON.stringify(body), 'utf8') }),
+	} as unknown as IWebhookFunctions;
+}
 
 describe('Kapso webhook trigger routing', () => {
 	it('resolves event type from header or body fallback', () => {
@@ -35,12 +56,13 @@ describe('Kapso webhook trigger routing', () => {
 
 	it('routes items to the matching output only', async () => {
 		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
-		const webhookContext = {
-			getBodyData: () => ({
-				data: [{ message: { id: 'wamid.1' }, phone_number_id: '123' }],
-			}),
-			getHeaderData: () => ({ 'x-webhook-event': 'whatsapp.message.received' }),
-		} as unknown as IWebhookFunctions;
+		const body = {
+			data: [{ message: { id: 'wamid.1' }, phone_number_id: '123' }],
+		};
+		const webhookContext = createWebhookContext(body, {
+			'x-webhook-event': 'whatsapp.message.received',
+			'x-webhook-signature': signBody(body),
+		});
 
 		const response = await handler.call(webhookContext);
 
@@ -57,15 +79,61 @@ describe('Kapso webhook trigger routing', () => {
 		expect(response.workflowData?.[1]).toEqual([]);
 	});
 
-	it('returns empty outputs for unknown events', async () => {
+	it('routes unknown events to the Other Event output', async () => {
 		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
+		const body = { message: { id: 'wamid.1' } };
+		const webhookContext = createWebhookContext(body, {
+			'x-webhook-event': 'whatsapp.phone_number.created',
+			'x-webhook-signature': signBody(body),
+		});
+
+		const response = await handler.call(webhookContext);
+		const otherOutputIndex = KAPSO_WEBHOOK_EVENTS.length - 1;
+
+		expect(response.workflowData?.[otherOutputIndex]).toEqual([
+			{
+				json: {
+					message: { id: 'wamid.1' },
+					kapso_event: 'whatsapp.phone_number.created',
+				},
+			},
+		]);
+	});
+
+	it('rejects webhooks when credential webhook secret is missing', async () => {
+		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
+		const body = { message: { id: 'wamid.1' } };
 		const webhookContext = {
-			getBodyData: () => ({ message: { id: 'wamid.1' } }),
-			getHeaderData: () => ({ 'x-webhook-event': 'whatsapp.phone_number.created' }),
+			getBodyData: () => body,
+			getHeaderData: () => ({
+				'x-webhook-event': 'whatsapp.message.received',
+				'x-webhook-signature': signBody(body),
+			}),
+			getCredentials: vi.fn().mockResolvedValue({ webhookSecret: '' }),
+			getRequestObject: () => ({ rawBody: Buffer.from(JSON.stringify(body), 'utf8') }),
 		} as unknown as IWebhookFunctions;
 
 		const response = await handler.call(webhookContext);
 
-		expect(response.workflowData?.every((output) => output.length === 0)).toBe(true);
+		expect(response.webhookResponse).toEqual({
+			statusCode: 500,
+			body: 'Webhook Secret is required on the Kapso API credential.',
+		});
+	});
+
+	it('rejects webhooks with invalid signatures', async () => {
+		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
+		const body = { message: { id: 'wamid.1' } };
+		const webhookContext = createWebhookContext(body, {
+			'x-webhook-event': 'whatsapp.message.received',
+			'x-webhook-signature': 'invalid',
+		});
+
+		const response = await handler.call(webhookContext);
+
+		expect(response.webhookResponse).toEqual({
+			statusCode: 401,
+			body: 'Invalid webhook signature',
+		});
 	});
 });

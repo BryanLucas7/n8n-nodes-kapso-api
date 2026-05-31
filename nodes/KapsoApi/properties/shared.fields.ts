@@ -27,6 +27,32 @@ const phoneNumberIdOperations = [
 
 const messageReplyOperationValues = [...messageReplyOperations];
 
+const messageOperationsWithoutAdvancedOptions = [
+	'sendContact',
+	'sendReaction',
+	'markRead',
+	'requestLocation',
+	'sendCallPermission',
+] as const;
+
+const phoneNumberIdDisplayOptions = {
+	show: [
+		{
+			resource: ['message', 'media', 'blockUser'],
+			operation: phoneNumberIdOperations,
+		},
+		{
+			resource: ['platformMessage'],
+			operation: ['list'],
+		},
+		{
+			resource: [CUSTOM_API_CALL],
+			operation: [CUSTOM_API_CALL],
+			customApiSurface: ['whatsapp'],
+		},
+	],
+} as unknown as INodeProperties['displayOptions'];
+
 export const phoneNumberIdField: INodeProperties = {
 	displayName: 'Phone Number Name or ID',
 	name: 'phoneNumberId',
@@ -35,12 +61,7 @@ export const phoneNumberIdField: INodeProperties = {
 	typeOptions: {
 		loadOptionsMethod: 'getPhoneNumbers',
 	},
-	displayOptions: {
-		show: {
-			resource: ['message', 'media', 'blockUser', 'conversation'],
-			operation: [...phoneNumberIdOperations, 'get', 'updateStatus'],
-		},
-	},
+	displayOptions: phoneNumberIdDisplayOptions,
 	description:
 		'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 };
@@ -53,7 +74,7 @@ export const paginationFields: INodeProperties[] = [
 		default: false,
 		displayOptions: {
 			show: {
-				resource: ['message', 'broadcast'],
+				resource: ['message', 'platformMessage', 'broadcast', 'contact', 'conversation'],
 				operation: paginatedOperations,
 			},
 		},
@@ -74,7 +95,7 @@ export const paginationFields: INodeProperties[] = [
 				returnAll: [false],
 			},
 		},
-		description: 'Page number for platform paginated endpoints such as broadcast list recipients',
+		description: 'Page number for broadcast list and list recipients (offset pagination)',
 	},
 	{
 		displayName: 'Per Page',
@@ -87,16 +108,14 @@ export const paginationFields: INodeProperties[] = [
 		},
 		displayOptions: {
 			show: {
-				resource: ['message', 'broadcast'],
+				resource: ['message', 'platformMessage', 'broadcast', 'contact', 'conversation'],
 				operation: paginatedOperations,
 			},
 		},
 		description:
-			'Results per request. For List Messages this maps to the Kapso `limit` query parameter (max 100).',
+			'Results per request. Maps to Kapso `limit` for cursor-paginated lists (max 100) or `per_page` for broadcast lists.',
 	},
 ];
-
-const messageOperationsWithoutAdvancedOptions = ['sendContact', 'sendReaction', 'markRead'] as const;
 
 export const advancedOptionsField: INodeProperties = {
 	displayName: 'Additional Options',
@@ -179,7 +198,7 @@ export const advancedOptionsField: INodeProperties = {
 				},
 			},
 			description:
-				'Optional Meta `fields` query override. When set, it replaces the Include Kapso Extensions toggle.',
+				'Optional Meta `fields` query override. When set, it replaces the default Kapso extensions field set.',
 		},
 		{
 			displayName: 'Direction',
@@ -197,20 +216,6 @@ export const advancedOptionsField: INodeProperties = {
 					'/operation': ['list'],
 				},
 			},
-		},
-		{
-			displayName: 'Include Kapso Extensions',
-			name: 'includeKapsoExtensions',
-			type: 'boolean',
-			default: true,
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list', 'get'],
-				},
-			},
-			description:
-				'Whether to request Kapso-specific message fields via `fields=kapso()`. Disable to use only Meta fields, or override with Custom Response Fields.',
 		},
 		{
 			displayName: 'Link Preview',
@@ -276,19 +281,6 @@ export const advancedOptionsField: INodeProperties = {
 					'/operation': messageReplyOperationValues,
 				},
 			},
-		},
-		{
-			displayName: 'Request Body JSON (Advanced)',
-			name: 'bodyJson',
-			type: 'json',
-			default: '{}',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['sendRaw'],
-				},
-			},
-			description: 'Full Meta-compatible message JSON body',
 		},
 		{
 			displayName: 'Since',

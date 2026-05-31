@@ -31,6 +31,45 @@ function matchesFilter(entry: IDataObject, filter?: string): boolean {
 	return haystack.includes(filter.trim().toLowerCase());
 }
 
+function digitsOnly(value: string): string {
+	return value.replace(/\D/g, '');
+}
+
+function looksLikePhoneFilter(filter: string): boolean {
+	const compact = filter.replace(/\s/g, '');
+	const digits = digitsOnly(compact);
+
+	return digits.length >= 3 && digits.length >= compact.replace(/^\+/, '').length * 0.7;
+}
+
+function buildContactSearchQuery(filter?: string): IDataObject {
+	if (!filter?.trim()) {
+		return {};
+	}
+
+	const trimmed = filter.trim();
+
+	if (looksLikePhoneFilter(trimmed)) {
+		return { wa_id_contains: digitsOnly(trimmed) };
+	}
+
+	return { profile_name_contains: trimmed };
+}
+
+function buildConversationSearchQuery(filter?: string): IDataObject {
+	if (!filter?.trim()) {
+		return {};
+	}
+
+	const trimmed = filter.trim();
+
+	if (looksLikePhoneFilter(trimmed)) {
+		return { phone_number: digitsOnly(trimmed) };
+	}
+
+	return { phone_number: trimmed };
+}
+
 function conversationLabel(entry: IDataObject): string {
 	const id = String(entry.id ?? '');
 	const phone = String(entry.phone_number ?? entry.contact_phone_number ?? entry.phone ?? '');
@@ -64,9 +103,50 @@ function broadcastLabel(entry: IDataObject): string {
 }
 
 function contactValue(entry: IDataObject): string {
-	return String(
-		entry.id ?? entry.uuid ?? entry.contact_id ?? entry.phone_number ?? entry.phone ?? entry.wa_id ?? '',
-	);
+	const id = entry.id ?? entry.uuid ?? entry.contact_id;
+
+	return id ? String(id) : '';
+}
+
+async function searchCursorResource(
+	context: ILoadOptionsFunctions,
+	path: string,
+	labelFn: (entry: IDataObject) => string,
+	valueFn: (entry: IDataObject) => string,
+	filter?: string,
+	paginationToken?: string,
+	query: IDataObject = {},
+	filterQuery: IDataObject = {},
+): Promise<INodeListSearchResult> {
+	const usesServerFilter = Object.keys(filterQuery).length > 0;
+	const response = await kapsoLoadOptionsRequest(context, {
+		api: 'platform',
+		method: 'GET',
+		path,
+		query: {
+			...query,
+			...filterQuery,
+			limit: LIST_SEARCH_INITIAL_SIZE,
+			...(paginationToken ? { after: paginationToken } : {}),
+		},
+	});
+
+	const entries = extractResponseData(response).filter((entry) => {
+		if (!valueFn(entry)) {
+			return false;
+		}
+
+		return usesServerFilter ? true : matchesFilter(entry, filter);
+	});
+	const after = (response as { paging?: { cursors?: { after?: string } } }).paging?.cursors?.after;
+
+	return {
+		results: entries.map((entry) => ({
+			name: labelFn(entry),
+			value: valueFn(entry),
+		})),
+		paginationToken: after,
+	};
 }
 
 async function searchPaginatedResource(
@@ -114,7 +194,7 @@ export async function searchConversations(
 		query.phone_number_id = phoneNumberId;
 	}
 
-	return searchPaginatedResource(
+	return searchCursorResource(
 		this,
 		'/whatsapp/conversations',
 		conversationLabel,
@@ -122,6 +202,7 @@ export async function searchConversations(
 		filter,
 		paginationToken,
 		query,
+		buildConversationSearchQuery(filter),
 	);
 }
 
@@ -130,13 +211,15 @@ export async function searchContacts(
 	filter?: string,
 	paginationToken?: string,
 ): Promise<INodeListSearchResult> {
-	return searchPaginatedResource(
+	return searchCursorResource(
 		this,
 		'/whatsapp/contacts',
 		contactLabel,
 		contactValue,
 		filter,
 		paginationToken,
+		{},
+		buildContactSearchQuery(filter),
 	);
 }
 

@@ -8,6 +8,7 @@ import {
 	buildRequest,
 	customRelativePath,
 	pathId,
+	resolveWhatsappCustomPath,
 } from '../../nodes/KapsoApi/actions/routing';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
@@ -28,34 +29,51 @@ const ROUTING_EXPECTATIONS: Record<
 	'message:sendVideo': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendAudio': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendDocument': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendSticker': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendLocation': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:requestLocation': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendButtons': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendList': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendCtaUrl': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendProduct': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendProductList': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendCatalog': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendFlow': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendCallPermission': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendContact': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendTemplate': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendReaction': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:markRead': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
-	'message:sendRaw': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:list': { api: 'whatsapp', method: 'GET', path: `/${PHONE}/messages` },
 	'message:get': {
 		api: 'whatsapp',
 		method: 'GET',
 		path: `/${PHONE}/messages/${encodeURIComponent(MESSAGE)}`,
 	},
+	'platformMessage:list': { api: 'platform', method: 'GET', path: '/whatsapp/messages' },
+	'platformMessage:get': {
+		api: 'platform',
+		method: 'GET',
+		path: `/whatsapp/messages/${encodeURIComponent(MESSAGE)}`,
+	},
 	'media:uploadFromUrl': { api: 'platform', method: 'POST', path: '/whatsapp/media' },
 	'media:getUrl': { api: 'whatsapp', method: 'GET', path: `/${MEDIA}` },
 	'media:download': { api: 'mediaDownload', method: 'GET', path: '/media_download' },
 	'media:delete': { api: 'whatsapp', method: 'DELETE', path: `/${MEDIA}` },
 	'conversation:get': { api: 'platform', method: 'GET', path: `/whatsapp/conversations/${CONV}` },
+	'conversation:list': { api: 'platform', method: 'GET', path: '/whatsapp/conversations' },
 	'conversation:updateStatus': {
 		api: 'platform',
 		method: 'PATCH',
 		path: `/whatsapp/conversations/${CONV}`,
 	},
 	'contact:get': { api: 'platform', method: 'GET', path: `/whatsapp/contacts/${CONTACT}` },
+	'contact:list': { api: 'platform', method: 'GET', path: '/whatsapp/contacts' },
 	'contact:create': { api: 'platform', method: 'POST', path: '/whatsapp/contacts' },
 	'contact:update': { api: 'platform', method: 'PATCH', path: `/whatsapp/contacts/${CONTACT}` },
 	'contact:erase': { api: 'platform', method: 'DELETE', path: `/whatsapp/contacts/${CONTACT}` },
 	'broadcast:get': { api: 'platform', method: 'GET', path: `/whatsapp/broadcasts/${BROADCAST}` },
+	'broadcast:list': { api: 'platform', method: 'GET', path: '/whatsapp/broadcasts' },
 	'broadcast:create': { api: 'platform', method: 'POST', path: '/whatsapp/broadcasts' },
 	'broadcast:addRecipients': {
 		api: 'platform',
@@ -134,7 +152,6 @@ describe('routing', () => {
 			operation: 'list',
 			advancedOptions: {
 				messageListDirection: 'outbound',
-				includeKapsoExtensions: false,
 			},
 		});
 
@@ -142,8 +159,56 @@ describe('routing', () => {
 
 		expect(request.query).toEqual({
 			direction: 'outbound',
+			fields: 'kapso()',
 		});
 	});
+
+	it('prefixes WhatsApp custom API paths with the selected phone number', () => {
+		const ef = createMockExecuteFunctions({
+			resource: CUSTOM_API_CALL,
+			operation: CUSTOM_API_CALL,
+			customMethod: 'POST',
+			customApiSurface: 'whatsapp',
+			customPath: '/messages',
+			phoneNumberId: PHONE,
+			bodyJson: '{"type":"text","text":{"body":"Hi"}}',
+		});
+
+		const request = buildRequest(ef, CUSTOM_API_CALL, CUSTOM_API_CALL, 0);
+
+		expect(request.path).toBe(`/${PHONE}/messages`);
+	});
+
+	it('requires phone number for WhatsApp custom API paths that need prefixing', () => {
+		const ef = createMockExecuteFunctions({
+			resource: CUSTOM_API_CALL,
+			operation: CUSTOM_API_CALL,
+			customMethod: 'POST',
+			customApiSurface: 'whatsapp',
+			customPath: '/messages',
+			phoneNumberId: '',
+			bodyJson: '{"type":"text","text":{"body":"Hi"}}',
+		});
+
+		expect(() => buildRequest(ef, CUSTOM_API_CALL, CUSTOM_API_CALL, 0)).toThrow(
+			/Phone Number is required/,
+		);
+	});
+
+	it('builds custom API GET requests without body', () => {
+		const ef = createMockExecuteFunctions({
+			resource: CUSTOM_API_CALL,
+			operation: CUSTOM_API_CALL,
+			customMethod: 'GET',
+			customApiSurface: 'platform',
+			customPath: '/whatsapp/contacts',
+		});
+
+		const request = buildRequest(ef, CUSTOM_API_CALL, CUSTOM_API_CALL, 0);
+
+		expect(request.body).toBeUndefined();
+	});
+
 	it('builds custom API call requests', () => {
 		const ef = createMockExecuteFunctions({
 			resource: CUSTOM_API_CALL,
@@ -189,6 +254,8 @@ describe('routing', () => {
 		expect(pathId('abc', 'ID')).toBe('abc');
 		expect(() => pathId('', 'ID')).toThrow(/ID is required/);
 		expect(customRelativePath('whatsapp/contacts')).toBe('/whatsapp/contacts');
+		expect(resolveWhatsappCustomPath(PHONE, '/messages')).toBe(`/${PHONE}/messages`);
 		expect(() => customRelativePath('https://api.kapso.ai/platform')).toThrow(/must be relative/);
+		expect(() => customRelativePath('../whatsapp/contacts')).toThrow(/\.\./);
 	});
 });

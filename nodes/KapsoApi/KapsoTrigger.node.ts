@@ -24,7 +24,7 @@ export class KapsoTrigger implements INodeType {
 		credentials: [
 			{
 				name: 'kapsoApi',
-				required: false,
+				required: true,
 			},
 		],
 		webhooks: [
@@ -36,6 +36,13 @@ export class KapsoTrigger implements INodeType {
 			},
 		],
 		properties: [
+			{
+				displayName:
+					'Set the Webhook Secret on the Kapso API credential. Every request must include a valid X-Webhook-Signature (HMAC SHA256).',
+				name: 'kapsoWebhookSecretNotice',
+				type: 'notice',
+				default: '',
+			},
 			{
 				displayName:
 					'Configure this webhook URL in the Kapso dashboard. Kapso sends the event type in the X-Webhook-Event header.',
@@ -62,6 +69,13 @@ export class KapsoTrigger implements INodeType {
 				default: '',
 				description:
 					'See Kapso docs for recommended expression defaults on the Kapso API node after this trigger',
+			},
+			{
+				displayName:
+					'Events not listed above are routed to the Other Event output when X-Webhook-Event is present.',
+				name: 'kapsoUnknownEventNotice',
+				type: 'notice',
+				default: '',
 			},
 		],
 	};
