@@ -1,9 +1,12 @@
 import {
+	ApplicationError,
 	IDataObject,
 	IExecuteFunctions,
 	INodeExecutionData,
+	isResourceLocatorValue,
 } from 'n8n-workflow';
 import { parseJsonObject } from '../transport/json';
+import { assertPublicMediaUrl, assertWhatsAppMediaId } from './validation';
 
 type FixedCollectionParameter = {
 	[key: string]: IDataObject[] | undefined;
@@ -33,6 +36,78 @@ export function getResourceParameter(
 	return '';
 }
 
+export function readMetaPhoneResourceLocatorValue(value: unknown, label: string): string {
+	if (typeof value === 'string') {
+		throw new ApplicationError(
+			`${label} must use the phone number selector. Open the node and choose the phone number again.`,
+		);
+	}
+
+	if (!isResourceLocatorValue(value)) {
+		throw new ApplicationError(`${label} is required.`);
+	}
+
+	return String(value.value ?? '');
+}
+
+export function getMetaPhoneResourceLocatorValue(
+	ef: IExecuteFunctions,
+	name: string,
+	itemIndex: number,
+	label: string,
+): string {
+	return readMetaPhoneResourceLocatorValue(ef.getNodeParameter(name, itemIndex), label);
+}
+
+export function readE164PhoneResourceLocatorValue(value: unknown, label: string): string {
+	if (typeof value === 'string') {
+		throw new ApplicationError(
+			`${label} must use the phone number selector. Open the node and choose the phone number again.`,
+		);
+	}
+
+	if (!isResourceLocatorValue(value)) {
+		throw new ApplicationError(`${label} is required.`);
+	}
+
+	return String(value.value ?? '');
+}
+
+export function tryReadE164PhoneResourceLocatorValue(
+	value: unknown,
+	label: string,
+): string | undefined {
+	if (value === undefined || value === null) {
+		return undefined;
+	}
+
+	if (typeof value === 'string') {
+		if (!value.trim()) {
+			return undefined;
+		}
+
+		throw new ApplicationError(
+			`${label} must use the phone number selector. Open the node and choose the phone number again.`,
+		);
+	}
+
+	if (!isResourceLocatorValue(value)) {
+		return undefined;
+	}
+
+	const raw = String(value.value ?? '').trim();
+	return raw || undefined;
+}
+
+export function getE164PhoneResourceLocatorValue(
+	ef: IExecuteFunctions,
+	name: string,
+	itemIndex: number,
+	label: string,
+): string {
+	return readE164PhoneResourceLocatorValue(ef.getNodeParameter(name, itemIndex), label);
+}
+
 export function getBoolean(
 	ef: IExecuteFunctions,
 	name: string,
@@ -49,6 +124,40 @@ export function getNumber(
 	defaultValue: number,
 ): number {
 	return ef.getNodeParameter(name, itemIndex, defaultValue) as number;
+}
+
+export function getMediaSourceValue(
+	ef: IExecuteFunctions,
+	sourceParameter: string,
+	idParameter: string,
+	urlParameter: string,
+	itemIndex: number,
+): { source: 'id' | 'link'; value: string } {
+	const source = getString(ef, sourceParameter, itemIndex) as 'id' | 'link';
+
+	return {
+		source,
+		value: source === 'link' ? getString(ef, urlParameter, itemIndex) : getString(ef, idParameter, itemIndex),
+	};
+}
+
+export function getValidatedMediaSourceValue(
+	ef: IExecuteFunctions,
+	sourceParameter: string,
+	idParameter: string,
+	urlParameter: string,
+	itemIndex: number,
+	labels: { id: string; url: string },
+): { source: 'id' | 'link'; value: string } {
+	const media = getMediaSourceValue(ef, sourceParameter, idParameter, urlParameter, itemIndex);
+
+	return {
+		source: media.source,
+		value:
+			media.source === 'link'
+				? assertPublicMediaUrl(media.value, labels.url)
+				: assertWhatsAppMediaId(media.value, labels.id),
+	};
 }
 
 export function getFixedCollectionItems<T extends IDataObject>(
@@ -152,38 +261,62 @@ export function advancedComponentsJson(ef: IExecuteFunctions, itemIndex: number)
 	return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
-function getPlatformListOptions(ef: IExecuteFunctions, itemIndex: number): AdvancedOptionsParameter {
-	return ef.getNodeParameter('platformListOptions', itemIndex, {}) as AdvancedOptionsParameter;
+function getListOptions(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	parameterName: 'contactListOptions' | 'conversationListOptions',
+): AdvancedOptionsParameter {
+	return ef.getNodeParameter(parameterName, itemIndex, {}) as AdvancedOptionsParameter;
 }
 
-function getPlatformListOptionValue(
+function getListOptionValue(
 	ef: IExecuteFunctions,
 	itemIndex: number,
 	field: string,
+	parameterName: 'contactListOptions' | 'conversationListOptions',
 ): string | boolean | undefined {
-	const options = getPlatformListOptions(ef, itemIndex);
+	const options = getListOptions(ef, itemIndex, parameterName);
 	if (field in options) {
 		return options[field] as string | boolean | undefined;
 	}
 	return undefined;
 }
 
-export function getPlatformListOptionString(
+export function getContactListOptionString(
 	ef: IExecuteFunctions,
 	itemIndex: number,
 	name: string,
 ): string {
-	const value = getPlatformListOptionValue(ef, itemIndex, name);
+	const value = getListOptionValue(ef, itemIndex, name, 'contactListOptions');
 	return typeof value === 'string' ? value : '';
 }
 
-export function getPlatformListOptionBoolean(
+export function getContactListOptionBoolean(
 	ef: IExecuteFunctions,
 	itemIndex: number,
 	name: string,
 	defaultValue: boolean,
 ): boolean {
-	const value = getPlatformListOptionValue(ef, itemIndex, name);
+	const value = getListOptionValue(ef, itemIndex, name, 'contactListOptions');
+	return typeof value === 'boolean' ? value : defaultValue;
+}
+
+export function getConversationListOptionString(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	name: string,
+): string {
+	const value = getListOptionValue(ef, itemIndex, name, 'conversationListOptions');
+	return typeof value === 'string' ? value : '';
+}
+
+export function getConversationListOptionBoolean(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	name: string,
+	defaultValue: boolean,
+): boolean {
+	const value = getListOptionValue(ef, itemIndex, name, 'conversationListOptions');
 	return typeof value === 'boolean' ? value : defaultValue;
 }
 

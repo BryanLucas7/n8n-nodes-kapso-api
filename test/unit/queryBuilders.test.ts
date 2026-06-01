@@ -10,11 +10,14 @@ import {
 } from '../../nodes/KapsoApi/actions/queryBuilders';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
+const CONV_UUID = '550e8400-e29b-41d4-a716-446655440000';
+const CUST_UUID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
 describe('queryBuilders', () => {
 	it('builds message list filters from dedicated fields', () => {
 		const ef = createMockExecuteFunctions({
 			advancedOptions: {
-				messageListConversationId: 'conv-123',
+				messageListConversationId: CONV_UUID,
 				messageListDirection: 'inbound',
 				messageListStatus: 'delivered',
 				messageListSince: '2024-01-15T00:00:00.000Z',
@@ -23,7 +26,7 @@ describe('queryBuilders', () => {
 		});
 
 		expect(buildMessageQuery(ef, 0, 'list')).toEqual({
-			conversation_id: 'conv-123',
+			conversation_id: CONV_UUID,
 			direction: 'inbound',
 			status: 'delivered',
 			since: '2024-01-15T00:00:00.000Z',
@@ -86,10 +89,10 @@ describe('queryBuilders', () => {
 
 	it('builds contact list filters and cursor pagination', () => {
 		const ef = createMockExecuteFunctions({
-			platformListOptions: {
+			contactListOptions: {
 				contactProfileNameContains: 'Ana',
 				contactWaIdContains: '5511',
-				contactCustomerIdFilter: 'cust-1',
+				contactCustomerIdFilter: CUST_UUID,
 				contactHasCustomer: 'true',
 				listAfter: 'cursor-after',
 			},
@@ -98,7 +101,7 @@ describe('queryBuilders', () => {
 		expect(buildContactListQuery(ef, 0)).toEqual({
 			profile_name_contains: 'Ana',
 			wa_id_contains: '5511',
-			customer_id: 'cust-1',
+			customer_id: CUST_UUID,
 			has_customer: true,
 			after: 'cursor-after',
 		});
@@ -106,7 +109,7 @@ describe('queryBuilders', () => {
 
 	it('builds conversation list filters and cursor pagination', () => {
 		const ef = createMockExecuteFunctions({
-			platformListOptions: {
+			conversationListOptions: {
 				conversationPhoneNumberId: '1234567890',
 				conversationStatusFilter: 'active',
 				conversationUnassigned: true,
@@ -126,7 +129,7 @@ describe('queryBuilders', () => {
 		const ef = createMockExecuteFunctions({
 			phoneNumberId: '1234567890',
 			platformMessageListOptions: {
-				platformMessageConversationId: 'conv-123',
+				platformMessageConversationId: CONV_UUID,
 				platformMessageDirection: 'inbound',
 				platformMessageHasMedia: 'true',
 				listAfter: 'cursor-after',
@@ -135,7 +138,7 @@ describe('queryBuilders', () => {
 
 		expect(buildPlatformMessageListQuery(ef, 0)).toEqual({
 			phone_number_id: '1234567890',
-			conversation_id: 'conv-123',
+			conversation_id: CONV_UUID,
 			direction: 'inbound',
 			has_media: true,
 			after: 'cursor-after',

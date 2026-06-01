@@ -37,7 +37,7 @@ describe('message routing builders', () => {
 		expect(request.body).toMatchObject({
 			type: 'document',
 			document: {
-				id: 'media-id',
+				id: '425509551842',
 				filename: 'invoice.pdf',
 			},
 		});

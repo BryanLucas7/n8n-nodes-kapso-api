@@ -15,17 +15,24 @@ import {
 	itemPair,
 } from './actions/nodeHelpers';
 import { resourcesWithCursorPagination, resourcesWithPagination } from './actions/operations';
-import { buildRequest, pathId } from './actions/routing';
+import { buildRequest, buildSendTemplateRequest, pathId } from './actions/routing';
 import {
 	getBroadcastTemplates,
 	getMessageTemplates,
 	getPhoneNumbers,
+	getTemplateDetectedComponentMode,
+	getTemplateDetectedHeaderFormat,
+	getTemplateLanguages,
 	searchBroadcasts,
 	searchContacts,
 	searchConversations,
 } from './loadOptions';
+import {
+	getTemplateBodyParameterFields,
+	getTemplateButtonParameterFields,
+} from './resourceMapping/templateParameters';
 import { kapsoNodeProperties } from './properties';
-import { requestCursorListAll, requestPaginated } from './transport/pagination';
+import { requestCursorListAll, requestPaginated, RETURN_ALL_FETCH_LIMIT } from './transport/pagination';
 import { kapsoApiRequest } from './transport/request';
 
 export class KapsoApi implements INodeType {
@@ -34,11 +41,18 @@ export class KapsoApi implements INodeType {
 			getPhoneNumbers,
 			getMessageTemplates,
 			getBroadcastTemplates,
+			getTemplateLanguages,
+			getTemplateDetectedHeaderFormat,
+			getTemplateDetectedComponentMode,
 		},
 		listSearch: {
 			searchConversations,
 			searchContacts,
 			searchBroadcasts,
+		},
+		resourceMapping: {
+			getTemplateBodyParameterFields,
+			getTemplateButtonParameterFields,
 		},
 	};
 
@@ -50,6 +64,7 @@ export class KapsoApi implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["resource"] + ": " + $parameter["operation"]}}',
 		description: 'Use documented Kapso Platform and Meta-compatible WhatsApp APIs',
+		documentationUrl: 'https://docs.kapso.ai/docs/introduction',
 		defaults: {
 			name: 'Kapso API',
 		},
@@ -140,11 +155,23 @@ export class KapsoApi implements INodeType {
 					continue;
 				}
 
+				if (resource === 'message' && operation === 'sendTemplate') {
+					const response = await kapsoApiRequest(
+						this,
+						await buildSendTemplateRequest(this, itemIndex),
+						itemIndex,
+					);
+					returnData.push(...asJsonItems(response, itemIndex));
+					continue;
+				}
+
 				const requestArgs = buildRequest(this, resource, operation, itemIndex);
 				const opKey = `${resource}:${operation}`;
 				const isPaginated = resourcesWithPagination.includes(opKey);
 				const returnAll = isPaginated && getBoolean(this, 'returnAll', itemIndex);
-				const perPage = getNumber(this, 'perPage', itemIndex, 20);
+				const perPage = returnAll
+					? RETURN_ALL_FETCH_LIMIT
+					: getNumber(this, 'perPage', itemIndex, 20);
 				const page = getNumber(this, 'page', itemIndex, 1);
 
 				let response: unknown;

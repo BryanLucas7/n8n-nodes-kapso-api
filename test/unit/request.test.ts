@@ -1,11 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	buildKapsoRequestOptions,
 	joinUrl,
 	DEFAULT_KAPSO_BASE_URL,
+	trimSlashes,
+	getKapsoCredentials,
+	kapsoApiRequest,
 } from '../../nodes/KapsoApi/transport/request';
 import { buildPaginationQuery } from '../../nodes/KapsoApi/transport/pagination';
 import { normalizeKapsoError } from '../../nodes/KapsoApi/transport/errors';
+import { NodeApiError } from 'n8n-workflow';
+import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
 const credentials = {
 	baseUrl: DEFAULT_KAPSO_BASE_URL,
@@ -13,6 +18,11 @@ const credentials = {
 };
 
 describe('Kapso request builder', () => {
+	it('trims slashes and joins urls without a scheme', () => {
+		expect(trimSlashes('/platform/v1/')).toBe('platform/v1');
+		expect(joinUrl('api.kapso.ai', 'platform/v1', 'whatsapp')).toBe('api.kapso.ai/platform/v1/whatsapp');
+	});
+
 	it('joins URLs without duplicate slashes', () => {
 		expect(joinUrl('https://api.kapso.ai/', '/platform/v1/', '/whatsapp/phone_numbers')).toBe(
 			'https://api.kapso.ai/platform/v1/whatsapp/phone_numbers',
@@ -105,6 +115,39 @@ describe('Kapso request builder', () => {
 					contentType: 'image/png',
 				},
 			},
+		});
+	});
+
+	it('supports full response resolution and empty credential fallbacks', async () => {
+		const options = buildKapsoRequestOptions(
+			{ baseUrl: '', apiKey: '' },
+			{
+				api: 'platform',
+				method: 'GET',
+				path: '/whatsapp/phone_numbers',
+				returnFullResponse: true,
+			},
+		);
+
+		expect(options.uri).toBe(`${DEFAULT_KAPSO_BASE_URL}/platform/v1/whatsapp/phone_numbers`);
+		expect(options.resolveWithFullResponse).toBe(true);
+		expect(options.headers?.['X-API-Key']).toBe('');
+
+		const ef = createMockExecuteFunctions();
+		ef.helpers.request = vi.fn().mockRejectedValue({ statusCode: 500, message: 'boom' });
+
+		await expect(
+			kapsoApiRequest(ef, { api: 'platform', method: 'GET', path: '/whatsapp/phone_numbers' }, 0),
+		).rejects.toBeInstanceOf(NodeApiError);
+	});
+
+	it('reads Kapso credentials with defaults', async () => {
+		const ef = createMockExecuteFunctions();
+		ef.getCredentials = vi.fn().mockResolvedValue({ baseUrl: '', apiKey: '' });
+
+		await expect(getKapsoCredentials(ef)).resolves.toEqual({
+			baseUrl: DEFAULT_KAPSO_BASE_URL,
+			apiKey: '',
 		});
 	});
 });

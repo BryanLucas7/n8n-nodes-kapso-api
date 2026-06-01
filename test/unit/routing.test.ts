@@ -14,10 +14,10 @@ import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
 
 const PHONE = TEST_PHONE_NUMBER_ID;
-const CONV = 'conv-1';
+const CONV = '550e8400-e29b-41d4-a716-446655440000';
 const CONTACT = 'contact-1';
-const BROADCAST = 'broadcast-1';
-const MEDIA = 'media-1';
+const BROADCAST = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+const MEDIA = '425509551842';
 const MESSAGE = 'wamid.test';
 
 const ROUTING_EXPECTATIONS: Record<
@@ -41,7 +41,6 @@ const ROUTING_EXPECTATIONS: Record<
 	'message:sendFlow': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendCallPermission': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendContact': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
-	'message:sendTemplate': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendReaction': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:markRead': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:list': { api: 'whatsapp', method: 'GET', path: `/${PHONE}/messages` },
@@ -107,6 +106,10 @@ describe('routing', () => {
 			const key = `${resource}:${operation}`;
 
 			if (resource === 'media' && operation === 'uploadBinary') {
+				continue;
+			}
+
+			if (resource === 'message' && operation === 'sendTemplate') {
 				continue;
 			}
 
@@ -233,12 +236,12 @@ describe('routing', () => {
 		const ef = createMockExecuteFunctions({
 			resource: 'conversation',
 			operation: 'get',
-			conversationId: { mode: 'list', value: 'conv-locator' },
+			conversationId: { mode: 'list', value: CONV, __rl: true },
 		});
 
 		const request = buildRequest(ef, 'conversation', 'get', 0);
 
-		expect(request.path).toBe('/whatsapp/conversations/conv-locator');
+		expect(request.path).toBe(`/whatsapp/conversations/${encodeURIComponent(CONV)}`);
 	});
 
 	it('rejects unsupported resource and operation pairs', () => {

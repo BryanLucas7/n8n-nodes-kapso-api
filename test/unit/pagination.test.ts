@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	CURSOR_LIST_MAX_PAGES,
 	requestCursorListAll,
+	requestMessageListAll,
 	requestPaginated,
 } from '../../nodes/KapsoApi/transport/pagination';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
@@ -66,6 +68,100 @@ describe('requestPaginated', () => {
 		expect(result.data).toEqual([{ id: 1 }, { id: 2 }]);
 		expect(result.meta).toEqual({ returned: 2, paginated: true });
 		expect(kapsoApiRequestMock).toHaveBeenCalledTimes(2);
+	});
+
+	it('aggregates non-array page payloads when returnAll is true', async () => {
+		const ef = createMockExecuteFunctions();
+		kapsoApiRequestMock.mockResolvedValueOnce({
+			data: { id: 'single' },
+			meta: { page: 1, total_pages: 1 },
+		});
+
+		const result = (await requestPaginated(
+			ef,
+			{
+				api: 'platform',
+				method: 'GET',
+				path: '/whatsapp/phone_numbers',
+			},
+			true,
+			20,
+			0,
+		)) as { data: unknown[] };
+
+		expect(result.data).toEqual([
+			{
+				data: { id: 'single' },
+				meta: { page: 1, total_pages: 1 },
+			},
+		]);
+	});
+});
+
+describe('requestMessageListAll', () => {
+	beforeEach(() => {
+		kapsoApiRequestMock.mockReset();
+	});
+
+	it('delegates to requestCursorListAll', async () => {
+		const ef = createMockExecuteFunctions();
+		kapsoApiRequestMock.mockResolvedValueOnce({
+			data: [{ id: 'msg-1' }],
+			paging: { cursors: {} },
+		});
+
+		const result = (await requestMessageListAll(
+			ef,
+			{ api: 'platform', method: 'GET', path: '/whatsapp/messages' },
+			25,
+			0,
+		)) as { data: unknown[] };
+
+		expect(result.data).toEqual([{ id: 'msg-1' }]);
+	});
+});
+
+describe('requestCursorListAll edge cases', () => {
+	beforeEach(() => {
+		kapsoApiRequestMock.mockReset();
+	});
+
+	it('stops after the maximum cursor page count', async () => {
+		const ef = createMockExecuteFunctions();
+		let page = 0;
+		kapsoApiRequestMock.mockImplementation(async () => {
+			page += 1;
+			return {
+				data: [{ id: `page-${page}` }],
+				paging: { cursors: { after: `cursor-${page}` } },
+			};
+		});
+
+		const result = (await requestCursorListAll(
+			ef,
+			{ api: 'platform', method: 'GET', path: '/whatsapp/contacts' },
+			10,
+			0,
+		)) as { data: unknown[] };
+
+		expect(result.data.length).toBe(CURSOR_LIST_MAX_PAGES + 1);
+		expect(kapsoApiRequestMock).toHaveBeenCalledTimes(CURSOR_LIST_MAX_PAGES + 1);
+	});
+
+	it('ignores responses without a data array', async () => {
+		const ef = createMockExecuteFunctions();
+		kapsoApiRequestMock.mockResolvedValueOnce({
+			paging: { cursors: {} },
+		});
+
+		const result = (await requestCursorListAll(
+			ef,
+			{ api: 'platform', method: 'GET', path: '/whatsapp/contacts' },
+			10,
+			0,
+		)) as { data: unknown[] };
+
+		expect(result.data).toEqual([]);
 	});
 });
 

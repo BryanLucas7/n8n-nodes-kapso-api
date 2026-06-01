@@ -8,8 +8,29 @@ import {
 	assertInteractiveButtonCount,
 	assertInteractiveListShape,
 	assertProductListShape,
+	assertWhatsAppMediaId,
 	parseCoordinate,
-	requireNonEmptyString,
+	validateButtonId,
+	validateButtonTitle,
+	validateCatalogId,
+	validateCtaButtonLabel,
+	validateDocumentFilename,
+	validateFlowCta,
+	validateFlowId,
+	validateFlowScreen,
+	validateFlowToken,
+	validateHttpUrl,
+	validateInteractiveBodyText,
+	validateInteractiveFooterText,
+	validateInteractiveHeaderText,
+	validateListButtonText,
+	validateListRowDescription,
+	validateListRowId,
+	validateListRowTitle,
+	validateListSectionTitle,
+	validateMediaCaption,
+	validateProductRetailerId,
+	validateTextMessageBody,
 } from './validation';
 
 export type KapsoButtonInput = {
@@ -108,10 +129,14 @@ function resolveInteractiveHeader(
 	headerDocumentFilename?: string,
 ): IDataObject | undefined {
 	if (headerType === 'text' && headerText) {
-		return buildInteractiveTextHeader(headerText);
+		return buildInteractiveTextHeader(validateInteractiveHeaderText(headerText));
 	}
 
 	const mediaValue = headerMediaSource === 'id' ? headerMediaId : headerMediaUrl;
+
+	if (headerMediaSource === 'id' && mediaValue) {
+		assertWhatsAppMediaId(mediaValue, 'Header Media ID');
+	}
 
 	if (headerType === 'image' && mediaValue) {
 		return buildInteractiveMediaHeader('image', headerMediaSource, mediaValue);
@@ -126,8 +151,9 @@ function resolveInteractiveHeader(
 			[headerMediaSource === 'id' ? 'id' : 'link']: mediaValue,
 		};
 
-		if (headerDocumentFilename) {
-			document.filename = headerDocumentFilename;
+		const validatedFilename = validateDocumentFilename(headerDocumentFilename, 'Header Document Filename');
+		if (validatedFilename) {
+			document.filename = validatedFilename;
 		}
 
 		return {
@@ -158,6 +184,8 @@ export function buildTextMessage(
 	previewUrl: boolean,
 	replyToMessageId?: string,
 ): IDataObject {
+	const validatedBody = validateTextMessageBody(body);
+
 	return withReplyContext(
 		{
 			messaging_product: 'whatsapp',
@@ -166,7 +194,7 @@ export function buildTextMessage(
 			type: 'text',
 			text: {
 				preview_url: previewUrl,
-				body,
+				body: validatedBody,
 			},
 		},
 		replyToMessageId,
@@ -187,12 +215,15 @@ export function buildMediaMessage(
 		[mediaSource]: mediaValue,
 	};
 
-	if (caption && mediaType !== 'audio') {
-		media.caption = caption;
+	const validatedCaption = validateMediaCaption(caption);
+	const validatedFilename = validateDocumentFilename(filename, 'Filename');
+
+	if (validatedCaption && mediaType !== 'audio') {
+		media.caption = validatedCaption;
 	}
 
-	if (filename && mediaType === 'document') {
-		media.filename = filename;
+	if (validatedFilename && mediaType === 'document') {
+		media.filename = validatedFilename;
 	}
 
 	if (voice && mediaType === 'audio') {
@@ -226,13 +257,20 @@ export function buildButtonsMessage(
 ): IDataObject {
 	assertInteractiveButtonCount(buttons.length);
 
+	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedButtons = buttons.map((button) => ({
+		buttonId: validateButtonId(button.buttonId),
+		buttonTitle: validateButtonTitle(button.buttonTitle),
+	}));
+	const validatedFooter = validateInteractiveFooterText(footer);
+
 	const interactive: IDataObject = {
 		type: 'button',
 		body: {
-			text: bodyText,
+			text: validatedBody,
 		},
 		action: {
-			buttons: buttons.map((button) => ({
+			buttons: validatedButtons.map((button) => ({
 				type: 'reply',
 				reply: {
 					id: button.buttonId,
@@ -254,9 +292,9 @@ export function buildButtonsMessage(
 		interactive.header = header;
 	}
 
-	if (footer) {
+	if (validatedFooter) {
 		interactive.footer = {
-			text: footer,
+			text: validatedFooter,
 		};
 	}
 
@@ -289,14 +327,26 @@ export function buildListMessage(
 	const totalRows = sections.reduce((count, section) => count + section.rows.length, 0);
 	assertInteractiveListShape(sections.length, totalRows);
 
+	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedButtonText = validateListButtonText(buttonText);
+	const validatedFooter = validateInteractiveFooterText(footer);
+	const validatedSections = sections.map((section) => ({
+		sectionTitle: validateListSectionTitle(section.sectionTitle),
+		rows: section.rows.map((row) => ({
+			rowId: validateListRowId(row.rowId),
+			rowTitle: validateListRowTitle(row.rowTitle),
+			rowDescription: validateListRowDescription(row.rowDescription),
+		})),
+	}));
+
 	const interactive: IDataObject = {
 		type: 'list',
 		body: {
-			text: bodyText,
+			text: validatedBody,
 		},
 		action: {
-			button: buttonText,
-			sections: sections.map((section) => ({
+			button: validatedButtonText,
+			sections: validatedSections.map((section) => ({
 				title: section.sectionTitle,
 				rows: section.rows.map((row) => ({
 					id: row.rowId,
@@ -319,9 +369,9 @@ export function buildListMessage(
 		interactive.header = header;
 	}
 
-	if (footer) {
+	if (validatedFooter) {
 		interactive.footer = {
-			text: footer,
+			text: validatedFooter,
 		};
 	}
 
@@ -587,6 +637,8 @@ export function buildStickerMessage(
 }
 
 export function buildRequestLocationMessage(to: string, bodyText: string): IDataObject {
+	const validatedBody = validateInteractiveBodyText(bodyText);
+
 	return {
 		messaging_product: 'whatsapp',
 		recipient_type: 'individual',
@@ -595,7 +647,7 @@ export function buildRequestLocationMessage(to: string, bodyText: string): IData
 		interactive: {
 			type: 'location_request_message',
 			body: {
-				text: bodyText,
+				text: validatedBody,
 			},
 			action: {
 				name: 'send_location',
@@ -618,16 +670,21 @@ export function buildCtaUrlMessage(
 	footer?: string,
 	replyToMessageId?: string,
 ): IDataObject {
+	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedLabel = validateCtaButtonLabel(buttonLabel);
+	const validatedUrl = validateHttpUrl(buttonUrl, 'Button URL');
+	const validatedFooter = validateInteractiveFooterText(footer);
+
 	const interactive: IDataObject = {
 		type: 'cta_url',
 		body: {
-			text: bodyText,
+			text: validatedBody,
 		},
 		action: {
 			name: 'cta_url',
 			parameters: {
-				display_text: buttonLabel,
-				url: buttonUrl,
+				display_text: validatedLabel,
+				url: validatedUrl,
 			},
 		},
 	};
@@ -644,9 +701,9 @@ export function buildCtaUrlMessage(
 		interactive.header = header;
 	}
 
-	if (footer) {
+	if (validatedFooter) {
 		interactive.footer = {
-			text: footer,
+			text: validatedFooter,
 		};
 	}
 
@@ -669,17 +726,20 @@ export function buildProductMessage(
 	bodyText?: string,
 	replyToMessageId?: string,
 ): IDataObject {
+	const validatedCatalogId = validateCatalogId(catalogId);
+	const validatedProductId = validateProductRetailerId(productRetailerId);
+
 	const interactive: IDataObject = {
 		type: 'product',
 		action: {
-			catalog_id: catalogId,
-			product_retailer_id: productRetailerId,
+			catalog_id: validatedCatalogId,
+			product_retailer_id: validatedProductId,
 		},
 	};
 
 	if (bodyText) {
 		interactive.body = {
-			text: bodyText,
+			text: validateInteractiveBodyText(bodyText),
 		};
 	}
 
@@ -735,6 +795,14 @@ export function buildProductListMessage(
 ): IDataObject {
 	assertProductListShape(sections);
 
+	const validatedCatalogId = validateCatalogId(catalogId);
+	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedFooter = validateInteractiveFooterText(footer);
+	const validatedSections = sections.map((section) => ({
+		sectionTitle: validateListSectionTitle(section.sectionTitle),
+		productRetailerIds: section.productRetailerIds.map((id) => validateProductRetailerId(id)),
+	}));
+
 	const interactive: IDataObject = {
 		type: 'product_list',
 		header: requireInteractiveHeader(
@@ -746,11 +814,11 @@ export function buildProductListMessage(
 			headerDocumentFilename,
 		),
 		body: {
-			text: bodyText,
+			text: validatedBody,
 		},
 		action: {
-			catalog_id: catalogId,
-			sections: sections.map((section) => ({
+			catalog_id: validatedCatalogId,
+			sections: validatedSections.map((section) => ({
 				title: section.sectionTitle,
 				product_items: section.productRetailerIds.map((productRetailerId) => ({
 					product_retailer_id: productRetailerId,
@@ -759,9 +827,9 @@ export function buildProductListMessage(
 		},
 	};
 
-	if (footer) {
+	if (validatedFooter) {
 		interactive.footer = {
-			text: footer,
+			text: validatedFooter,
 		};
 	}
 
@@ -783,6 +851,12 @@ export function buildCatalogMessage(
 	thumbnailProductRetailerId: string,
 	replyToMessageId?: string,
 ): IDataObject {
+	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedThumbnailId = validateProductRetailerId(
+		thumbnailProductRetailerId,
+		'Thumbnail Product Retailer ID',
+	);
+
 	return withReplyContext(
 		{
 			messaging_product: 'whatsapp',
@@ -792,12 +866,12 @@ export function buildCatalogMessage(
 			interactive: {
 				type: 'catalog_message',
 				body: {
-					text: bodyText,
+					text: validatedBody,
 				},
 				action: {
 					name: 'catalog_message',
 					parameters: {
-						thumbnail_product_retailer_id: thumbnailProductRetailerId,
+						thumbnail_product_retailer_id: validatedThumbnailId,
 					},
 				},
 			},
@@ -827,18 +901,22 @@ export function buildFlowMessage(
 	flowId?: string,
 	flowName?: string,
 ): IDataObject {
-	const flowCtaText = requireNonEmptyString(flowCta, 'Flow CTA');
-	const flowTokenValue = requireNonEmptyString(flowToken, 'Flow token');
+	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedCta = validateFlowCta(flowCta);
+	const validatedFooter = validateInteractiveFooterText(footer);
+	const flowTokenValue = validateFlowToken(flowToken);
+	const validatedScreen = validateFlowScreen(flowScreen);
+	const validatedFlowId = validateFlowId(flowId);
 
 	const parameters: IDataObject = {
 		flow_message_version: flowMessageVersion,
-		flow_cta: flowCtaText,
+		flow_cta: validatedCta,
 		flow_token: flowTokenValue,
 		flow_action: flowAction,
 	};
 
-	if (flowId) {
-		parameters.flow_id = flowId;
+	if (validatedFlowId) {
+		parameters.flow_id = validatedFlowId;
 	}
 
 	if (flowName) {
@@ -852,8 +930,8 @@ export function buildFlowMessage(
 	if (flowAction === 'navigate') {
 		const payload: IDataObject = {};
 
-		if (flowScreen) {
-			payload.screen = flowScreen;
+		if (validatedScreen) {
+			payload.screen = validatedScreen;
 		}
 
 		if (flowInitialData && Object.keys(flowInitialData).length > 0) {
@@ -888,9 +966,9 @@ export function buildFlowMessage(
 				type: 'flow',
 				...(flowHeader ? { header: flowHeader } : {}),
 				body: {
-					text: bodyText,
+					text: validatedBody,
 				},
-				...(footer ? { footer: { text: footer } } : {}),
+				...(validatedFooter ? { footer: { text: validatedFooter } } : {}),
 				action: {
 					name: 'flow',
 					parameters,
@@ -902,6 +980,8 @@ export function buildFlowMessage(
 }
 
 export function buildCallPermissionMessage(to: string, bodyText: string): IDataObject {
+	const validatedBody = validateInteractiveBodyText(bodyText);
+
 	return {
 		messaging_product: 'whatsapp',
 		recipient_type: 'individual',
@@ -910,7 +990,7 @@ export function buildCallPermissionMessage(to: string, bodyText: string): IDataO
 		interactive: {
 			type: 'call_permission_request',
 			body: {
-				text: bodyText,
+				text: validatedBody,
 			},
 			action: {
 				name: 'call_permission_request',

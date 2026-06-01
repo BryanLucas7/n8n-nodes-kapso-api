@@ -1,4 +1,4 @@
-import { IDataObject, ILoadOptionsFunctions, INodePropertyOptions, NodeApiError } from 'n8n-workflow';
+import { IDataObject, ILoadOptionsFunctions, INodePropertyOptions, NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { buildKapsoRequestOptions, getKapsoCredentials } from '../transport/request';
 import { KapsoListResponse, KapsoRequestArgs } from '../transport/types';
 import { normalizeKapsoError } from '../transport/errors';
@@ -6,6 +6,29 @@ import { normalizeKapsoError } from '../transport/errors';
 export const LOAD_OPTIONS_PAGE_SIZE = 100;
 export const LOAD_OPTIONS_MAX_PAGES = 10;
 export const LIST_SEARCH_INITIAL_SIZE = 5;
+
+export const KAPSO_CREDENTIAL_TYPE = 'kapsoApi';
+
+export async function assertKapsoLoadOptionsReady(context: ILoadOptionsFunctions): Promise<void> {
+	await context.getCredentials(KAPSO_CREDENTIAL_TYPE);
+}
+
+export function requireLoadOptionsDependency(
+	context: ILoadOptionsFunctions,
+	parameterName: string,
+	dependencyLabel: string,
+): string {
+	const value = context.getCurrentNodeParameter(parameterName);
+	const normalized = typeof value === 'string' ? value.trim() : value ? String(value) : '';
+
+	if (!normalized) {
+		throw new NodeOperationError(context.getNode(), `Select ${dependencyLabel} first to load options.`, {
+			level: 'warning',
+		});
+	}
+
+	return normalized;
+}
 
 export async function kapsoLoadOptionsRequest(
 	context: ILoadOptionsFunctions,

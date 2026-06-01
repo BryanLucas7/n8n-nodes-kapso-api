@@ -45,5 +45,17 @@ describe('Kapso webhook signature verification', () => {
 		expect(
 			resolveKapsoWebhookSignature({ 'X-Webhook-Signature': signature }),
 		).toBe(signature);
+		expect(
+			resolveKapsoWebhookSignature({ 'x-webhook-signature': [signature, 'ignored'] }),
+		).toBe(signature);
+	});
+
+	it('verifies signatures from raw string bodies', () => {
+		const payload = JSON.stringify(body);
+		const signature = sign(payload);
+
+		expect(
+			verifyKapsoWebhookSignature(body, signature, secret, payload),
+		).toBe(true);
 	});
 });

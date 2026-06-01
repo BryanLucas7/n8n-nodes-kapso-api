@@ -1,5 +1,123 @@
 # Changelog
 
+## 0.7.3 - 2026-06-01
+
+- Added opt-in live Kapso API tests (sandbox messaging + production read-only
+  probes) and a separate GitHub Actions workflow. Live tests require env vars
+  or repository secrets; no project-specific defaults are shipped in code.
+- Removed internal `review/` audit notes from the repository.
+- CI keeps coverage thresholds but no longer uploads HTML coverage artifacts.
+- Fixed TypeScript build errors in Send Template resource mapper handling.
+- README examples now match current Upload From URL delivery options and Send
+  Template auto-detected component mode.
+
+## 0.7.2 - 2026-05-30
+
+- Expanded automated test coverage for Send Template 0.7.x: resource mapper
+  validation, template fetch, structure loadOptions, carousel/broadcast paths,
+  node execute async flow, and nock contract tests for template POST payloads.
+- Added shared Meta template fixtures under `test/fixtures/`.
+- CI now enforces coverage thresholds (90% lines/functions/statements, 80%
+  branches) and uploads the HTML coverage report as a workflow artifact.
+
+## 0.7.1 - 2026-05-30
+
+- Removed Send Template compatibility fallbacks for legacy `templateBodyParameters`
+  and `templateButtonParameters` fixed collections; execute now reads only
+  `templateBodyParametersMapper` and `templateButtonParametersMapper`.
+- Removed unused template helpers (`getTemplateHasMpmButton`, `templateHeaderTypeOptions`,
+  `getTemplateButtonParameters`) and legacy button parameter group keys
+  (`urlButtonValues`, `quickReplyButtonValues`, etc.). Broadcast/carousel button
+  parameters use the unified `buttonParameterValues` entry only.
+
+## 0.7.0 - 2026-05-30
+
+- **Send Template** body and dynamic button values now use **resourceMapper** fields
+  derived from the selected template schema (named or positional body variables,
+  fixed button slots by index). Templates without body variables show an empty
+  mapper notice instead of a free-form Add Parameter list.
+- **Header Type** and **Component Mode** are removed from Send Template UI. They
+  are auto-detected from the template (`Template Header Format`, `Template Component
+  Mode`) and enforced at execute time.
+- Carousel card header type is inferred from the approved template definition.
+
+## 0.6.8 - 2026-05-30
+
+- Dependent dropdowns (**Template Name**, **Language**, **Broadcast Template**) now follow
+  the same credential and dependency flow as **Phone Number**: show *Set up credential to
+  see options* when credentials are missing, and a clear *Select … first* message when a
+  parent field is still empty (instead of *The value "" is not supported!*).
+
+## 0.6.7 - 2026-05-30
+
+- **Send Template** button parameters now share one ordered list so add order matches
+  template indices. Empty **Index** auto-fills 0, 1, 2…; set manually to reorder.
+  Button Parameters collection is sortable via drag-and-drop.
+
+## 0.6.6 - 2026-05-30
+
+- **Send Template** Quick Reply split into **Quick Reply (Text)** and **Quick Reply (Payload)**
+  picker options so only the relevant field appears (n8n cannot hide fields inside
+  fixed collections). URL buttons drop the redundant parameter-type selector; suffix
+  field renamed **URL Suffix**. Button Parameters description documents Meta limits.
+
+## 0.6.5 - 2026-05-30
+
+- **Send Template** MPM/Catalog button UI: nested collections now show **Add Section**
+  and **Add Product** instead of generic **Choose...**; button type picker uses short
+  labels (URL, MPM, etc.); thumbnail/product fields use **SKU** labels to avoid truncation.
+- MPM template sections validate Meta limits at runtime (1-10 sections, 1+ product per
+  section, 30 products total).
+
+## 0.6.4 - 2026-05-30
+
+- **Kapso Trigger** webhook docs link fixed (404 `phone-numbers` →
+  [webhooks overview](https://docs.kapso.ai/docs/platform/webhooks/overview)).
+  Setup notice now points to **Integrate → API & Webhooks → WhatsApp webhooks**
+  in the Kapso dashboard plus the overview doc.
+
+## 0.6.3 - 2026-05-30
+
+- **Kapso Trigger** parameters simplified to match common n8n webhook UX (setup note,
+  events list) instead of five technical notices. Documentation uses `documentationUrl`
+  plus an HTML link in the notice text (`openUrl` on notices is not supported by n8n).
+- **Send Template** language code is now a searchable dropdown loaded from approved
+  template languages for the selected template name.
+- **Send or Remove Reaction** uses a **Reaction Action** dropdown (Add or Change Emoji /
+  Remove Reaction) instead of a remove toggle; emoji appears only for the react mode.
+- **Per Page** is hidden when **Return All** is enabled; return-all requests use an
+  internal fetch limit of 100 per API call.
+- Send Image/Video/Audio/Document and Send Sticker split **Media ID** and **Public URL**
+  fields by media source (same pattern as interactive message headers).
+- Runtime validation for recipient phone, media ID, public URL, wamid message IDs,
+  and reaction emoji; Public URL fields use n8n `validateType: url` in the UI.
+- **Phase 1 Meta field limits** in the UI (`maxLength`) and at runtime: text (4096),
+  interactive body/caption (1024), header/footer text (60), button titles (20),
+  list fields (button 20, section 24, row title 24, description 72, row ID 200),
+  and header media IDs (32 digits). E.164 phones for **Contact → WhatsApp ID** and
+  **Broadcast → Phone Number** use `resourceLocator` with regex validation and
+  reject legacy plain-text values.
+- **Phase 2 limits:** CTA URL and Source URL use `validateType: url` with 2048-char
+  cap; document filename (240); catalog ID (64); product retailer ID (100); flow
+  token (128), screen (64), and button label (30).
+- **Phase 3 limits:** UUID fields and list filters (128 chars) in the UI; conversation
+  and broadcast resource locator IDs validate UUID format; JSON escape hatches enforce
+  a 64 KB payload limit at execution; download token and custom API path length caps.
+- Template button parameters are split by button type (URL, Quick Reply, Flow, etc.)
+  so only relevant fields appear, with structured Flow action data and clearer MPM
+  add buttons.
+- Fix node load failure **"Could not resolve parameter dependencies. Max iterations
+  reached!"** caused by `phoneNumberId` using an array OR in `displayOptions.show`
+  (n8n dependency resolver treats array indices as parameter names). Split into
+  separate fields like the operation selector.
+- Remove `displayOptions` from children inside `collection` and `fixedCollection`
+  parameters (n8n dependency resolver limitation).
+- Split contact and conversation list filters into separate option collections
+  (`contactListOptions`, `conversationListOptions`) instead of one shared
+  `platformListOptions` field.
+- Add regression test that walks all node properties and rejects nested
+  `displayOptions` inside collections.
+
 ## 0.6.2 - 2026-05-30
 
 - **Send Product List** validates non-empty sections and a maximum of 30 products

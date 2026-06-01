@@ -2,29 +2,36 @@ import { ApplicationError, IDataObject, IExecuteFunctions } from 'n8n-workflow';
 import { parseJsonObject } from '../transport/json';
 import {
 	buildMetaTemplateComponents,
-	type TemplateButtonParameterInput,
 	type TemplateComponentsInput,
 } from './templateComponents';
 import { buildRecipientTemplateComponentsInput } from './templateInput';
+import type { TemplateButtonParameterCollection } from './templateButtonInput';
 import {
 	getFixedCollectionItems,
 	getOptionalJsonObject,
 	getString,
+	readMetaPhoneResourceLocatorValue,
+	tryReadE164PhoneResourceLocatorValue,
+	getE164PhoneResourceLocatorValue,
 } from './nodeHelpers';
+import {
+	assertE164Phone,
+	assertMetaRecipientPhone,
+	assertPublicMediaUrl,
+	validateOptionalUuid,
+} from './validation';
 
 type BodyParameterCollection = {
 	bodyParameterValues?: Array<{ parameterName?: string; parameterText: string }>;
 };
 
-type ButtonParameterCollection = {
-	buttonParameterValues?: TemplateButtonParameterInput[];
-};
+type ButtonParameterCollection = TemplateButtonParameterCollection;
 
 type BroadcastRecipientInput = Omit<
 	TemplateComponentsInput,
 	'bodyParameters' | 'buttonParameters' | 'carouselCards' | 'advancedComponentsJson'
 > & {
-	phoneNumber?: string;
+	phoneNumber?: string | IDataObject;
 	whatsappContactId?: string;
 	bodyParameters?: BodyParameterCollection;
 	buttonParameters?: ButtonParameterCollection;
@@ -52,7 +59,10 @@ export function buildConversationStatusBody(ef: IExecuteFunctions, itemIndex: nu
 
 export function buildContactCreateBody(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	const contact: IDataObject = {
-		wa_id: getString(ef, 'contactWaId', itemIndex),
+		wa_id: assertE164Phone(
+			getE164PhoneResourceLocatorValue(ef, 'contactWaId', itemIndex, 'WhatsApp ID'),
+			'WhatsApp ID',
+		),
 	};
 
 	const profileName = getString(ef, 'contactProfileName', itemIndex);
@@ -129,18 +139,23 @@ export function buildBroadcastAddRecipientsBody(
 		'recipientValues',
 		itemIndex,
 	).map((entry) => {
-		if (!entry.phoneNumber?.trim() && !entry.whatsappContactId?.trim()) {
+		const phoneNumber = tryReadE164PhoneResourceLocatorValue(entry.phoneNumber, 'Phone Number');
+
+		if (!phoneNumber && !entry.whatsappContactId?.trim()) {
 			throw new ApplicationError('Each broadcast recipient requires a phone number or contact ID.');
 		}
 
 		const recipient: IDataObject = {};
 
 		if (entry.whatsappContactId) {
-			recipient.whatsapp_contact_id = entry.whatsappContactId;
+			recipient.whatsapp_contact_id = validateOptionalUuid(
+				entry.whatsappContactId,
+				'Contact ID',
+			);
 		}
 
-		if (entry.phoneNumber) {
-			recipient.phone_number = entry.phoneNumber;
+		if (phoneNumber) {
+			recipient.phone_number = assertE164Phone(phoneNumber, 'Phone Number');
 		}
 
 		const components = buildRecipientTemplateComponents(entry);
@@ -166,7 +181,7 @@ export function buildMediaIngestBody(ef: IExecuteFunctions, itemIndex: number): 
 	return {
 		media_ingest: {
 			phone_number_id: getString(ef, 'ingestPhoneNumberId', itemIndex),
-			source: getString(ef, 'ingestSourceUrl', itemIndex),
+			source: assertPublicMediaUrl(getString(ef, 'ingestSourceUrl', itemIndex), 'Source URL'),
 			delivery: getString(ef, 'ingestDelivery', itemIndex) || 'meta_media',
 		},
 	};
@@ -178,7 +193,11 @@ export function buildBlockUsersBody(ef: IExecuteFunctions, itemIndex: number): I
 		'blockedUsers',
 		'userValues',
 		itemIndex,
-	).map((entry) => ({ user: entry.user }));
+	).map((entry) => ({
+		user: assertMetaRecipientPhone(
+			readMetaPhoneResourceLocatorValue(entry.user, 'User Phone'),
+		),
+	}));
 
 	if (!users.length) {
 		throw new ApplicationError('Add at least one user to block or unblock.');

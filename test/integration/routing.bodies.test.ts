@@ -1,8 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { messageSendOperations } from '../../nodes/KapsoApi/actions/operations';
-import { buildRequest } from '../../nodes/KapsoApi/actions/routing';
+import { buildRequest, buildSendTemplateRequest } from '../../nodes/KapsoApi/actions/routing';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
+
+vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
+	fetchSelectedTemplateDefinition: vi.fn(async () => ({
+		name: 'order_update',
+		language: 'en_US',
+		parameterFormat: 'named',
+		componentMode: 'standard',
+		headerFormat: 'text',
+		headerTextHasVariable: false,
+		bodyVariables: [{ id: 'first_name', displayName: 'first_name', parameterName: 'first_name' }],
+		buttonSlots: [],
+		carouselCards: [],
+	})),
+}));
 
 const PHONE = TEST_PHONE_NUMBER_ID;
 const RECIPIENT = '15551234567';
@@ -51,7 +65,7 @@ describe('routing integration bodies', () => {
 			expect(request.body).toMatchObject({
 				type: 'audio',
 				audio: {
-					id: 'media-id',
+					id: '425509551842',
 					voice: true,
 				},
 			});
@@ -67,7 +81,7 @@ describe('routing integration bodies', () => {
 			expect(request.body).toMatchObject({
 				type: 'document',
 				document: {
-					id: 'media-id',
+					id: '425509551842',
 					filename: 'invoice.pdf',
 					caption: 'Your invoice',
 				},
@@ -78,6 +92,7 @@ describe('routing integration bodies', () => {
 			expect(
 				build('message', 'sendReaction', {
 					reactionMessageId: 'wamid.react',
+					reactionMode: 'react',
 					emoji: '👍',
 				}).body,
 			).toEqual({
@@ -94,7 +109,7 @@ describe('routing integration bodies', () => {
 			expect(
 				build('message', 'sendReaction', {
 					reactionMessageId: 'wamid.react',
-					removeReaction: true,
+					reactionMode: 'remove',
 				}).body,
 			).toEqual({
 				messaging_product: 'whatsapp',
@@ -108,16 +123,23 @@ describe('routing integration bodies', () => {
 			});
 		});
 
-		it('builds sendTemplate with header and body components', () => {
-			const request = build('message', 'sendTemplate', {
-				templateName: 'order_update',
-				languageCode: 'en_US',
-				templateHeaderType: 'text',
-				templateHeaderText: 'Order shipped',
-				templateBodyParameters: {
-					parameterValues: [{ parameterName: 'first_name', parameterText: 'Jessica' }],
-				},
-			});
+		it('builds sendTemplate with header and body components', async () => {
+			const request = await buildSendTemplateRequest(
+				createMockExecuteFunctions({
+					resource: 'message',
+					operation: 'sendTemplate',
+					templateName: 'order_update',
+					languageCode: 'en_US',
+					templateDetectedHeaderFormat: 'text',
+					templateDetectedComponentMode: 'standard',
+					templateHeaderText: 'Order shipped',
+					templateBodyParametersMapper: {
+						mappingMode: 'defineBelow',
+						value: { first_name: 'Jessica' },
+					},
+				}),
+				0,
+			);
 
 			expect(request.body).toMatchObject({
 				type: 'template',
@@ -161,7 +183,7 @@ describe('routing integration bodies', () => {
 		});
 
 		for (const operation of messageSendOperations) {
-			if (operation === 'sendReaction') {
+			if (operation === 'sendReaction' || operation === 'sendTemplate') {
 				continue;
 			}
 
@@ -187,7 +209,7 @@ describe('routing integration bodies', () => {
 		it('builds contact:create body', () => {
 			expect(
 				build('contact', 'create', {
-					contactWaId: '+15551234567',
+					contactWaId: { mode: 'phone', value: '+15551234567', __rl: true },
 					contactProfileName: 'John',
 					contactDisplayName: '',
 				}).body,
@@ -244,7 +266,9 @@ describe('routing integration bodies', () => {
 			expect(
 				build('broadcast', 'addRecipients', {
 					broadcastRecipients: {
-						recipientValues: [{ phoneNumber: '+14155550123' }],
+						recipientValues: [
+							{ phoneNumber: { mode: 'phone', value: '+14155550123', __rl: true } },
+						],
 					},
 				}).body,
 			).toEqual({
@@ -285,23 +309,23 @@ describe('routing integration bodies', () => {
 			expect(
 				build('message', 'list', {
 					advancedOptions: {
-						messageListConversationId: 'conv-123',
+						messageListConversationId: '550e8400-e29b-41d4-a716-446655440000',
 						messageListDirection: 'inbound',
 						messageListStatus: 'delivered',
 					},
 				}).query,
 			).toEqual({
-				conversation_id: 'conv-123',
+				conversation_id: '550e8400-e29b-41d4-a716-446655440000',
 				direction: 'inbound',
 				status: 'delivered',
 				fields: 'kapso()',
 			});
 		});
 
-		it('builds contact:list query from platform list options', () => {
+		it('builds contact:list query from contact list options', () => {
 			expect(
 				build('contact', 'list', {
-					platformListOptions: {
+					contactListOptions: {
 						contactProfileNameContains: 'Ana',
 						listAfter: 'cursor-after',
 					},
@@ -312,10 +336,10 @@ describe('routing integration bodies', () => {
 			});
 		});
 
-		it('builds conversation:list query from platform list options', () => {
+		it('builds conversation:list query from conversation list options', () => {
 			expect(
 				build('conversation', 'list', {
-					platformListOptions: {
+					conversationListOptions: {
 						conversationStatusFilter: 'active',
 						conversationUnassigned: true,
 					},
@@ -331,7 +355,7 @@ describe('routing integration bodies', () => {
 				build('platformMessage', 'list', {
 					phoneNumberId: PHONE,
 					platformMessageListOptions: {
-						platformMessageConversationId: 'conv-123',
+						platformMessageConversationId: '550e8400-e29b-41d4-a716-446655440000',
 						platformMessageDirection: 'outbound',
 						platformMessageType: 'template',
 						platformMessageHasMedia: 'false',
@@ -340,7 +364,7 @@ describe('routing integration bodies', () => {
 				}).query,
 			).toEqual({
 				phone_number_id: PHONE,
-				conversation_id: 'conv-123',
+				conversation_id: '550e8400-e29b-41d4-a716-446655440000',
 				direction: 'outbound',
 				message_type: 'template',
 				has_media: false,
@@ -351,7 +375,7 @@ describe('routing integration bodies', () => {
 		it('builds media:getUrl query with phone number id', () => {
 			expect(
 				build('media', 'getUrl', {
-					mediaId: 'media-1',
+					mediaId: '425509551842',
 					phoneNumberId: PHONE,
 				}).query,
 			).toEqual({

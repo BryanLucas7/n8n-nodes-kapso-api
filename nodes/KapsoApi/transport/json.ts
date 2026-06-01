@@ -1,7 +1,20 @@
-import { IDataObject } from 'n8n-workflow';
+import { ApplicationError, IDataObject } from 'n8n-workflow';
+import { JSON_PAYLOAD_MAX_BYTES } from '../properties/fieldConstraints';
 
 function isPlainObject(value: unknown): value is IDataObject {
 	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+export function assertJsonPayloadSize(
+	raw: string,
+	fieldName: string,
+	maxBytes = JSON_PAYLOAD_MAX_BYTES,
+): void {
+	if (Buffer.byteLength(raw, 'utf8') > maxBytes) {
+		throw new ApplicationError(
+			`${fieldName} exceeds the maximum size of ${maxBytes} bytes.`,
+		);
+	}
 }
 
 export function parseJsonObject(raw: string | IDataObject | undefined, fieldName: string): IDataObject {
@@ -14,17 +27,23 @@ export function parseJsonObject(raw: string | IDataObject | undefined, fieldName
 	}
 
 	if (typeof raw !== 'string') {
-		throw new Error(`${fieldName} must be a JSON object.`);
+		throw new ApplicationError(`${fieldName} must be a JSON object.`);
 	}
+
+	assertJsonPayloadSize(raw, fieldName);
 
 	try {
 		const parsed = JSON.parse(raw);
 		if (!isPlainObject(parsed)) {
-			throw new Error('not_object');
+			throw new ApplicationError(`${fieldName} must be a JSON object.`);
 		}
 		return parsed;
 	} catch (error) {
-		throw new Error(
+		if (error instanceof ApplicationError) {
+			throw error;
+		}
+
+		throw new ApplicationError(
 			`${fieldName} must be valid JSON object syntax. Received: ${raw.slice(0, 120)}`,
 		);
 	}
@@ -39,10 +58,12 @@ export function parseJsonValue(raw: string | IDataObject | undefined, fieldName:
 		return raw;
 	}
 
+	assertJsonPayloadSize(raw, fieldName);
+
 	try {
 		return JSON.parse(raw);
-	} catch (error) {
-		throw new Error(
+	} catch {
+		throw new ApplicationError(
 			`${fieldName} must be valid JSON syntax. Received: ${raw.slice(0, 120)}`,
 		);
 	}

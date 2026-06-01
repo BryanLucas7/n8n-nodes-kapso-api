@@ -6,12 +6,19 @@ describe('KapsoApi credentials', () => {
 		const credentials = new KapsoApi();
 
 		expect(credentials.name).toBe('kapsoApi');
+		expect(credentials.displayName).toBe('Kapso API');
 		expect(credentials.properties.map((property) => property.name)).toEqual([
 			'baseUrl',
 			'apiKey',
 			'webhookSecret',
 		]);
+		expect(credentials.properties.find((property) => property.name === 'baseUrl')?.default).toBe(
+			'https://api.kapso.ai',
+		);
 		expect(credentials.properties.find((property) => property.name === 'apiKey')?.default).toBe('');
+		expect(credentials.properties.find((property) => property.name === 'webhookSecret')?.typeOptions).toEqual(
+			{ password: true },
+		);
 		expect(credentials.authenticate).toMatchObject({
 			type: 'generic',
 			properties: {

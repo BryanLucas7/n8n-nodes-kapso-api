@@ -6,10 +6,10 @@ import {
 	advancedOptionsField,
 	operationProperties,
 	paginationFields,
-	phoneNumberIdField,
+	phoneNumberIdFields,
 } from './shared.fields';
 import { resourceFields } from './resource.fields';
-import { platformListOptionsField } from './platformList.fields';
+import { contactListOptionsField, conversationListOptionsField } from './platformList.fields';
 import { platformMessageFields } from './platformMessage.fields';
 import { broadcastListOptionsField } from './broadcastList.fields';
 
@@ -23,13 +23,14 @@ export const kapsoNodeProperties: INodeProperties[] = [
 		default: 'message',
 	},
 	...operationProperties(),
-	phoneNumberIdField,
+	...phoneNumberIdFields,
 	...messageFields,
 	...messageExtendedFields,
 	...resourceFields,
 	...platformMessageFields,
 	...paginationFields,
-	platformListOptionsField,
+	contactListOptionsField,
+	conversationListOptionsField,
 	broadcastListOptionsField,
 	advancedOptionsField,
 ];

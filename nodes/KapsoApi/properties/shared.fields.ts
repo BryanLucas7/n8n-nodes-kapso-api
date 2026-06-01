@@ -1,11 +1,11 @@
 import { INodeProperties } from 'n8n-workflow';
 import {
 	messageSendOperations,
-	messageReplyOperations,
 	operationOptionsByResource,
 	resourcesWithPagination,
 	CUSTOM_API_CALL,
 } from '../actions/operations';
+import { filterStringField, uuidStringField } from './fieldConstraints';
 
 function operationKeysToOperations(keys: string[]): string[] {
 	return [...new Set(keys.map((key) => key.split(':')[1]))];
@@ -25,8 +25,6 @@ const phoneNumberIdOperations = [
 	'unblock',
 ];
 
-const messageReplyOperationValues = [...messageReplyOperations];
-
 const messageOperationsWithoutAdvancedOptions = [
 	'sendContact',
 	'sendReaction',
@@ -35,25 +33,29 @@ const messageOperationsWithoutAdvancedOptions = [
 	'sendCallPermission',
 ] as const;
 
-const phoneNumberIdDisplayOptions = {
-	show: [
-		{
+const phoneNumberIdShowRules: Array<NonNullable<INodeProperties['displayOptions']>> = [
+	{
+		show: {
 			resource: ['message', 'media', 'blockUser'],
 			operation: phoneNumberIdOperations,
 		},
-		{
+	},
+	{
+		show: {
 			resource: ['platformMessage'],
 			operation: ['list'],
 		},
-		{
+	},
+	{
+		show: {
 			resource: [CUSTOM_API_CALL],
 			operation: [CUSTOM_API_CALL],
 			customApiSurface: ['whatsapp'],
 		},
-	],
-} as unknown as INodeProperties['displayOptions'];
+	},
+];
 
-export const phoneNumberIdField: INodeProperties = {
+export const phoneNumberIdFields: INodeProperties[] = phoneNumberIdShowRules.map((displayOptions) => ({
 	displayName: 'Phone Number Name or ID',
 	name: 'phoneNumberId',
 	type: 'options',
@@ -61,10 +63,10 @@ export const phoneNumberIdField: INodeProperties = {
 	typeOptions: {
 		loadOptionsMethod: 'getPhoneNumbers',
 	},
-	displayOptions: phoneNumberIdDisplayOptions,
+	displayOptions,
 	description:
 		'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-};
+}));
 
 export const paginationFields: INodeProperties[] = [
 	{
@@ -110,6 +112,7 @@ export const paginationFields: INodeProperties[] = [
 			show: {
 				resource: ['message', 'platformMessage', 'broadcast', 'contact', 'conversation'],
 				operation: paginatedOperations,
+				returnAll: [false],
 			},
 		},
 		description:
@@ -138,68 +141,26 @@ export const advancedOptionsField: INodeProperties = {
 			name: 'advancedComponentsJson',
 			type: 'json',
 			default: '[]',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['sendTemplate'],
-				},
-			},
-			description: 'Optional raw Meta template components array for expert use',
+			description: 'Optional raw Meta template components array for sendTemplate',
 		},
 		{
 			displayName: 'After Cursor',
 			name: 'messageListAfter',
 			type: 'string',
 			default: '',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list'],
-				},
-			},
-			description: 'Cursor for the next page (from the previous response paging.cursors.after)',
+			description: 'Cursor for the next page when listing messages (paging.cursors.after)',
 		},
 		{
 			displayName: 'Before Cursor',
 			name: 'messageListBefore',
 			type: 'string',
 			default: '',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list'],
-				},
-			},
-			description: 'Cursor for the previous page (from the previous response paging.cursors.before)',
+			description: 'Cursor for the previous page when listing messages (paging.cursors.before)',
 		},
-		{
-			displayName: 'Conversation ID',
-			name: 'messageListConversationId',
-			type: 'string',
-			default: '',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list'],
-				},
-			},
-			description: 'Filter messages by Kapso conversation UUID',
-		},
-		{
-			displayName: 'Custom Response Fields',
-			name: 'messageResponseFields',
-			type: 'string',
-			default: '',
-			placeholder: 'kapso(direction,status,processing_status)',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list', 'get'],
-				},
-			},
-			description:
-				'Optional Meta `fields` query override. When set, it replaces the default Kapso extensions field set.',
-		},
+		uuidStringField('messageListConversationId', 'Conversation ID', {
+			description: 'Filter messages by Kapso conversation UUID when listing messages',
+		}),
+		filterStringField('messageResponseFields', 'Custom Response Fields', 'Optional Meta fields query override for list/get. Replaces the default Kapso extensions field set.'),
 		{
 			displayName: 'Direction',
 			name: 'messageListDirection',
@@ -210,24 +171,14 @@ export const advancedOptionsField: INodeProperties = {
 				{ name: 'Outbound', value: 'outbound' },
 			],
 			default: '',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list'],
-				},
-			},
+			description: 'Filter listed messages by direction',
 		},
 		{
 			displayName: 'Link Preview',
 			name: 'linkPreview',
 			type: 'boolean',
 			default: false,
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['sendText'],
-				},
-			},
+			description: 'Whether to enable URL link preview when sending text messages',
 		},
 		{
 			displayName: 'Query Parameters',
@@ -238,13 +189,7 @@ export const advancedOptionsField: INodeProperties = {
 				sortable: true,
 			},
 			default: {},
-			displayOptions: {
-				show: {
-					'/resource': [CUSTOM_API_CALL],
-					'/operation': [CUSTOM_API_CALL],
-				},
-			},
-			description: 'Optional query string parameters appended to the custom API request',
+			description: 'Optional query string parameters for custom API requests',
 			options: [
 				{
 					displayName: 'Parameter',
@@ -275,25 +220,14 @@ export const advancedOptionsField: INodeProperties = {
 			name: 'replyToMessageId',
 			type: 'string',
 			default: '',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': messageReplyOperationValues,
-				},
-			},
+			description: 'WhatsApp message ID to reply to',
 		},
 		{
 			displayName: 'Since',
 			name: 'messageListSince',
 			type: 'dateTime',
 			default: '',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list'],
-				},
-			},
-			description: 'Include messages created on or after this time (ISO 8601)',
+			description: 'Include listed messages created on or after this time (ISO 8601)',
 		},
 		{
 			displayName: 'Status',
@@ -308,25 +242,14 @@ export const advancedOptionsField: INodeProperties = {
 				{ name: 'Failed', value: 'failed' },
 			],
 			default: '',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list'],
-				},
-			},
+			description: 'Filter listed messages by delivery status',
 		},
 		{
 			displayName: 'Until',
 			name: 'messageListUntil',
 			type: 'dateTime',
 			default: '',
-			displayOptions: {
-				show: {
-					'/resource': ['message'],
-					'/operation': ['list'],
-				},
-			},
-			description: 'Include messages created on or before this time (ISO 8601)',
+			description: 'Include listed messages created on or before this time (ISO 8601)',
 		},
 	],
 };

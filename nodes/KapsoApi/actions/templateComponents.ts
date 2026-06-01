@@ -1,6 +1,6 @@
 import { ApplicationError, IDataObject } from 'n8n-workflow';
-import { parseJsonObject, parseJsonValue } from '../transport/json';
-import { parseCoordinate } from './validation';
+import { parseJsonValue } from '../transport/json';
+import { assertProductListShape, parseCoordinate, validateFlowToken, validateProductRetailerId } from './validation';
 
 export type TemplateBodyParameterInput = {
 	parameterName?: string;
@@ -8,13 +8,19 @@ export type TemplateBodyParameterInput = {
 };
 
 export type TemplateButtonParameterInput = {
+	templateButtonKind?: string;
 	buttonSubType?: string;
 	buttonIndex?: number;
 	buttonParameterType?: string;
 	buttonText?: string;
 	buttonPayload?: string;
 	flowToken?: string;
-	flowActionDataJson?: string;
+	flowActionData?: {
+		fieldValues?: Array<{
+			key: string;
+			value: string;
+		}>;
+	};
 	catalogThumbnailProductRetailerId?: string;
 	mpmThumbnailProductRetailerId?: string;
 	mpmSections?: Array<{
@@ -150,6 +156,24 @@ function buildTemplateBodyParameters(
 	};
 }
 
+function buildFlowActionData(button: TemplateButtonParameterInput): IDataObject | undefined {
+	const fields = button.flowActionData?.fieldValues ?? [];
+
+	if (fields.length === 0) {
+		return undefined;
+	}
+
+	const actionData: IDataObject = {};
+
+	for (const field of fields) {
+		if (field.key) {
+			actionData[field.key] = field.value ?? '';
+		}
+	}
+
+	return Object.keys(actionData).length > 0 ? actionData : undefined;
+}
+
 function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput): IDataObject {
 	if (button.buttonSubType === 'catalog') {
 		const action: IDataObject = {};
@@ -169,6 +193,7 @@ function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput)
 		}
 
 		if (button.mpmSections && button.mpmSections.length > 0) {
+			validateMpmTemplateSections(button.mpmSections);
 			action.sections = button.mpmSections.map((section) => ({
 				title: section.sectionTitle,
 				product_items: section.productRetailerIds.map((productRetailerId) => ({
@@ -184,12 +209,12 @@ function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput)
 		const action: IDataObject = {};
 
 		if (button.flowToken) {
-			action.flow_token = button.flowToken;
+			action.flow_token = validateFlowToken(button.flowToken);
 		}
 
-		const flowData = button.flowActionDataJson?.trim();
-		if (flowData && flowData !== '{}') {
-			action.flow_action_data = parseJsonObject(flowData, 'Flow Action Data JSON');
+		const flowActionData = buildFlowActionData(button);
+		if (flowActionData) {
+			action.flow_action_data = flowActionData;
 		}
 
 		return { type: 'action', action };
@@ -203,6 +228,22 @@ function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput)
 		}
 
 		return { type: 'coupon_code', coupon_code: code };
+	}
+
+	if (button.buttonSubType === 'quick_reply') {
+		if (button.buttonParameterType === 'payload') {
+			const payload = button.buttonPayload?.trim();
+			if (!payload) {
+				throw new ApplicationError('Quick Reply (Payload) requires a payload value.');
+			}
+			return { type: 'payload', payload };
+		}
+
+		const text = button.buttonText?.trim();
+		if (!text) {
+			throw new ApplicationError('Quick Reply (Text) requires a text value.');
+		}
+		return { type: 'text', text };
 	}
 
 	if (button.buttonParameterType === 'payload' && button.buttonPayload) {
@@ -221,7 +262,7 @@ function extractMpmProductRetailerIds(productValues: unknown): string[] {
 		.productItems;
 
 	return (items ?? [])
-		.map((item) => item.productRetailerId)
+		.map((item) => (item.productRetailerId ? validateProductRetailerId(item.productRetailerId) : ''))
 		.filter((value): value is string => Boolean(value));
 }
 
@@ -245,13 +286,25 @@ function normalizeTemplateButtonInput(
 		return button;
 	}
 
+	const mpmSections = sectionValues.map((section) => ({
+		sectionTitle: section.sectionTitle,
+		productRetailerIds: extractMpmProductRetailerIds(section.productValues),
+	}));
+
+	validateMpmTemplateSections(mpmSections);
+
 	return {
 		...button,
-		mpmSections: sectionValues.map((section) => ({
-			sectionTitle: section.sectionTitle,
-			productRetailerIds: extractMpmProductRetailerIds(section.productValues),
-		})),
+		mpmSections,
 	};
+}
+
+function validateMpmTemplateSections(sections: Array<{ sectionTitle: string; productRetailerIds: string[] }>): void {
+	if (sections.length === 0) {
+		return;
+	}
+
+	assertProductListShape(sections);
 }
 
 function resolveTemplateButtonSubType(buttonSubType?: string): string {

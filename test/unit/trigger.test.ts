@@ -37,6 +37,13 @@ describe('Kapso webhook trigger routing', () => {
 			),
 		).toBe('whatsapp.message.received');
 
+		expect(
+			resolveKapsoWebhookEvent(
+				{ 'X-Webhook-Event': ['whatsapp.message.delivered'] },
+				{},
+			),
+		).toBe('whatsapp.message.delivered');
+
 		expect(resolveKapsoWebhookEvent({}, { type: 'whatsapp.message.sent' })).toBe(
 			'whatsapp.message.sent',
 		);
@@ -44,6 +51,8 @@ describe('Kapso webhook trigger routing', () => {
 		expect(resolveKapsoWebhookEvent({}, { event: 'whatsapp.conversation.created' })).toBe(
 			'whatsapp.conversation.created',
 		);
+
+		expect(resolveKapsoWebhookEvent({}, {})).toBeUndefined();
 	});
 
 	it('expands batch webhook payloads', () => {
@@ -135,5 +144,35 @@ describe('Kapso webhook trigger routing', () => {
 			statusCode: 401,
 			body: 'Invalid webhook signature',
 		});
+	});
+
+	it('returns empty workflow data when event type is missing', async () => {
+		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
+		const body = { message: { id: 'wamid.1' } };
+		const webhookContext = createWebhookContext(body, {
+			'x-webhook-signature': signBody(body),
+		});
+
+		const response = await handler.call(webhookContext);
+
+		expect(response.workflowData?.every((output) => output.length === 0)).toBe(true);
+	});
+
+	it('rejects webhooks when credential secret is undefined', async () => {
+		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
+		const body = { message: { id: 'wamid.1' } };
+		const webhookContext = {
+			getBodyData: () => body,
+			getHeaderData: () => ({
+				'x-webhook-event': 'whatsapp.message.received',
+				'x-webhook-signature': signBody(body),
+			}),
+			getCredentials: vi.fn().mockResolvedValue({}),
+			getRequestObject: () => ({ rawBody: Buffer.from(JSON.stringify(body), 'utf8') }),
+		} as unknown as IWebhookFunctions;
+
+		const response = await handler.call(webhookContext);
+
+		expect(response.webhookResponse?.statusCode).toBe(500);
 	});
 });

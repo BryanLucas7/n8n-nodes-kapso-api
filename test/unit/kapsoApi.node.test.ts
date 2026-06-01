@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KapsoApi } from '../../nodes/KapsoApi/KapsoApi.node';
+import { fetchSelectedTemplateDefinition } from '../../nodes/KapsoApi/loadOptions/templateFetch';
+import { namedOrderUpdateDefinition } from '../fixtures/metaTemplates';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
 
 const kapsoApiRequestMock = vi.fn();
 const requestPaginatedMock = vi.fn();
 const requestCursorListAllMock = vi.fn();
+
+vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
+	fetchSelectedTemplateDefinition: vi.fn(),
+}));
 
 vi.mock('../../nodes/KapsoApi/transport/request', () => ({
 	kapsoApiRequest: (...args: unknown[]) => kapsoApiRequestMock(...args),
@@ -14,6 +20,7 @@ vi.mock('../../nodes/KapsoApi/transport/request', () => ({
 vi.mock('../../nodes/KapsoApi/transport/pagination', () => ({
 	requestPaginated: (...args: unknown[]) => requestPaginatedMock(...args),
 	requestCursorListAll: (...args: unknown[]) => requestCursorListAllMock(...args),
+	RETURN_ALL_FETCH_LIMIT: 100,
 }));
 
 describe('KapsoApi node execute', () => {
@@ -23,6 +30,7 @@ describe('KapsoApi node execute', () => {
 		kapsoApiRequestMock.mockReset();
 		requestPaginatedMock.mockReset();
 		requestCursorListAllMock.mockReset();
+		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(namedOrderUpdateDefinition);
 	});
 
 	it('returns JSON items for a standard platform request', async () => {
@@ -56,6 +64,14 @@ describe('KapsoApi node execute', () => {
 
 		expect(items[0].json).toMatchObject({ data: [{ id: 1 }, { id: 2 }] });
 		expect(requestCursorListAllMock).toHaveBeenCalledOnce();
+		expect(requestCursorListAllMock).toHaveBeenCalledWith(
+			ef,
+			expect.objectContaining({
+				query: expect.objectContaining({ limit: 100 }),
+			}),
+			100,
+			0,
+		);
 		expect(requestPaginatedMock).not.toHaveBeenCalled();
 		expect(kapsoApiRequestMock).not.toHaveBeenCalled();
 	});
@@ -187,11 +203,79 @@ describe('KapsoApi node execute', () => {
 		await expect(node.execute.call(ef)).rejects.toThrow(/Binary property "missing" was not found/);
 	});
 
+	it('uses requestPaginated for page-based broadcast lists', async () => {
+		requestPaginatedMock.mockResolvedValue({
+			data: [{ id: 'recipient-1' }],
+			meta: { page: 2, total_pages: 5 },
+		});
+		const ef = createMockExecuteFunctions({
+			resource: 'broadcast',
+			operation: 'listRecipients',
+			broadcastId: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+			page: 2,
+			perPage: 25,
+			returnAll: false,
+		});
+
+		const [items] = await node.execute.call(ef);
+
+		expect(items[0].json).toMatchObject({ data: [{ id: 'recipient-1' }] });
+		expect(requestPaginatedMock).toHaveBeenCalledOnce();
+		expect(requestCursorListAllMock).not.toHaveBeenCalled();
+	});
+
+	it('executes sendTemplate through the async request builder', async () => {
+		kapsoApiRequestMock.mockResolvedValue({
+			messaging_product: 'whatsapp',
+			messages: [{ id: 'wamid.template' }],
+		});
+
+		const ef = createMockExecuteFunctions({
+			resource: 'message',
+			operation: 'sendTemplate',
+			templateName: 'order_update',
+			languageCode: 'en_US',
+			templateDetectedHeaderFormat: 'text',
+			templateDetectedComponentMode: 'standard',
+			templateHeaderText: 'Order shipped',
+			templateBodyParametersMapper: {
+				mappingMode: 'defineBelow',
+				value: { first_name: 'Jessica', order_id: '12345' },
+			},
+		});
+
+		const [items] = await node.execute.call(ef);
+
+		expect(items[0].json).toMatchObject({
+			messages: [{ id: 'wamid.template' }],
+		});
+		expect(kapsoApiRequestMock).toHaveBeenCalledOnce();
+		expect(kapsoApiRequestMock).toHaveBeenCalledWith(
+			ef,
+			expect.objectContaining({
+				api: 'whatsapp',
+				method: 'POST',
+				body: expect.objectContaining({
+					type: 'template',
+					template: expect.objectContaining({
+						name: 'order_update',
+						language: { code: 'en_US' },
+					}),
+				}),
+			}),
+			0,
+		);
+	});
+
 	it('exposes loadOptions and listSearch methods', () => {
 		expect(node.methods?.loadOptions).toMatchObject({
 			getPhoneNumbers: expect.any(Function),
 			getMessageTemplates: expect.any(Function),
 			getBroadcastTemplates: expect.any(Function),
+		});
+		expect(node.methods?.resourceMapping).toMatchObject({
+			getTemplateBodyParameterFields: expect.any(Function),
+			getTemplateButtonParameterFields: expect.any(Function),
 		});
 		expect(node.methods?.listSearch).toMatchObject({
 			searchConversations: expect.any(Function),

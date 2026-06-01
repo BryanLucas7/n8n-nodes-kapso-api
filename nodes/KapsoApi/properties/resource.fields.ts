@@ -1,6 +1,22 @@
-import { INodeProperties } from 'n8n-workflow';
+import { INodeProperties, INodePropertyModeTypeOptions } from 'n8n-workflow';
 import { CUSTOM_API_CALL } from '../actions/operations';
-import { templateButtonParameterValues } from './templateShared.fields';
+import {
+	e164PhoneResourceLocatorField,
+	FILTER_STRING_MAX,
+	httpUrlStringField,
+	interactiveHeaderTextField,
+	limitedStringField,
+	mediaIdStringField,
+	metaPhoneResourceLocatorField,
+	uuidResourceLocatorIdMode,
+	uuidStringField,
+	DOWNLOAD_TOKEN_MAX,
+	CUSTOM_RELATIVE_PATH_MAX,
+} from './fieldConstraints';
+import {
+	templateButtonParameterCollectionOptions,
+	templateButtonParametersField,
+} from './templateShared.fields';
 
 const listSearchMode = (searchListMethod: string) => ({
 	displayName: 'From List',
@@ -18,22 +34,18 @@ const idMode = (placeholder: string) => ({
 	name: 'id',
 	type: 'string' as const,
 	placeholder,
+	typeOptions: {
+		maxLength: FILTER_STRING_MAX,
+	} as unknown as INodePropertyModeTypeOptions,
 });
 
 export const resourceFields: INodeProperties[] = [
-	{
-		displayName: 'Media ID',
-		name: 'mediaId',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['media'],
-				operation: ['getUrl', 'delete'],
-			},
+	mediaIdStringField('mediaId', 'Media ID', {
+		show: {
+			resource: ['media'],
+			operation: ['getUrl', 'delete'],
 		},
-	},
+	}),
 	{
 		displayName: 'Binary Property',
 		name: 'binaryPropertyName',
@@ -52,7 +64,10 @@ export const resourceFields: INodeProperties[] = [
 		displayName: 'Download Token',
 		name: 'downloadToken',
 		type: 'string',
-		typeOptions: { password: true },
+		typeOptions: {
+			maxLength: DOWNLOAD_TOKEN_MAX,
+			password: true,
+		},
 		default: '',
 		required: true,
 		displayOptions: {
@@ -82,7 +97,7 @@ export const resourceFields: INodeProperties[] = [
 		type: 'resourceLocator',
 		default: { mode: 'list', value: '' },
 		required: true,
-		modes: [listSearchMode('searchConversations'), idMode('conversation-uuid')],
+		modes: [listSearchMode('searchConversations'), uuidResourceLocatorIdMode('conversation-uuid')],
 		displayOptions: {
 			show: {
 				resource: ['conversation'],
@@ -113,7 +128,7 @@ export const resourceFields: INodeProperties[] = [
 		type: 'resourceLocator',
 		default: { mode: 'list', value: '' },
 		required: true,
-		modes: [listSearchMode('searchBroadcasts'), idMode('broadcast-uuid')],
+		modes: [listSearchMode('searchBroadcasts'), uuidResourceLocatorIdMode('broadcast-uuid')],
 		displayOptions: {
 			show: {
 				resource: ['broadcast'],
@@ -157,21 +172,17 @@ export const resourceFields: INodeProperties[] = [
 			{ name: 'DELETE', value: 'DELETE' },
 		],
 	},
-	{
-		displayName: 'Custom Relative Path',
-		name: 'customPath',
-		type: 'string',
-		default: '',
-		required: true,
+	limitedStringField('customPath', 'Custom Relative Path', CUSTOM_RELATIVE_PATH_MAX, {
 		displayOptions: {
 			show: {
 				operation: [CUSTOM_API_CALL],
 			},
 		},
+		required: true,
 		placeholder: '/whatsapp/contacts',
 		description:
 			'Relative path under the selected API surface. For WhatsApp API with Phone Number set, use paths such as /messages and the phone ID is prefixed automatically.',
-	},
+	}),
 	{
 		displayName: 'Status',
 		name: 'conversationStatus',
@@ -190,21 +201,12 @@ export const resourceFields: INodeProperties[] = [
 		},
 		description: 'Kapso conversation status (`active` reopens, `ended` closes)',
 	},
-	{
-		displayName: 'WhatsApp ID',
-		name: 'contactWaId',
-		type: 'string',
-		default: '',
-		required: true,
-		placeholder: '+15551234567',
-		displayOptions: {
-			show: {
-				resource: ['contact'],
-				operation: ['create'],
-			},
+	e164PhoneResourceLocatorField('contactWaId', 'WhatsApp ID', {
+		show: {
+			resource: ['contact'],
+			operation: ['create'],
 		},
-		description: 'Contact phone number in E.164 format with plus sign (Kapso Platform API)',
-	},
+	}),
 	{
 		displayName: 'Profile Name',
 		name: 'contactProfileName',
@@ -229,11 +231,7 @@ export const resourceFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Customer ID',
-		name: 'contactCustomerId',
-		type: 'string',
-		default: '',
+	uuidStringField('contactCustomerId', 'Customer ID', {
 		displayOptions: {
 			show: {
 				resource: ['contact'],
@@ -241,7 +239,7 @@ export const resourceFields: INodeProperties[] = [
 			},
 		},
 		description: 'Optional Kapso customer UUID',
-	},
+	}),
 	{
 		displayName: 'Metadata JSON',
 		name: 'contactMetadataJson',
@@ -339,22 +337,10 @@ export const resourceFields: INodeProperties[] = [
 				displayName: 'Recipient',
 				name: 'recipientValues',
 				values: [
-					{
-						displayName: 'Phone Number',
-						name: 'phoneNumber',
-						type: 'string',
-						default: '',
-						placeholder: '+15551234567',
-						description:
-							'E.164 phone number with plus sign (Kapso Platform API). Required unless Contact ID is set.',
-					},
-					{
-						displayName: 'Contact ID',
-						name: 'whatsappContactId',
-						type: 'string',
-						default: '',
+					e164PhoneResourceLocatorField('phoneNumber', 'Phone Number', undefined, undefined, false),
+					uuidStringField('whatsappContactId', 'Contact ID', {
 						description: 'Optional existing Kapso contact UUID',
-					},
+					}),
 					{
 						displayName: 'Body Parameters',
 						name: 'bodyParameters',
@@ -411,24 +397,9 @@ export const resourceFields: INodeProperties[] = [
 							{ name: 'Location', value: 'location' },
 						],
 						default: 'none',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-							},
-						},
+						description: 'Standard template header type (ignored when Component Mode is Carousel)',
 					},
-					{
-						displayName: 'Header Text',
-						name: 'headerText',
-						type: 'string',
-						default: '',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-								headerType: ['text'],
-							},
-						},
-					},
+					interactiveHeaderTextField('headerText', 'Header Text'),
 					{
 						displayName: 'Header Media Source',
 						name: 'headerMediaSource',
@@ -438,12 +409,7 @@ export const resourceFields: INodeProperties[] = [
 							{ name: 'Media ID', value: 'id' },
 						],
 						default: 'link',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-								headerType: ['image', 'video', 'document'],
-							},
-						},
+						description: 'Media source when Header Type is Image, Video, or Document',
 					},
 					{
 						displayName: 'Header Media URL',
@@ -451,91 +417,38 @@ export const resourceFields: INodeProperties[] = [
 						type: 'string',
 						default: '',
 						placeholder: 'https://cdn.example.com/banner.jpg',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-								headerType: ['image', 'video', 'document'],
-								headerMediaSource: ['link'],
-							},
-						},
+						description: 'Public media URL when Header Media Source is Public Link',
 					},
-					{
-						displayName: 'Header Media ID',
-						name: 'headerMediaId',
-						type: 'string',
-						default: '',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-								headerType: ['image', 'video', 'document'],
-								headerMediaSource: ['id'],
-							},
-						},
-					},
+					mediaIdStringField('headerMediaId', 'Header Media ID', undefined, false),
 					{
 						displayName: 'Header Latitude',
 						name: 'headerLatitude',
 						type: 'string',
 						default: '',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-								headerType: ['location'],
-							},
-						},
+						description: 'Location latitude when Header Type is Location',
 					},
 					{
 						displayName: 'Header Longitude',
 						name: 'headerLongitude',
 						type: 'string',
 						default: '',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-								headerType: ['location'],
-							},
-						},
+						description: 'Location longitude when Header Type is Location',
 					},
 					{
 						displayName: 'Header Location Name',
 						name: 'headerLocationName',
 						type: 'string',
 						default: '',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-								headerType: ['location'],
-							},
-						},
+						description: 'Location name when Header Type is Location',
 					},
 					{
 						displayName: 'Header Location Address',
 						name: 'headerLocationAddress',
 						type: 'string',
 						default: '',
-						displayOptions: {
-							show: {
-								componentMode: ['standard'],
-								headerType: ['location'],
-							},
-						},
+						description: 'Location address when Header Type is Location',
 					},
-					{
-						displayName: 'Button Parameters',
-						name: 'buttonParameters',
-						type: 'fixedCollection',
-						typeOptions: {
-							multipleValues: true,
-						},
-						default: {},
-						options: [
-							{
-								displayName: 'Button',
-								name: 'buttonParameterValues',
-								values: templateButtonParameterValues,
-							},
-						],
-					},
+					templateButtonParametersField('buttonParameters'),
 					{
 						displayName: 'Carousel Cards',
 						name: 'carouselCards',
@@ -544,13 +457,8 @@ export const resourceFields: INodeProperties[] = [
 							multipleValues: true,
 						},
 						default: {},
-						displayOptions: {
-							show: {
-								componentMode: ['carousel'],
-							},
-						},
 						description:
-							'Each card must match the approved template carousel card count and card_index order',
+							'Carousel cards when Component Mode is Carousel. Card count must match the approved template.',
 						options: [
 							{
 								displayName: 'Card',
@@ -589,19 +497,9 @@ export const resourceFields: INodeProperties[] = [
 										name: 'cardHeaderMediaUrl',
 										type: 'string',
 										default: '',
-										displayOptions: {
-											show: { cardHeaderMediaSource: ['link'] },
-										},
+										description: 'Public media URL when Header Media Source is Public Link',
 									},
-									{
-										displayName: 'Header Media ID',
-										name: 'cardHeaderMediaId',
-										type: 'string',
-										default: '',
-										displayOptions: {
-											show: { cardHeaderMediaSource: ['id'] },
-										},
-									},
+									mediaIdStringField('cardHeaderMediaId', 'Header Media ID', undefined, false),
 									{
 										displayName: 'Body Parameters',
 										name: 'cardBodyParameters',
@@ -634,15 +532,15 @@ export const resourceFields: INodeProperties[] = [
 										displayName: 'Button Parameters',
 										name: 'cardButtonParameters',
 										type: 'fixedCollection',
-										typeOptions: { multipleValues: true },
+										placeholder: 'Add Button Parameter',
+										typeOptions: {
+											multipleValues: true,
+											multipleValueButtonText: 'Add Button Parameter',
+										},
 										default: {},
-										options: [
-											{
-												displayName: 'Button',
-												name: 'buttonValues',
-												values: templateButtonParameterValues,
-											},
-										],
+										description:
+											'Add one entry per carousel card button index. Pick the type that matches that button.',
+										options: templateButtonParameterCollectionOptions,
 									},
 								],
 							},
@@ -692,21 +590,15 @@ export const resourceFields: INodeProperties[] = [
 		description:
 			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 	},
-	{
-		displayName: 'Source URL',
-		name: 'ingestSourceUrl',
-		type: 'string',
-		default: '',
-		required: true,
-		placeholder: 'https://example.com/image.png',
-		displayOptions: {
-			show: {
-				resource: ['media'],
-				operation: ['uploadFromUrl'],
-			},
+	httpUrlStringField('ingestSourceUrl', 'Source URL', {
+		show: {
+			resource: ['media'],
+			operation: ['uploadFromUrl'],
 		},
+	}, {
+		placeholder: 'https://example.com/image.png',
 		description: 'Public URL of the media file to ingest',
-	},
+	}),
 	{
 		displayName: 'Delivery',
 		name: 'ingestDelivery',
@@ -743,15 +635,12 @@ export const resourceFields: INodeProperties[] = [
 				displayName: 'User',
 				name: 'userValues',
 				values: [
-					{
-						displayName: 'User Phone',
-						name: 'user',
-						type: 'string',
-						default: '',
-						required: true,
-						placeholder: '15551234567',
-						description: 'WhatsApp user phone number without plus sign (Meta block_users API)',
-					},
+					metaPhoneResourceLocatorField(
+						'user',
+						'User Phone',
+						undefined,
+						'WhatsApp user phone number without plus sign (Meta block_users API)',
+					),
 				],
 			},
 		],

@@ -1,6 +1,23 @@
 import { INodeProperties } from 'n8n-workflow';
 import { messageStickerOperations } from '../actions/operations';
 import {
+	catalogIdField,
+	ctaButtonLabelField,
+	interactiveFooterTextField,
+	interactiveHeaderTextField,
+	INTERACTIVE_HEADER_MAX,
+	httpUrlStringField,
+	flowCtaField,
+	flowIdField,
+	flowScreenField,
+	flowTokenField,
+	listSectionTitleField,
+	limitedStringField,
+	mediaIdStringField,
+	productRetailerIdField,
+	publicUrlStringField,
+} from './fieldConstraints';
+import {
 	interactiveHeaderMediaFields,
 	interactiveHeaderTypeOptions,
 	productListHeaderTypeOptions,
@@ -81,20 +98,20 @@ export const messageExtendedFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Sticker Media Value',
-		name: 'stickerValue',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: stickerOps,
-			},
+	mediaIdStringField('stickerMediaId', 'Sticker Media ID', {
+		show: {
+			resource: ['message'],
+			operation: stickerOps,
+			stickerSource: ['id'],
 		},
-		description: 'Sticker media ID or public WEBP URL',
-	},
+	}),
+	publicUrlStringField('stickerMediaUrl', 'Public URL', {
+		show: {
+			resource: ['message'],
+			operation: stickerOps,
+			stickerSource: ['link'],
+		},
+	}, 'Public HTTPS URL of a WEBP sticker'),
 	{
 		displayName: 'Header Type',
 		name: 'buttonHeaderType',
@@ -122,46 +139,26 @@ export const messageExtendedFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'List Header Text',
-		name: 'listHeaderText',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendList'],
-				listHeaderType: ['text'],
-			},
+	interactiveHeaderTextField('listHeaderText', 'List Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendList'],
+			listHeaderType: ['text'],
 		},
-	},
+	}),
 	...interactiveHeaderMediaFields('list', ['sendList']),
-	{
-		displayName: 'Button Label',
-		name: 'ctaButtonLabel',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendCtaUrl'],
-			},
+	ctaButtonLabelField({
+		show: {
+			resource: ['message'],
+			operation: ['sendCtaUrl'],
 		},
-	},
-	{
-		displayName: 'Button URL',
-		name: 'ctaButtonUrl',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendCtaUrl'],
-			},
+	}),
+	httpUrlStringField('ctaButtonUrl', 'Button URL', {
+		show: {
+			resource: ['message'],
+			operation: ['sendCtaUrl'],
 		},
-	},
+	}),
 	{
 		displayName: 'Header Type',
 		name: 'ctaHeaderType',
@@ -175,47 +172,26 @@ export const messageExtendedFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Header Text',
-		name: 'ctaHeaderText',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendCtaUrl'],
-				ctaHeaderType: ['text'],
-			},
+	interactiveHeaderTextField('ctaHeaderText', 'Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendCtaUrl'],
+			ctaHeaderType: ['text'],
 		},
-	},
+	}),
 	...interactiveHeaderMediaFields('cta', ['sendCtaUrl']),
-	{
-		displayName: 'Catalog ID',
-		name: 'catalogId',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendProduct', 'sendProductList'],
-			},
+	catalogIdField({
+		show: {
+			resource: ['message'],
+			operation: ['sendProduct', 'sendProductList'],
 		},
-	},
-	{
-		displayName: 'Product Retailer ID',
-		name: 'productRetailerId',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendProduct'],
-			},
+	}),
+	productRetailerIdField('productRetailerId', 'Product Retailer ID', {
+		show: {
+			resource: ['message'],
+			operation: ['sendProduct'],
 		},
-		description: 'Product SKU in the connected Meta catalog',
-	},
+	}, true),
 	{
 		displayName: 'Send As Voice Note',
 		name: 'sendAsVoiceNote',
@@ -243,12 +219,7 @@ export const messageExtendedFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Product List Header Text',
-		name: 'productListHeaderText',
-		type: 'string',
-		default: '',
-		required: true,
+	limitedStringField('productListHeaderText', 'Product List Header Text', INTERACTIVE_HEADER_MAX, {
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -256,17 +227,21 @@ export const messageExtendedFields: INodeProperties[] = [
 				productListHeaderType: ['text'],
 			},
 		},
-	},
+		required: true,
+	}),
 	...interactiveHeaderMediaFields('productList', ['sendProductList']),
 	{
 		displayName: 'Product Sections',
 		name: 'productSections',
 		type: 'fixedCollection',
+		placeholder: 'Add Section',
 		typeOptions: {
 			multipleValues: true,
+			multipleValueButtonText: 'Add Section',
 		},
 		default: {},
 		required: true,
+		description: 'Catalog sections (1-10 sections, max 30 products total)',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -278,13 +253,7 @@ export const messageExtendedFields: INodeProperties[] = [
 				displayName: 'Section',
 				name: 'sectionValues',
 				values: [
-					{
-						displayName: 'Section Title',
-						name: 'sectionTitle',
-						type: 'string',
-						default: '',
-						required: true,
-					},
+					listSectionTitleField(),
 					{
 						displayName: 'Products',
 						name: 'productItems',
@@ -292,20 +261,16 @@ export const messageExtendedFields: INodeProperties[] = [
 						type: 'fixedCollection',
 						typeOptions: {
 							multipleValues: true,
+							multipleValueButtonText: 'Add Product',
 						},
 						default: {},
+						description: 'At least one product per section',
 						options: [
 							{
 								displayName: 'Product',
 								name: 'product',
 								values: [
-									{
-										displayName: 'Product Retailer ID',
-										name: 'productRetailerId',
-										type: 'string',
-										default: '',
-										required: true,
-									},
+									productRetailerIdField('productRetailerId', 'Product SKU'),
 								],
 							},
 						],
@@ -314,19 +279,12 @@ export const messageExtendedFields: INodeProperties[] = [
 			},
 		],
 	},
-	{
-		displayName: 'Thumbnail Product Retailer ID',
-		name: 'catalogThumbnailProductId',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendCatalog'],
-			},
+	productRetailerIdField('catalogThumbnailProductId', 'Thumbnail SKU', {
+		show: {
+			resource: ['message'],
+			operation: ['sendCatalog'],
 		},
-	},
+	}),
 	{
 		displayName: 'Flow Mode',
 		name: 'flowMode',
@@ -358,45 +316,26 @@ export const messageExtendedFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Flow Header Text',
-		name: 'flowHeaderText',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-				flowHeaderType: ['text'],
-			},
+	interactiveHeaderTextField('flowHeaderText', 'Flow Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
+			flowHeaderType: ['text'],
 		},
-	},
+	}),
 	...interactiveHeaderMediaFields('flow', ['sendFlow']),
-	{
-		displayName: 'Flow Footer Text',
-		name: 'flowFooterText',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-			},
+	interactiveFooterTextField('flowFooterText', 'Flow Footer Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
 		},
-	},
-	{
-		displayName: 'Flow ID',
-		name: 'flowId',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-			},
+	}),
+	flowIdField({
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
 		},
-		description: 'Meta Flow ID. Provide Flow ID or Flow Name, not both.',
-	},
+	}),
 	{
 		displayName: 'Flow Name',
 		name: 'flowName',
@@ -410,36 +349,18 @@ export const messageExtendedFields: INodeProperties[] = [
 		},
 		description: 'Human-readable Flow name registered in Meta. Provide Flow ID or Flow Name, not both.',
 	},
-	{
-		displayName: 'Flow Button Label',
-		name: 'flowCta',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-			},
+	flowCtaField({
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
 		},
-	},
-	{
-		displayName: 'Flow Token',
-		name: 'flowToken',
-		type: 'string',
-		typeOptions: {
-			password: true,
+	}),
+	flowTokenField({
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
 		},
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-			},
-		},
-		description: 'Session token for correlating Flow responses',
-	},
+	}),
 	{
 		displayName: 'Flow Message Version',
 		name: 'flowMessageVersion',
@@ -468,20 +389,13 @@ export const messageExtendedFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Flow Screen',
-		name: 'flowScreen',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-				flowAction: ['navigate'],
-			},
+	flowScreenField({
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
+			flowAction: ['navigate'],
 		},
-		description: 'Initial screen ID when Flow Action is Navigate',
-	},
+	}),
 	{
 		displayName: 'Flow Initial Data JSON',
 		name: 'flowInitialDataJson',

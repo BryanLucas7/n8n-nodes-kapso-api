@@ -1,70 +1,104 @@
-import { IExecuteFunctions } from 'n8n-workflow';
+import { ApplicationError, IExecuteFunctions } from 'n8n-workflow';
 import {
 	advancedComponentsJson,
 	getFixedCollectionItems,
 	getString,
 } from './nodeHelpers';
+import { mergeTemplateButtonParameterGroups, type TemplateButtonParameterCollection } from './templateButtonInput';
 import type {
-	TemplateButtonParameterInput,
 	TemplateCarouselCardInput,
 	TemplateComponentsInput,
 } from './templateComponents';
+import {
+	assertHeaderValuesForTemplate,
+	assertTemplateStructureSelection,
+	loadSendTemplateDefinition,
+	readTemplateHeaderValues,
+	resolveBodyParametersForTemplate,
+	resolveButtonParametersForTemplate,
+} from './templateMapperInput';
 
-export function buildSendTemplateComponentsInput(
+function mapCarouselCards(
 	ef: IExecuteFunctions,
 	itemIndex: number,
-): TemplateComponentsInput {
-	const componentMode = getString(ef, 'templateComponentMode', itemIndex) || 'standard';
-
-	const bodyParameters = getFixedCollectionItems<{ parameterName?: string; parameterText: string }>(
-		ef,
-		'templateBodyParameters',
-		'parameterValues',
-		itemIndex,
-	);
-
-	const buttonParameters = getFixedCollectionItems<TemplateButtonParameterInput>(
-		ef,
-		'templateButtonParameters',
-		'buttonValues',
-		itemIndex,
-	);
-
+): TemplateCarouselCardInput[] {
 	const carouselCards = getFixedCollectionItems<{
 		cardIndex: number;
-		cardHeaderType?: string;
 		cardHeaderMediaSource?: string;
 		cardHeaderMediaUrl?: string;
 		cardHeaderMediaId?: string;
 		cardBodyParameters?: { parameterValues?: Array<{ parameterName?: string; parameterText: string }> };
-		cardButtonParameters?: { buttonValues?: TemplateButtonParameterInput[] };
+		cardButtonParameters?: TemplateButtonParameterCollection;
 	}>(ef, 'templateCarouselCards', 'cardValues', itemIndex);
 
-	const mappedCarouselCards: TemplateCarouselCardInput[] = carouselCards.map((card) => ({
+	return carouselCards.map((card) => ({
 		cardIndex: card.cardIndex,
-		headerType: card.cardHeaderType || 'image',
 		headerMediaSource: card.cardHeaderMediaSource || 'link',
 		headerMediaUrl: card.cardHeaderMediaUrl,
 		headerMediaId: card.cardHeaderMediaId,
 		bodyParameters: card.cardBodyParameters?.parameterValues ?? [],
-		buttonParameters: card.cardButtonParameters?.buttonValues ?? [],
+		buttonParameters: mergeTemplateButtonParameterGroups(card.cardButtonParameters),
 	}));
+}
+
+function applyCarouselDefinition(
+	cards: TemplateCarouselCardInput[],
+	definition: Awaited<ReturnType<typeof loadSendTemplateDefinition>>,
+): TemplateCarouselCardInput[] {
+	if (definition.componentMode !== 'carousel') {
+		return cards;
+	}
+
+	if (cards.length !== definition.carouselCards.length) {
+		throw new ApplicationError(
+			`This template requires ${definition.carouselCards.length} carousel card(s), but ${cards.length} were provided.`,
+		);
+	}
+
+	return cards.map((card) => {
+		const cardDefinition = definition.carouselCards.find((entry) => entry.cardIndex === card.cardIndex);
+
+		if (!cardDefinition) {
+			throw new ApplicationError(`Carousel card index ${card.cardIndex} is not defined in the selected template.`);
+		}
+
+		return {
+			...card,
+			headerType: cardDefinition.headerFormat,
+		};
+	});
+}
+
+export async function buildSendTemplateComponentsInput(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): Promise<TemplateComponentsInput> {
+	const definition = await loadSendTemplateDefinition(ef, itemIndex);
+	const selectedHeaderFormat = getString(ef, 'templateDetectedHeaderFormat', itemIndex);
+	const selectedComponentMode = getString(ef, 'templateDetectedComponentMode', itemIndex);
+
+	assertTemplateStructureSelection(definition, selectedHeaderFormat, selectedComponentMode);
+
+	const headerValues = readTemplateHeaderValues(ef, itemIndex);
+	assertHeaderValuesForTemplate(definition, headerValues);
+
+	const carouselCards = applyCarouselDefinition(mapCarouselCards(ef, itemIndex), definition);
 
 	return {
 		advancedComponentsJson: advancedComponentsJson(ef, itemIndex),
-		componentMode,
-		headerType: getString(ef, 'templateHeaderType', itemIndex),
-		headerText: getString(ef, 'templateHeaderText', itemIndex),
-		headerMediaSource: getString(ef, 'templateHeaderMediaSource', itemIndex) || 'link',
-		headerMediaUrl: getString(ef, 'templateHeaderMediaUrl', itemIndex),
-		headerMediaId: getString(ef, 'templateHeaderMediaId', itemIndex),
-		headerLatitude: getString(ef, 'templateHeaderLatitude', itemIndex),
-		headerLongitude: getString(ef, 'templateHeaderLongitude', itemIndex),
-		headerLocationName: getString(ef, 'templateHeaderLocationName', itemIndex),
-		headerLocationAddress: getString(ef, 'templateHeaderLocationAddress', itemIndex),
-		bodyParameters,
-		buttonParameters,
-		carouselCards: mappedCarouselCards,
+		componentMode: definition.componentMode,
+		headerType: definition.headerFormat,
+		headerText: headerValues.headerText,
+		headerMediaSource: headerValues.headerMediaSource,
+		headerMediaUrl: headerValues.headerMediaUrl,
+		headerMediaId: headerValues.headerMediaId,
+		headerLatitude: headerValues.headerLatitude,
+		headerLongitude: headerValues.headerLongitude,
+		headerLocationName: headerValues.headerLocationName,
+		headerLocationAddress: headerValues.headerLocationAddress,
+		bodyParameters: resolveBodyParametersForTemplate(ef, itemIndex, definition),
+		buttonParameters: resolveButtonParametersForTemplate(ef, itemIndex, definition),
+		carouselCards,
 	};
 }
 
@@ -81,7 +115,7 @@ export function buildRecipientTemplateComponentsInput(
 		headerLocationAddress?: string;
 		componentMode?: string;
 		bodyParameters?: { bodyParameterValues?: Array<{ parameterName?: string; parameterText: string }> };
-		buttonParameters?: { buttonParameterValues?: TemplateButtonParameterInput[] };
+		buttonParameters?: TemplateButtonParameterCollection;
 		carouselCards?: {
 			cardValues?: Array<{
 				cardIndex: number;
@@ -93,10 +127,7 @@ export function buildRecipientTemplateComponentsInput(
 					parameterValues?: Array<{ parameterName?: string; parameterText: string }>;
 					bodyParameterValues?: Array<{ parameterName?: string; parameterText: string }>;
 				};
-				cardButtonParameters?: {
-					buttonValues?: TemplateButtonParameterInput[];
-					buttonParameterValues?: TemplateButtonParameterInput[];
-				};
+				cardButtonParameters?: TemplateButtonParameterCollection;
 			}>;
 		};
 		recipientComponentsJson?: string;
@@ -117,7 +148,7 @@ export function buildRecipientTemplateComponentsInput(
 		headerLocationName: entry.headerLocationName,
 		headerLocationAddress: entry.headerLocationAddress,
 		bodyParameters: entry.bodyParameters?.bodyParameterValues,
-		buttonParameters: entry.buttonParameters?.buttonParameterValues,
+		buttonParameters: mergeTemplateButtonParameterGroups(entry.buttonParameters),
 		carouselCards: carouselCards.map((card) => ({
 			cardIndex: card.cardIndex,
 			headerType: card.cardHeaderType || 'image',
@@ -128,10 +159,7 @@ export function buildRecipientTemplateComponentsInput(
 				card.cardBodyParameters?.parameterValues ??
 				card.cardBodyParameters?.bodyParameterValues ??
 				[],
-			buttonParameters:
-				card.cardButtonParameters?.buttonValues ??
-				card.cardButtonParameters?.buttonParameterValues ??
-				[],
+			buttonParameters: mergeTemplateButtonParameterGroups(card.cardButtonParameters),
 		})),
 	};
 }

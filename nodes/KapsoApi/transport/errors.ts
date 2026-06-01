@@ -31,10 +31,11 @@ export function normalizeKapsoError(error: unknown): IDataObject {
 		(response?.status as number | undefined);
 	const fallback = (err.message as string | undefined) ?? 'Kapso API request failed';
 	const message = pickMessage(responseBody, fallback);
+	const hasResponseBody = responseBody && Object.keys(responseBody).length > 0;
 
 	const normalized: IDataObject = {
-		message: statusCode ? `Kapso API error ${statusCode}: ${message}` : message,
-		description: responseBody ? JSON.stringify(responseBody) : fallback,
+	 message: statusCode ? `Kapso API error ${statusCode}: ${message}` : message,
+	 description: hasResponseBody ? JSON.stringify(responseBody) : fallback,
 	};
 
 	if (statusCode) {

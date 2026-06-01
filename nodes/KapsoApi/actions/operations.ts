@@ -33,7 +33,7 @@ export const operationOptionsByResource: Record<string, INodePropertyOptions[]> 
 		{ name: 'Request Call Permission', value: 'sendCallPermission', action: 'Request permission to call the user' },
 		{ name: 'Send Contact', value: 'sendContact', action: 'Send a contact card message' },
 		{ name: 'Send Template', value: 'sendTemplate', action: 'Send a template message' },
-		{ name: 'Send Reaction', value: 'sendReaction', action: 'Send a message reaction' },
+		{ name: 'Send or Remove Reaction', value: 'sendReaction', action: 'Send or remove a message reaction' },
 		{ name: 'Mark as Read', value: 'markRead', action: 'Mark a message as read' },
 		{ name: 'List Messages', value: 'list', action: 'List messages (advanced)' },
 		{ name: 'Get Message', value: 'get', action: 'Get a message (advanced)' },

@@ -1,7 +1,9 @@
 import { IDataObject, ILoadOptionsFunctions, INodePropertyOptions } from 'n8n-workflow';
 import {
+	assertKapsoLoadOptionsReady,
 	extractResponseData,
 	kapsoLoadOptionsRequest,
+	requireLoadOptionsDependency,
 	resolveBusinessAccountId,
 	templateLabel,
 	toOptions,
@@ -17,12 +19,10 @@ function broadcastTemplateLabel(entry: IDataObject): string {
 	return id ? `${base} (${id})` : base;
 }
 
-async function fetchApprovedTemplates(
+async function fetchApprovedTemplateEntries(
 	context: ILoadOptionsFunctions,
 	phoneParameterName: string,
-	valueFn: (entry: IDataObject) => string,
-	labelFn: (entry: IDataObject) => string,
-): Promise<INodePropertyOptions[]> {
+): Promise<IDataObject[]> {
 	const wabaId = await resolveBusinessAccountId(context, phoneParameterName);
 	if (!wabaId) {
 		return [];
@@ -38,12 +38,24 @@ async function fetchApprovedTemplates(
 		},
 	});
 
-	const entries = extractResponseData(response);
+	return extractResponseData(response);
+}
+
+async function fetchApprovedTemplates(
+	context: ILoadOptionsFunctions,
+	phoneParameterName: string,
+	valueFn: (entry: IDataObject) => string,
+	labelFn: (entry: IDataObject) => string,
+): Promise<INodePropertyOptions[]> {
+	const entries = await fetchApprovedTemplateEntries(context, phoneParameterName);
 
 	return toOptions(entries, labelFn, valueFn);
 }
 
 export async function getMessageTemplates(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+	await assertKapsoLoadOptionsReady(this);
+	requireLoadOptionsDependency(this, 'phoneNumberId', 'a phone number');
+
 	return fetchApprovedTemplates(
 		this,
 		'phoneNumberId',
@@ -55,5 +67,31 @@ export async function getMessageTemplates(this: ILoadOptionsFunctions): Promise<
 export async function getBroadcastTemplates(
 	this: ILoadOptionsFunctions,
 ): Promise<INodePropertyOptions[]> {
+	await assertKapsoLoadOptionsReady(this);
+	requireLoadOptionsDependency(this, 'broadcastPhoneNumberId', 'a phone number');
+
 	return fetchApprovedTemplates(this, 'broadcastPhoneNumberId', templateIdValue, broadcastTemplateLabel);
+}
+
+export async function getTemplateLanguages(
+	this: ILoadOptionsFunctions,
+): Promise<INodePropertyOptions[]> {
+	await assertKapsoLoadOptionsReady(this);
+	requireLoadOptionsDependency(this, 'phoneNumberId', 'a phone number');
+	const templateName = requireLoadOptionsDependency(this, 'templateName', 'a template');
+
+	const entries = await fetchApprovedTemplateEntries(this, 'phoneNumberId');
+	const languages = [
+		...new Set(
+			entries
+				.filter((entry) => String(entry.name ?? '') === templateName)
+				.map((entry) => String(entry.language ?? entry.language_code ?? ''))
+				.filter(Boolean),
+		),
+	].sort();
+
+	return languages.map((language) => ({
+		name: language,
+		value: language,
+	}));
 }

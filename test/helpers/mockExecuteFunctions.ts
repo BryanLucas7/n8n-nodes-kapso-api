@@ -7,12 +7,14 @@ export type MockExecuteOptions = {
 	itemIndex?: number;
 };
 
+const e164Phone = { mode: 'phone', value: '+15551234567', __rl: true };
+
 const defaultParameters: Record<string, unknown> = {
 	advancedOptions: {},
 	bodyJson: '{}',
 	phoneNumberId: TEST_PHONE_NUMBER_ID,
 	businessAccountId: 'biz-100',
-	conversationId: 'conv-1',
+	conversationId: '550e8400-e29b-41d4-a716-446655440000',
 	assignmentId: 'assign-1',
 	contactIdentifier: 'contact-1',
 	webhookId: 'webhook-1',
@@ -22,19 +24,22 @@ const defaultParameters: Record<string, unknown> = {
 	flowToken: 'flow-token-abc',
 	flowAction: 'navigate',
 	versionId: 'version-1',
-	broadcastId: 'broadcast-1',
-	mediaId: 'media-1',
+	broadcastId: '6ba7b810-9dad-11d1-80b4-00c04fd430c8',
+	mediaId: '425509551842',
 	templateId: 'template-1',
 	messageId: 'wamid.test',
 	platformMessageId: 'wamid.test',
-	recipient: '15551234567',
+	recipient: { mode: 'phone', value: '15551234567', __rl: true },
 	textBody: 'hello',
 	mediaSource: 'id',
-	mediaValue: 'media-id',
+	stickerSource: 'id',
+	stickerMediaId: '425509551842',
 	caption: '',
 	filename: '',
 	bodyText: 'Choose an option',
 	listButtonText: 'View options',
+	ctaButtonLabel: 'Open',
+	ctaButtonUrl: 'https://example.com',
 	headerText: '',
 	footerText: '',
 	buttons: {
@@ -65,17 +70,22 @@ const defaultParameters: Record<string, unknown> = {
 	},
 	templateName: 'hello_world',
 	languageCode: 'en_US',
-	templateBodyParameters: {
-		parameterValues: [{ parameterText: 'Jessica' }],
+	templateDetectedHeaderFormat: 'none',
+	templateDetectedComponentMode: 'standard',
+	templateBodyParametersMapper: {
+		mappingMode: 'defineBelow',
+		value: { first_name: 'Jessica' },
+	},
+	templateButtonParametersMapper: {
+		mappingMode: 'defineBelow',
+		value: null,
 	},
 	headerParameter: '',
-	templateHeaderType: 'none',
 	templateHeaderText: '',
-	templateHeaderImageUrl: '',
 	buttonHeaderType: 'none',
 	listHeaderType: 'none',
-	templateButtonParameters: {},
 	reactionMessageId: 'wamid.react',
+	reactionMode: 'react',
 	emoji: '👍',
 	typingIndicator: false,
 	downloadToken: 'download-token',
@@ -83,7 +93,7 @@ const defaultParameters: Record<string, unknown> = {
 	customApiSurface: 'platform',
 	customPath: '/whatsapp/phone_numbers',
 	conversationStatus: 'ended',
-	contactWaId: '+15551234567',
+	contactWaId: e164Phone,
 	contactProfileName: 'John Doe',
 	contactDisplayName: 'John (VIP)',
 	contactCustomerId: '',
@@ -93,7 +103,7 @@ const defaultParameters: Record<string, unknown> = {
 	broadcastTemplateId: '784203120908608',
 	scheduledAt: '2026-06-01T12:00:00.000Z',
 	broadcastRecipients: {
-		recipientValues: [{ phoneNumber: '+15551234567' }],
+		recipientValues: [{ phoneNumber: e164Phone }],
 	},
 	recipientsBodyJson: '',
 	ingestPhoneNumberId: TEST_PHONE_NUMBER_ID,
@@ -115,7 +125,7 @@ const defaultParameters: Record<string, unknown> = {
 	},
 	catalogThumbnailProductId: 'SKU_THUMB',
 	blockedUsers: {
-		userValues: [{ user: '15551234567' }],
+		userValues: [{ user: { mode: 'phone', value: '15551234567', __rl: true } }],
 	},
 };
 
@@ -137,6 +147,13 @@ export function createMockExecuteFunctions(
 			}
 
 			return defaultValue ?? '';
+		},
+		getCurrentNodeParameter(name: string) {
+			if (Object.prototype.hasOwnProperty.call(merged, name)) {
+				return merged[name];
+			}
+
+			return '';
 		},
 		getNode: () => ({ name: 'kapsoApi', type: 'n8n-nodes-kapso-api.kapsoApi' }) as INode,
 		getInputData: () => options.items ?? [{ json: {} }],

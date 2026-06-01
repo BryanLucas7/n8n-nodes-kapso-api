@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ApplicationError } from 'n8n-workflow';
 import {
 	buildCallPermissionMessage,
 	buildButtonsMessage,
@@ -20,6 +21,12 @@ import {
 	buildTextMessage,
 } from '../../nodes/KapsoApi/actions/messagePayloads';
 import { parseJsonObject, parseJsonValue } from '../../nodes/KapsoApi/transport/json';
+import {
+	BUTTON_TITLE_MAX,
+	INTERACTIVE_BODY_MAX,
+	PRODUCT_RETAILER_ID_MAX,
+	TEXT_MESSAGE_MAX,
+} from '../../nodes/KapsoApi/properties/fieldConstraints';
 
 describe('Kapso message payload builders', () => {
 	it('builds Meta-compatible text payloads with optional reply context', () => {
@@ -656,6 +663,616 @@ describe('Kapso extended message payload builders', () => {
 				'flow-1',
 			),
 		).toThrow(/Flow token is required/);
+	});
+
+	it('builds draft flow mode and data_exchange initial payloads', () => {
+		expect(
+			buildFlowMessage(
+				'15551234567',
+				'Body',
+				'Open',
+				'token-abc',
+				'3',
+				'data_exchange',
+				undefined,
+				{ order_id: '42' },
+				undefined,
+				'draft',
+			),
+		).toMatchObject({
+			interactive: {
+				action: {
+					parameters: {
+						mode: 'draft',
+						flow_action: 'data_exchange',
+						flow_action_payload: {
+							data: { order_id: '42' },
+						},
+					},
+				},
+			},
+		});
+
+		expect(
+			buildFlowMessage(
+				'15551234567',
+				'Body',
+				'Open',
+				'token-abc',
+				'3',
+				'navigate',
+				'WELCOME',
+				undefined,
+				undefined,
+				'published',
+			),
+		).toMatchObject({
+			interactive: {
+				action: {
+					parameters: {
+						mode: 'published',
+					},
+				},
+			},
+		});
+	});
+
+	it('builds interactive messages with image, video, and document headers (link and id)', () => {
+		const to = '15551234567';
+		const body = 'Choose';
+		const buttons = [{ buttonId: 'a', buttonTitle: 'A' }];
+
+		expect(
+			buildButtonsMessage(
+				to,
+				body,
+				buttons,
+				'image',
+				undefined,
+				'link',
+				'https://example.com/photo.jpg',
+			),
+		).toMatchObject({
+			interactive: {
+				header: { type: 'image', image: { link: 'https://example.com/photo.jpg' } },
+			},
+		});
+
+		expect(
+			buildButtonsMessage(
+				to,
+				body,
+				buttons,
+				'image',
+				undefined,
+				'id',
+				undefined,
+				'9876543210',
+			),
+		).toMatchObject({
+			interactive: {
+				header: { type: 'image', image: { id: '9876543210' } },
+			},
+		});
+
+		expect(
+			buildButtonsMessage(
+				to,
+				body,
+				buttons,
+				'video',
+				undefined,
+				'link',
+				'https://example.com/clip.mp4',
+			),
+		).toMatchObject({
+			interactive: {
+				header: { type: 'video', video: { link: 'https://example.com/clip.mp4' } },
+			},
+		});
+
+		expect(
+			buildButtonsMessage(
+				to,
+				body,
+				buttons,
+				'video',
+				undefined,
+				'id',
+				undefined,
+				'1122334455',
+			),
+		).toMatchObject({
+			interactive: {
+				header: { type: 'video', video: { id: '1122334455' } },
+			},
+		});
+
+		expect(
+			buildButtonsMessage(
+				to,
+				body,
+				buttons,
+				'document',
+				undefined,
+				'link',
+				'https://example.com/doc.pdf',
+				undefined,
+				'terms.pdf',
+			),
+		).toMatchObject({
+			interactive: {
+				header: {
+					type: 'document',
+					document: { link: 'https://example.com/doc.pdf', filename: 'terms.pdf' },
+				},
+			},
+		});
+
+		expect(
+			buildButtonsMessage(
+				to,
+				body,
+				buttons,
+				'document',
+				undefined,
+				'id',
+				undefined,
+				'5566778899',
+				'invoice.pdf',
+			),
+		).toMatchObject({
+			interactive: {
+				header: {
+					type: 'document',
+					document: { id: '5566778899', filename: 'invoice.pdf' },
+				},
+			},
+		});
+
+		expect(
+			buildButtonsMessage(
+				to,
+				body,
+				buttons,
+				'document',
+				undefined,
+				'link',
+				'https://example.com/bare.pdf',
+			),
+		).toMatchObject({
+			interactive: {
+				header: {
+					type: 'document',
+					document: { link: 'https://example.com/bare.pdf' },
+				},
+			},
+		});
+	});
+
+	it('builds list messages with media headers and rows without descriptions', () => {
+		expect(
+			buildListMessage(
+				'15551234567',
+				'Pick one',
+				'Options',
+				[
+					{
+						sectionTitle: 'Items',
+						rows: [{ rowId: 'a', rowTitle: 'Alpha' }],
+					},
+				],
+				undefined,
+				'image',
+				undefined,
+				'link',
+				'https://example.com/header.png',
+			),
+		).toMatchObject({
+			interactive: {
+				header: { type: 'image', image: { link: 'https://example.com/header.png' } },
+				action: {
+					sections: [{ rows: [{ id: 'a', title: 'Alpha' }] }],
+				},
+			},
+		});
+
+		const row = (
+			buildListMessage(
+				'15551234567',
+				'Body',
+				'View',
+				[{ sectionTitle: 'S', rows: [{ rowId: 'r', rowTitle: 'Row' }] }],
+			).interactive as { action: { sections: { rows: Record<string, unknown>[] }[] } }
+		).action.sections[0].rows[0];
+		expect(row).not.toHaveProperty('description');
+	});
+
+	it('builds contact payloads with skipped empty fields and optional name parts', () => {
+		expect(
+			buildContactMessage('15551234567', [
+				{
+					formattedName: 'Skip Empty',
+					phones: {
+						phoneValues: [
+							{ phoneNumber: '' },
+							{ phoneNumber: '+15550001111' },
+						],
+					},
+				},
+			]),
+		).toMatchObject({
+			contacts: [{ phones: [{ phone: '+15550001111', type: 'MOBILE' }] }],
+		});
+
+		expect(() =>
+			buildContactMessage('15551234567', [
+				{
+					formattedName: 'No Phone',
+					phones: { phoneValues: [{ phoneNumber: '' }] },
+				},
+			]),
+		).toThrow('requires at least one phone number');
+
+		expect(() =>
+			buildContactMessage('15551234567', [
+				{
+					formattedName: 'Missing Values',
+					phones: {},
+				},
+			]),
+		).toThrow('requires at least one phone number');
+
+		expect(
+			buildContactMessage('15551234567', [
+				{
+					formattedName: 'Full Profile',
+					middleName: 'Q',
+					namePrefix: 'Dr',
+					nameSuffix: 'Jr',
+					birthday: '1990-01-01',
+					phones: { phoneValues: [{ phoneNumber: '+15550002222' }] },
+					emails: {
+						emailValues: [{ email: '' }, { email: 'a@b.com' }],
+					},
+					urls: {
+						urlValues: [{ url: '' }, { url: 'https://site.test' }],
+					},
+					orgDepartment: 'Sales',
+					addresses: {
+						addressValues: [
+							{ addressType: 'HOME' },
+							{ street: '2 Oak Ave', city: 'Austin' },
+						],
+					},
+				},
+			]),
+		).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'contacts',
+			contacts: [
+				{
+					name: {
+						formatted_name: 'Full Profile',
+						middle_name: 'Q',
+						prefix: 'Dr',
+						suffix: 'Jr',
+					},
+					birthday: '1990-01-01',
+					phones: [{ phone: '+15550002222', type: 'MOBILE' }],
+					emails: [{ email: 'a@b.com', type: 'WORK' }],
+					urls: [{ url: 'https://site.test', type: 'WORK' }],
+					org: { department: 'Sales' },
+					addresses: [
+						{
+							type: 'WORK',
+							street: '2 Oak Ave',
+							city: 'Austin',
+						},
+					],
+				},
+			],
+		});
+	});
+
+	it('builds template payloads from advanced JSON and without components', () => {
+		expect(
+			buildTemplateMessageFromParams('15551234567', 'raw_template', 'en', {
+				advancedComponentsJson: '[{"type":"body","parameters":[{"type":"text","text":"Hi"}]}]',
+			}),
+		).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'template',
+			template: {
+				name: 'raw_template',
+				language: { code: 'en' },
+				components: [{ type: 'body', parameters: [{ type: 'text', text: 'Hi' }] }],
+			},
+		});
+
+		expect(
+			buildTemplateMessageFromParams('15551234567', 'minimal', 'en_US', {}),
+		).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'template',
+			template: {
+				name: 'minimal',
+				language: { code: 'en_US' },
+			},
+		});
+
+		expect(buildTemplateMessage('15551234567', 'plain', 'en')).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'template',
+			template: {
+				name: 'plain',
+				language: { code: 'en' },
+			},
+		});
+	});
+
+	it('builds CTA URL messages with footer, reply context, and media headers', () => {
+		expect(
+			buildCtaUrlMessage(
+				'15551234567',
+				'Tap below',
+				'Open',
+				'https://example.com',
+				'image',
+				undefined,
+				'id',
+				undefined,
+				'1234567890',
+				undefined,
+				'Thanks',
+				'wamid.parent',
+			),
+		).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'interactive',
+			interactive: {
+				type: 'cta_url',
+				header: { type: 'image', image: { id: '1234567890' } },
+				body: { text: 'Tap below' },
+				footer: { text: 'Thanks' },
+				action: {
+					name: 'cta_url',
+					parameters: {
+						display_text: 'Open',
+						url: 'https://example.com',
+					},
+				},
+			},
+			context: { message_id: 'wamid.parent' },
+		});
+	});
+
+	it('builds product, catalog, and mark-read payloads without optional fields', () => {
+		const productWithoutBody = buildProductMessage('15551234567', 'CATALOG_ID', 'SKU_1234');
+		expect(productWithoutBody).toMatchObject({
+			interactive: { type: 'product' },
+		});
+		expect(
+			(productWithoutBody.interactive as Record<string, unknown>).body,
+		).toBeUndefined();
+
+		expect(buildMarkReadMessage('wamid.123', false)).toEqual({
+			messaging_product: 'whatsapp',
+			status: 'read',
+			message_id: 'wamid.123',
+		});
+
+		expect(
+			buildCatalogMessage('15551234567', 'Browse', 'SKU_THUMB', 'wamid.parent'),
+		).toMatchObject({
+			context: { message_id: 'wamid.parent' },
+		});
+	});
+
+	it('builds product list messages with required media headers', () => {
+		const sections = [{ sectionTitle: 'Featured', productRetailerIds: ['SKU_1'] }];
+
+		expect(
+			buildProductListMessage(
+				'15551234567',
+				'CATALOG_ID',
+				'Pick',
+				sections,
+				'video',
+				undefined,
+				'link',
+				'https://example.com/promo.mp4',
+			),
+		).toMatchObject({
+			interactive: {
+				header: { type: 'video', video: { link: 'https://example.com/promo.mp4' } },
+			},
+		});
+
+		expect(
+			buildProductListMessage(
+				'15551234567',
+				'CATALOG_ID',
+				'Pick',
+				sections,
+				'document',
+				undefined,
+				'id',
+				undefined,
+				'9988776655',
+				'catalog.pdf',
+			),
+		).toMatchObject({
+			interactive: {
+				header: {
+					type: 'document',
+					document: { id: '9988776655', filename: 'catalog.pdf' },
+				},
+			},
+		});
+	});
+
+	it('builds flow messages with headers, footers, and navigate payload branches', () => {
+		expect(
+			buildFlowMessage(
+				'15551234567',
+				'Start',
+				'Go',
+				'token',
+				'3',
+				'navigate',
+				'SCREEN_A',
+				undefined,
+				'wamid.reply',
+				'published',
+				'text',
+				'Flow title',
+			),
+		).toMatchObject({
+			context: { message_id: 'wamid.reply' },
+			interactive: {
+				header: { type: 'text', text: 'Flow title' },
+			},
+		});
+
+		expect(
+			buildFlowMessage(
+				'15551234567',
+				'Start',
+				'Go',
+				'token',
+				'3',
+				'navigate',
+				undefined,
+				{ key: 'value' },
+			),
+		).toMatchObject({
+			interactive: {
+				action: {
+					parameters: {
+						flow_action_payload: { data: { key: 'value' } },
+					},
+				},
+			},
+		});
+
+		expect(
+			buildFlowMessage(
+				'15551234567',
+				'Start',
+				'Go',
+				'token',
+				'3',
+				'navigate',
+			),
+		).toMatchObject({
+			interactive: {
+				action: {
+					parameters: {
+						flow_action: 'navigate',
+					},
+				},
+			},
+		});
+
+		const bareNavigateParams = (
+			buildFlowMessage('15551234567', 'Start', 'Go', 'token', '3', 'navigate').interactive as {
+				action: { parameters: Record<string, unknown> };
+			}
+		).action.parameters;
+		expect(bareNavigateParams).not.toHaveProperty('flow_action_payload');
+
+		expect(
+			buildFlowMessage(
+				'15551234567',
+				'Start',
+				'Go',
+				'token',
+				'3',
+				'navigate',
+				'ONLY_SCREEN',
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				'link',
+				undefined,
+				undefined,
+				undefined,
+				'Footer text',
+			),
+		).toMatchObject({
+			interactive: {
+				footer: { text: 'Footer text' },
+				action: {
+					parameters: {
+						flow_action_payload: { screen: 'ONLY_SCREEN' },
+					},
+				},
+			},
+		});
+	});
+
+	it('builds location, sticker, and media link payloads with reply context', () => {
+		expect(buildLocationMessage('15551234567', '40.7', '-74.0', undefined, undefined, 'wamid.loc')).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'location',
+			location: { latitude: 40.7, longitude: -74 },
+			context: { message_id: 'wamid.loc' },
+		});
+
+		expect(buildStickerMessage('15551234567', 'link', 'https://example.com/sticker.webp', 'wamid.st')).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'sticker',
+			sticker: { link: 'https://example.com/sticker.webp' },
+			context: { message_id: 'wamid.st' },
+		});
+
+		expect(buildMediaMessage('15551234567', 'image', 'link', 'https://example.com/pic.jpg')).toMatchObject({
+			type: 'image',
+			image: { link: 'https://example.com/pic.jpg' },
+		});
+	});
+
+	it('rejects message fields that exceed Meta length limits', () => {
+		const longText = 'a'.repeat(TEXT_MESSAGE_MAX + 1);
+		const longBody = 'b'.repeat(INTERACTIVE_BODY_MAX + 1);
+		const longButtonTitle = 'c'.repeat(BUTTON_TITLE_MAX + 1);
+
+		expect(() => buildTextMessage('15551234567', longText, false)).toThrow(ApplicationError);
+		expect(() =>
+			buildButtonsMessage('15551234567', 'ok', [{ buttonId: 'id', buttonTitle: longButtonTitle }], 'none'),
+		).toThrow(/20/);
+		expect(() =>
+			buildListMessage(
+				'15551234567',
+				longBody,
+				'View',
+				[{ sectionTitle: 'Section', rows: [{ rowId: 'id', rowTitle: 'Title' }] }],
+			),
+		).toThrow(/1024/);
+		expect(() => buildCallPermissionMessage('15551234567', longBody)).toThrow(/1024/);
+		expect(() =>
+			buildCtaUrlMessage('15551234567', 'Body', 'Open', 'not-a-url', 'none'),
+		).toThrow(ApplicationError);
+		expect(() =>
+			buildProductMessage('15551234567', 'CATALOG_ID', 'x'.repeat(PRODUCT_RETAILER_ID_MAX + 1)),
+		).toThrow(/100/);
 	});
 });
 

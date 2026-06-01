@@ -1,4 +1,5 @@
 import { INodeProperties } from 'n8n-workflow';
+import { documentFilenameField, mediaIdStringField, publicUrlStringField } from './fieldConstraints';
 
 export const interactiveHeaderTypeOptions = [
 	{ name: 'None', value: 'none' },
@@ -39,48 +40,28 @@ export function interactiveHeaderMediaFields(
 				},
 			},
 		},
-		{
-			displayName: 'Header Media URL',
-			name: `${prefix}HeaderMediaUrl`,
-			type: 'string',
-			default: '',
-			displayOptions: {
-				show: {
-					resource: ['message'],
-					operation,
-					[`${prefix}HeaderType`]: [...interactiveHeaderMediaTypes],
-					[`${prefix}HeaderMediaSource`]: ['link'],
-				},
+		publicUrlStringField(`${prefix}HeaderMediaUrl`, 'Header Media URL', {
+			show: {
+				resource: ['message'],
+				operation,
+				[`${prefix}HeaderType`]: [...interactiveHeaderMediaTypes],
+				[`${prefix}HeaderMediaSource`]: ['link'],
 			},
-		},
-		{
-			displayName: 'Header Media ID',
-			name: `${prefix}HeaderMediaId`,
-			type: 'string',
-			default: '',
-			displayOptions: {
-				show: {
-					resource: ['message'],
-					operation,
-					[`${prefix}HeaderType`]: [...interactiveHeaderMediaTypes],
-					[`${prefix}HeaderMediaSource`]: ['id'],
-				},
+		}, 'Public HTTPS URL for the header media'),
+		mediaIdStringField(`${prefix}HeaderMediaId`, 'Header Media ID', {
+			show: {
+				resource: ['message'],
+				operation,
+				[`${prefix}HeaderType`]: [...interactiveHeaderMediaTypes],
+				[`${prefix}HeaderMediaSource`]: ['id'],
 			},
-			description: 'Media ID from Upload Media',
-		},
-		{
-			displayName: 'Header Document Filename',
-			name: `${prefix}HeaderDocumentFilename`,
-			type: 'string',
-			default: '',
-			displayOptions: {
-				show: {
-					resource: ['message'],
-					operation,
-					[`${prefix}HeaderType`]: ['document'],
-				},
+		}, false),
+		documentFilenameField(`${prefix}HeaderDocumentFilename`, 'Header Document Filename', {
+			show: {
+				resource: ['message'],
+				operation,
+				[`${prefix}HeaderType`]: ['document'],
 			},
-			description: 'Optional filename shown for document headers',
-		},
+		}),
 	];
 }

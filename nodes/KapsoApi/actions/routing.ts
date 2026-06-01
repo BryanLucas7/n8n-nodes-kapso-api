@@ -33,10 +33,12 @@ import {
 	getBoolean,
 	getFixedCollectionItems,
 	getLinkPreview,
+	getMetaPhoneResourceLocatorValue,
 	getNumber,
 	getOptionalJsonObject,
 	getReplyToMessageId,
 	getString,
+	getValidatedMediaSourceValue,
 	bodyJson,
 } from './nodeHelpers';
 import { buildMessageQuery, buildOperationQuery } from './queryBuilders';
@@ -52,7 +54,15 @@ import {
 } from './platformPayloads';
 import { CUSTOM_API_CALL, messageMediaOperations } from './operations';
 import { KapsoRequestArgs } from '../transport/types';
-import { assertCustomRelativePath, requireNonEmptyString } from './validation';
+import {
+	assertCustomRelativePath,
+	assertMetaRecipientPhone,
+	assertReactionEmoji,
+	assertUuid,
+	assertWamid,
+	requireNonEmptyString,
+	validateDownloadToken,
+} from './validation';
 
 export function pathId(value: string, label: string): string {
 	if (!value) {
@@ -60,6 +70,10 @@ export function pathId(value: string, label: string): string {
 	}
 
 	return encodeURIComponent(value);
+}
+
+export function pathUuidId(value: string, label: string): string {
+	return encodeURIComponent(assertUuid(value, label));
 }
 
 export function customRelativePath(value: string): string {
@@ -139,7 +153,7 @@ function extractListRows(
 			}
 
 			if (entry && typeof entry === 'object' && Array.isArray((entry as { row?: unknown[] }).row)) {
-				return ((entry as { row: KapsoListSectionInput['rows'] }).row ?? []).map((row) => ({
+				return (entry as { row: KapsoListSectionInput['rows'] }).row.map((row) => ({
 					rowId: row.rowId,
 					rowTitle: row.rowTitle,
 					rowDescription: row.rowDescription,
@@ -151,7 +165,7 @@ function extractListRows(
 	}
 
 	if (typeof rowValues === 'object' && Array.isArray((rowValues as { row?: unknown[] }).row)) {
-		return ((rowValues as { row: KapsoListSectionInput['rows'] }).row ?? []).map((row) => ({
+		return (rowValues as { row: KapsoListSectionInput['rows'] }).row.map((row) => ({
 			rowId: row.rowId,
 			rowTitle: row.rowTitle,
 			rowDescription: row.rowDescription,
@@ -173,7 +187,7 @@ function extractProductRetailerIds(productItems: unknown): string[] {
 			}
 
 			if (entry && typeof entry === 'object' && Array.isArray((entry as { product?: unknown[] }).product)) {
-				return ((entry as { product: Array<{ productRetailerId: string }> }).product ?? []).map(
+				return (entry as { product: Array<{ productRetailerId: string }> }).product.map(
 					(product) => product.productRetailerId,
 				);
 			}
@@ -183,7 +197,7 @@ function extractProductRetailerIds(productItems: unknown): string[] {
 	}
 
 	if (typeof productItems === 'object' && Array.isArray((productItems as { product?: unknown[] }).product)) {
-		return ((productItems as { product: Array<{ productRetailerId: string }> }).product ?? []).map(
+		return (productItems as { product: Array<{ productRetailerId: string }> }).product.map(
 			(product) => product.productRetailerId,
 		);
 	}
@@ -197,7 +211,9 @@ export function buildMessageRequest(
 	itemIndex: number,
 ): KapsoRequestArgs {
 	const phonePath = messagePath(ef, itemIndex);
-	const to = getString(ef, 'recipient', itemIndex);
+	const to = assertMetaRecipientPhone(
+		getMetaPhoneResourceLocatorValue(ef, 'recipient', itemIndex, 'Recipient Phone'),
+	);
 	const replyToMessageId = getReplyToMessageId(ef, itemIndex);
 
 	if (operation === 'sendText') {
@@ -217,6 +233,14 @@ export function buildMessageRequest(
 	if ((messageMediaOperations as readonly string[]).includes(operation)) {
 		const isVoiceNote =
 			operation === 'sendAudio' && getBoolean(ef, 'sendAsVoiceNote', itemIndex);
+		const media = getValidatedMediaSourceValue(
+			ef,
+			'mediaSource',
+			'mediaId',
+			'mediaUrl',
+			itemIndex,
+			{ id: 'Media ID', url: 'Public URL' },
+		);
 
 		return {
 			api: 'whatsapp',
@@ -225,8 +249,8 @@ export function buildMessageRequest(
 			body: buildMediaMessage(
 				to,
 				mediaOperationType(operation),
-				getString(ef, 'mediaSource', itemIndex) as 'id' | 'link',
-				getString(ef, 'mediaValue', itemIndex),
+				media.source,
+				media.value,
 				operation === 'sendAudio' ? undefined : getString(ef, 'caption', itemIndex) || undefined,
 				getString(ef, 'filename', itemIndex),
 				replyToMessageId,
@@ -316,14 +340,23 @@ export function buildMessageRequest(
 	}
 
 	if (operation === 'sendSticker') {
+		const sticker = getValidatedMediaSourceValue(
+			ef,
+			'stickerSource',
+			'stickerMediaId',
+			'stickerMediaUrl',
+			itemIndex,
+			{ id: 'Sticker Media ID', url: 'Public URL' },
+		);
+
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
 			body: buildStickerMessage(
 				to,
-				getString(ef, 'stickerSource', itemIndex) as 'id' | 'link',
-				getString(ef, 'stickerValue', itemIndex),
+				sticker.source,
+				sticker.value,
 				replyToMessageId,
 			),
 		};
@@ -491,29 +524,28 @@ export function buildMessageRequest(
 	}
 
 	if (operation === 'sendTemplate') {
-		return {
-			api: 'whatsapp',
-			method: 'POST' as IHttpRequestMethods,
-			path: phonePath,
-			body: buildTemplateMessageFromParams(
-				to,
-				getString(ef, 'templateName', itemIndex),
-				getString(ef, 'languageCode', itemIndex),
-				buildSendTemplateComponentsInput(ef, itemIndex),
-			),
-		};
+		throw new ApplicationError(
+			'Send Template requests are built asynchronously. Use buildSendTemplateRequest instead of buildRequest.',
+		);
 	}
 
 	if (operation === 'sendReaction') {
-		const removeReaction = getBoolean(ef, 'removeReaction', itemIndex);
+		const reactionMode = getString(ef, 'reactionMode', itemIndex) || 'react';
+		const reactionMessageId = assertWamid(
+			getString(ef, 'reactionMessageId', itemIndex),
+			'React To Message ID',
+		);
+		const emoji =
+			reactionMode === 'remove' ? '' : assertReactionEmoji(getString(ef, 'emoji', itemIndex));
+
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
 			body: buildReactionMessage(
 				to,
-				getString(ef, 'reactionMessageId', itemIndex),
-				removeReaction ? '' : getString(ef, 'emoji', itemIndex),
+				reactionMessageId,
+				emoji,
 			),
 		};
 	}
@@ -524,7 +556,7 @@ export function buildMessageRequest(
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
 			body: buildMarkReadMessage(
-				getString(ef, 'messageId', itemIndex),
+				assertWamid(getString(ef, 'messageId', itemIndex), 'Message ID'),
 				getBoolean(ef, 'typingIndicator', itemIndex),
 			),
 		};
@@ -553,6 +585,28 @@ export function buildMessageRequest(
 	}
 
 	throw new ApplicationError(`Unsupported message operation: ${operation}`);
+}
+
+export async function buildSendTemplateRequest(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): Promise<KapsoRequestArgs> {
+	const phoneNumberId = pathId(getString(ef, 'phoneNumberId', itemIndex), 'Phone Number ID');
+	const to = assertMetaRecipientPhone(
+		getMetaPhoneResourceLocatorValue(ef, 'recipient', itemIndex, 'Recipient Phone'),
+	);
+
+	return {
+		api: 'whatsapp',
+		method: 'POST' as IHttpRequestMethods,
+		path: `/${phoneNumberId}/messages`,
+		body: buildTemplateMessageFromParams(
+			to,
+			getString(ef, 'templateName', itemIndex),
+			getString(ef, 'languageCode', itemIndex),
+			await buildSendTemplateComponentsInput(ef, itemIndex),
+		),
+	};
 }
 
 export function buildRequest(
@@ -588,10 +642,10 @@ export function buildRequest(
 	}
 
 	const phoneNumberId = () => pathId(getString(ef, 'phoneNumberId', itemIndex), 'Phone Number ID');
-	const conversationId = () => pathId(getString(ef, 'conversationId', itemIndex), 'Conversation ID');
+	const conversationId = () => pathUuidId(getString(ef, 'conversationId', itemIndex), 'Conversation ID');
 	const contactIdentifier = () =>
 		pathId(getString(ef, 'contactIdentifier', itemIndex), 'Contact Identifier');
-	const broadcastId = () => pathId(getString(ef, 'broadcastId', itemIndex), 'Broadcast ID');
+	const broadcastId = () => pathUuidId(getString(ef, 'broadcastId', itemIndex), 'Broadcast ID');
 	const mediaId = () => pathId(getString(ef, 'mediaId', itemIndex), 'Media ID');
 
 	if (resource === 'message') {
@@ -615,7 +669,7 @@ export function buildRequest(
 			api: 'mediaDownload',
 			method: 'GET' as IHttpRequestMethods,
 			path: '/media_download',
-			query: { token: getString(ef, 'downloadToken', itemIndex) },
+			query: { token: validateDownloadToken(getString(ef, 'downloadToken', itemIndex)) },
 			requiresAuth: false,
 			json: false,
 			encoding: null,

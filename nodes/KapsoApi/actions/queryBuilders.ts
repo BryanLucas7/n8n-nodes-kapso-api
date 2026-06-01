@@ -3,22 +3,42 @@ import { CUSTOM_API_CALL } from './operations';
 import {
 	getAdvancedFixedCollectionItems,
 	getAdvancedOptionString,
-	getPlatformListOptionBoolean,
-	getPlatformListOptionString,
+	getContactListOptionString,
+	getConversationListOptionBoolean,
+	getConversationListOptionString,
 	getPlatformMessageListOptionString,
 	getBroadcastListOptionString,
 	getString,
 } from './nodeHelpers';
+import { validateFilterString, validateOptionalUuid } from './validation';
 
 type QueryParameterInput = {
 	name: string;
 	value: string;
 };
 
-function appendStringQuery(query: IDataObject, key: string, value: string): void {
+function appendStringQuery(query: IDataObject, key: string, value: string | undefined): void {
 	if (value) {
 		query[key] = value;
 	}
+}
+
+function appendFilterQuery(
+	query: IDataObject,
+	key: string,
+	value: string,
+	label: string,
+): void {
+	appendStringQuery(query, key, validateFilterString(value, label));
+}
+
+function appendOptionalUuidQuery(
+	query: IDataObject,
+	key: string,
+	value: string,
+	label: string,
+): void {
+	appendStringQuery(query, key, validateOptionalUuid(value, label));
 }
 
 export function buildMessageQuery(
@@ -29,30 +49,38 @@ export function buildMessageQuery(
 	const query: IDataObject = {};
 
 	if (operation === 'list') {
-		appendStringQuery(
+		appendOptionalUuidQuery(
 			query,
 			'conversation_id',
 			getAdvancedOptionString(ef, itemIndex, 'messageListConversationId'),
+			'Conversation ID',
 		);
-		appendStringQuery(
+		appendFilterQuery(
 			query,
 			'direction',
 			getAdvancedOptionString(ef, itemIndex, 'messageListDirection'),
+			'Direction',
 		);
-		appendStringQuery(
+		appendFilterQuery(
 			query,
 			'status',
 			getAdvancedOptionString(ef, itemIndex, 'messageListStatus'),
+			'Status',
 		);
-		appendStringQuery(query, 'since', getAdvancedOptionString(ef, itemIndex, 'messageListSince'));
-		appendStringQuery(query, 'until', getAdvancedOptionString(ef, itemIndex, 'messageListUntil'));
-		appendStringQuery(query, 'after', getAdvancedOptionString(ef, itemIndex, 'messageListAfter'));
-		appendStringQuery(query, 'before', getAdvancedOptionString(ef, itemIndex, 'messageListBefore'));
+		appendFilterQuery(query, 'since', getAdvancedOptionString(ef, itemIndex, 'messageListSince'), 'Since');
+		appendFilterQuery(query, 'until', getAdvancedOptionString(ef, itemIndex, 'messageListUntil'), 'Until');
+		appendFilterQuery(query, 'after', getAdvancedOptionString(ef, itemIndex, 'messageListAfter'), 'After');
+		appendFilterQuery(
+			query,
+			'before',
+			getAdvancedOptionString(ef, itemIndex, 'messageListBefore'),
+			'Before',
+		);
 	}
 
 	const customFields = getAdvancedOptionString(ef, itemIndex, 'messageResponseFields');
 	if (customFields) {
-		query.fields = customFields;
+		query.fields = validateFilterString(customFields, 'Custom Response Fields');
 	} else if (operation === 'list' || operation === 'get') {
 		query.fields = 'kapso()';
 	}
@@ -69,49 +97,56 @@ function appendBooleanQuery(query: IDataObject, key: string, value: boolean): vo
 export function buildContactListQuery(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	const query: IDataObject = {};
 
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'profile_name_contains',
-		getPlatformListOptionString(ef, itemIndex, 'contactProfileNameContains'),
+		getContactListOptionString(ef, itemIndex, 'contactProfileNameContains'),
+		'Profile Name Contains',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'wa_id_contains',
-		getPlatformListOptionString(ef, itemIndex, 'contactWaIdContains'),
+		getContactListOptionString(ef, itemIndex, 'contactWaIdContains'),
+		'WhatsApp ID Contains',
 	);
-	appendStringQuery(
+	appendOptionalUuidQuery(
 		query,
 		'customer_id',
-		getPlatformListOptionString(ef, itemIndex, 'contactCustomerIdFilter'),
+		getContactListOptionString(ef, itemIndex, 'contactCustomerIdFilter'),
+		'Customer ID',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'customer_external_id',
-		getPlatformListOptionString(ef, itemIndex, 'contactCustomerExternalIdFilter'),
+		getContactListOptionString(ef, itemIndex, 'contactCustomerExternalIdFilter'),
+		'Customer External ID',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'business_scoped_user_id',
-		getPlatformListOptionString(ef, itemIndex, 'contactBusinessScopedUserId'),
+		getContactListOptionString(ef, itemIndex, 'contactBusinessScopedUserId'),
+		'Business Scoped User ID',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'created_after',
-		getPlatformListOptionString(ef, itemIndex, 'contactCreatedAfter'),
+		getContactListOptionString(ef, itemIndex, 'contactCreatedAfter'),
+		'Created After',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'created_before',
-		getPlatformListOptionString(ef, itemIndex, 'contactCreatedBefore'),
+		getContactListOptionString(ef, itemIndex, 'contactCreatedBefore'),
+		'Created Before',
 	);
 
-	const hasCustomer = getPlatformListOptionString(ef, itemIndex, 'contactHasCustomer');
+	const hasCustomer = getContactListOptionString(ef, itemIndex, 'contactHasCustomer');
 	if (hasCustomer === 'true' || hasCustomer === 'false') {
 		query.has_customer = hasCustomer === 'true';
 	}
 
-	appendStringQuery(query, 'after', getPlatformListOptionString(ef, itemIndex, 'listAfter'));
-	appendStringQuery(query, 'before', getPlatformListOptionString(ef, itemIndex, 'listBefore'));
+	appendFilterQuery(query, 'after', getContactListOptionString(ef, itemIndex, 'listAfter'), 'After Cursor');
+	appendFilterQuery(query, 'before', getContactListOptionString(ef, itemIndex, 'listBefore'), 'Before Cursor');
 
 	return query;
 }
@@ -119,53 +154,66 @@ export function buildContactListQuery(ef: IExecuteFunctions, itemIndex: number):
 export function buildConversationListQuery(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	const query: IDataObject = {};
 
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'phone_number_id',
-		getPlatformListOptionString(ef, itemIndex, 'conversationPhoneNumberId'),
+		getConversationListOptionString(ef, itemIndex, 'conversationPhoneNumberId'),
+		'Filter Phone Number ID',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'phone_number',
-		getPlatformListOptionString(ef, itemIndex, 'conversationPhoneNumber'),
+		getConversationListOptionString(ef, itemIndex, 'conversationPhoneNumber'),
+		'Filter Phone Number',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'status',
-		getPlatformListOptionString(ef, itemIndex, 'conversationStatusFilter'),
+		getConversationListOptionString(ef, itemIndex, 'conversationStatusFilter'),
+		'Status',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'assigned_user_id',
-		getPlatformListOptionString(ef, itemIndex, 'conversationAssignedUserId'),
+		getConversationListOptionString(ef, itemIndex, 'conversationAssignedUserId'),
+		'Assigned User ID',
 	);
 	appendBooleanQuery(
 		query,
 		'unassigned',
-		getPlatformListOptionBoolean(ef, itemIndex, 'conversationUnassigned', false),
+		getConversationListOptionBoolean(ef, itemIndex, 'conversationUnassigned', false),
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'created_after',
-		getPlatformListOptionString(ef, itemIndex, 'conversationCreatedAfter'),
+		getConversationListOptionString(ef, itemIndex, 'conversationCreatedAfter'),
+		'Created After',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'created_before',
-		getPlatformListOptionString(ef, itemIndex, 'conversationCreatedBefore'),
+		getConversationListOptionString(ef, itemIndex, 'conversationCreatedBefore'),
+		'Created Before',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'last_active_after',
-		getPlatformListOptionString(ef, itemIndex, 'conversationLastActiveAfter'),
+		getConversationListOptionString(ef, itemIndex, 'conversationLastActiveAfter'),
+		'Last Active After',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'last_active_before',
-		getPlatformListOptionString(ef, itemIndex, 'conversationLastActiveBefore'),
+		getConversationListOptionString(ef, itemIndex, 'conversationLastActiveBefore'),
+		'Last Active Before',
 	);
-	appendStringQuery(query, 'after', getPlatformListOptionString(ef, itemIndex, 'listAfter'));
-	appendStringQuery(query, 'before', getPlatformListOptionString(ef, itemIndex, 'listBefore'));
+	appendFilterQuery(query, 'after', getConversationListOptionString(ef, itemIndex, 'listAfter'), 'After Cursor');
+	appendFilterQuery(
+		query,
+		'before',
+		getConversationListOptionString(ef, itemIndex, 'listBefore'),
+		'Before Cursor',
+	);
 
 	return query;
 }
@@ -174,35 +222,41 @@ export function buildPlatformMessageListQuery(ef: IExecuteFunctions, itemIndex: 
 	const query: IDataObject = {};
 
 	appendStringQuery(query, 'phone_number_id', getString(ef, 'phoneNumberId', itemIndex));
-	appendStringQuery(
+	appendOptionalUuidQuery(
 		query,
 		'conversation_id',
 		getPlatformMessageListOptionString(ef, itemIndex, 'platformMessageConversationId'),
+		'Conversation ID',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'phone_number',
 		getPlatformMessageListOptionString(ef, itemIndex, 'platformMessagePhoneNumber'),
+		'Phone Number',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'business_scoped_user_id',
 		getPlatformMessageListOptionString(ef, itemIndex, 'platformMessageBusinessScopedUserId'),
+		'Business Scoped User ID',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'direction',
 		getPlatformMessageListOptionString(ef, itemIndex, 'platformMessageDirection'),
+		'Direction',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'status',
 		getPlatformMessageListOptionString(ef, itemIndex, 'platformMessageStatus'),
+		'Status',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'message_type',
 		getPlatformMessageListOptionString(ef, itemIndex, 'platformMessageType'),
+		'Message Type',
 	);
 
 	const hasMedia = getPlatformMessageListOptionString(ef, itemIndex, 'platformMessageHasMedia');
@@ -210,8 +264,13 @@ export function buildPlatformMessageListQuery(ef: IExecuteFunctions, itemIndex: 
 		query.has_media = hasMedia === 'true';
 	}
 
-	appendStringQuery(query, 'after', getPlatformMessageListOptionString(ef, itemIndex, 'listAfter'));
-	appendStringQuery(query, 'before', getPlatformMessageListOptionString(ef, itemIndex, 'listBefore'));
+	appendFilterQuery(query, 'after', getPlatformMessageListOptionString(ef, itemIndex, 'listAfter'), 'After Cursor');
+	appendFilterQuery(
+		query,
+		'before',
+		getPlatformMessageListOptionString(ef, itemIndex, 'listBefore'),
+		'Before Cursor',
+	);
 
 	return query;
 }

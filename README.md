@@ -137,8 +137,9 @@ Send a template message:
 1. Resource: `Message`
 2. Operation: `Send Template`
 3. Set Phone Number, Recipient Phone, Template Name and Language Code
-4. Optional: choose **Standard** or **Carousel** component mode, add body/header/
-   button (or per-card) template parameters, or Advanced Components JSON
+4. Fill body, header, and button template parameters when the template requires them.
+   **Template Component Mode** and header format are auto-detected from the selected
+   template; use Advanced Components JSON only for expert overrides.
 
 Close a conversation:
 
@@ -153,7 +154,7 @@ Upload media from a public URL:
 2. Operation: `Upload From URL`
 3. Phone Number Name or ID: choose the Kapso/Meta phone number
 4. Source URL: public media URL
-5. Delivery: `Meta Media` or `Kapso Media`
+5. Delivery: `Meta Media` or `Meta Resumable Asset`
 
 ## Limitations
 
@@ -179,41 +180,24 @@ and conversation events to dedicated outputs. Other signed webhook event types
 
 ## Tests
 
-Run with Node.js `>=22.16`:
-
 ```bash
-pnpm lint
-pnpm build
-pnpm test
-pnpm test:coverage   # unit + mock + 90% line coverage threshold
+pnpm lint && pnpm build && pnpm test:coverage
 pnpm test:unit
+pnpm test:integration
 pnpm test:mock
-pnpm test:live
 ```
 
-Live tests are opt-in and require explicit environment variables:
+Optional live tests (real Kapso API, not included in `pnpm test` or the npm package):
 
 ```bash
-RUN_KAPSO_LIVE_TESTS=1 \
-KAPSO_API_KEY=... \
-KAPSO_PHONE_NUMBER_ID=<kapso-phone-number-id> \
-pnpm test:live
+cp .env.example .env   # fill in KAPSO_* values locally; never commit .env
+pnpm test:live:sandbox
+pnpm test:live:production-readonly
 ```
 
-The live suite performs read-only requests unless these additional explicit
-variables are present:
-
-```bash
-RUN_KAPSO_LIVE_SEND_MESSAGE=1 \
-KAPSO_TEST_RECIPIENT=<sandbox-registered-test-number> \
-pnpm test:live
-```
+Repository maintainers can run the **Live Kapso Tests** GitHub Actions workflow (nightly or manual). Required secrets: `KAPSO_API_KEY`, `KAPSO_SANDBOX_PHONE_NUMBER_ID`, `KAPSO_PRODUCTION_PHONE_NUMBER_ID`, `KAPSO_TEST_RECIPIENT`.
 
 ## Development notes
 
-- HTTP construction is centralized in `nodes/KapsoApi/transport/request.ts`.
-- JSON parsing, pagination and error normalization are tested separately.
-- Multipart upload options are covered by unit tests.
-- Mock integration tests use documented paths and assert `X-API-Key`.
-- Signed media download uses the documented unversioned
-  `/meta/whatsapp/media_download` path and does not send `X-API-Key`.
+- HTTP construction lives in `nodes/KapsoApi/transport/request.ts`.
+- Unit, integration, mock, and opt-in live tests cover node transport and payload builders.

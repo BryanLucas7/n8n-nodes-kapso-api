@@ -5,6 +5,11 @@ import {
 	NodeConnectionTypes,
 } from 'n8n-workflow';
 import { KAPSO_WEBHOOK_EVENTS } from './trigger/events';
+import {
+	configureWebhookNotice,
+	KAPSO_WEBHOOK_DOCS_URL,
+	makeKapsoEventNotice,
+} from './trigger/notes';
 import { makeKapsoWebhookHandler } from './trigger/trigger';
 
 export class KapsoTrigger implements INodeType {
@@ -15,6 +20,7 @@ export class KapsoTrigger implements INodeType {
 		group: ['trigger'],
 		version: 1,
 		description: 'Starts the workflow when Kapso WhatsApp webhook events are received',
+		documentationUrl: KAPSO_WEBHOOK_DOCS_URL,
 		defaults: {
 			name: 'Kapso Trigger',
 		},
@@ -35,49 +41,7 @@ export class KapsoTrigger implements INodeType {
 				path: 'kapso',
 			},
 		],
-		properties: [
-			{
-				displayName:
-					'Set the Webhook Secret on the Kapso API credential. Every request must include a valid X-Webhook-Signature (HMAC SHA256).',
-				name: 'kapsoWebhookSecretNotice',
-				type: 'notice',
-				default: '',
-			},
-			{
-				displayName:
-					'Configure this webhook URL in the Kapso dashboard. Kapso sends the event type in the X-Webhook-Event header.',
-				name: 'kapsoWebhookNotice',
-				type: 'notice',
-				default: '',
-			},
-			{
-				displayName: 'Documentation',
-				name: 'kapsoWebhookDocs',
-				type: 'notice',
-				default: '',
-				typeOptions: {
-					openUrl: true,
-				},
-				description:
-					'Open https://docs.kapso.ai/docs/platform/webhooks/phone-numbers',
-			},
-			{
-				displayName:
-					'Chain to Kapso API with expression defaults for phone number, recipient, and message identifiers from the webhook payload.',
-				name: 'kapsoChainNotice',
-				type: 'notice',
-				default: '',
-				description:
-					'See Kapso docs for recommended expression defaults on the Kapso API node after this trigger',
-			},
-			{
-				displayName:
-					'Events not listed above are routed to the Other Event output when X-Webhook-Event is present.',
-				name: 'kapsoUnknownEventNotice',
-				type: 'notice',
-				default: '',
-			},
-		],
+		properties: [configureWebhookNotice, makeKapsoEventNotice(KAPSO_WEBHOOK_EVENTS)],
 	};
 
 	webhook = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);

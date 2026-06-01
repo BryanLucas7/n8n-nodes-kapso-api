@@ -86,7 +86,9 @@ describe('buildMetaTemplateComponents', () => {
 						buttonSubType: 'flow',
 						buttonIndex: 0,
 						flowToken: 'token-abc',
-						flowActionDataJson: '{"order_id":"42"}',
+						flowActionData: {
+							fieldValues: [{ key: 'order_id', value: '42' }],
+						},
 					},
 					{
 						buttonSubType: 'quick_reply',
@@ -313,5 +315,71 @@ describe('buildMetaTemplateComponents', () => {
 					headerLongitude: '-46.63',
 				}),
 			).toThrow(/latitude/i);
+		});
+
+		it('builds mpm button sections from nested UI values', () => {
+			expect(
+				buildMetaTemplateComponents({
+					buttonParameters: [
+						{
+							buttonSubType: 'mpm',
+							buttonIndex: 0,
+							mpmSectionValues: {
+								sectionValues: [
+									{
+										sectionTitle: 'Popular',
+										productValues: {
+											productItems: [{ productRetailerId: 'SKU_1' }, { productRetailerId: 'SKU_2' }],
+										},
+									},
+								],
+							},
+						},
+					],
+				}),
+			).toEqual([
+				{
+					type: 'button',
+					sub_type: 'mpm',
+					index: '0',
+					parameters: [
+						{
+							type: 'action',
+							action: {
+								sections: [
+									{
+										title: 'Popular',
+										product_items: [
+											{ product_retailer_id: 'SKU_1' },
+											{ product_retailer_id: 'SKU_2' },
+										],
+									},
+								],
+							},
+						},
+					],
+				},
+			]);
+		});
+
+		it('rejects mpm sections without products', () => {
+			expect(() =>
+				buildMetaTemplateComponents({
+					buttonParameters: [
+						{
+							buttonSubType: 'mpm',
+							buttonIndex: 0,
+							mpmSectionValues: {
+								sectionValues: [
+									{
+										sectionTitle: 'Popular',
+										productValues: { productItems: [] },
+									},
+								],
+							},
+						},
+					],
+				}),
+			).toThrow(/at least one product/);
 		});
 });

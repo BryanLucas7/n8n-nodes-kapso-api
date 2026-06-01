@@ -27,6 +27,7 @@ type CursorListResponse = {
 };
 
 export const CURSOR_LIST_MAX_PAGES = 100;
+export const RETURN_ALL_FETCH_LIMIT = 100;
 
 export async function requestCursorListAll(
 	ef: IExecuteFunctions,

@@ -1,8 +1,27 @@
 import { INodeProperties } from 'n8n-workflow';
 import { messageMediaOperations, messageSendOperations } from '../actions/operations';
 import {
-	templateButtonParameterValues,
-	templateHeaderTypeOptions,
+	buttonIdField,
+	buttonTitleField,
+	documentFilenameField,
+	emojiStringField,
+	interactiveBodyField,
+	interactiveFooterTextField,
+	interactiveHeaderTextField,
+	listButtonTextField,
+	listRowDescriptionField,
+	listRowIdField,
+	listRowTitleField,
+	listSectionTitleField,
+	mediaCaptionField,
+	mediaIdStringField,
+	metaPhoneResourceLocatorField,
+	publicUrlStringField,
+	textMessageField,
+	wamidStringField,
+} from './fieldConstraints';
+import {
+	templateButtonParameterCollectionOptions,
 } from './templateShared.fields';
 
 const messageRecipientOperations = [...messageSendOperations];
@@ -11,37 +30,18 @@ const messageMediaOps = [...messageMediaOperations];
 const messageCaptionOperations = ['sendImage', 'sendVideo', 'sendDocument'];
 
 export const messageFields: INodeProperties[] = [
-	{
-		displayName: 'Recipient Phone',
-		name: 'recipient',
-		type: 'string',
-		default: '',
-		required: true,
-		placeholder: '15551234567',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: messageRecipientOperations,
-			},
+	metaPhoneResourceLocatorField('recipient', 'Recipient Phone', {
+		show: {
+			resource: ['message'],
+			operation: messageRecipientOperations,
 		},
-		description: 'Recipient phone number in international format without plus sign (Meta WhatsApp send API)',
-	},
-	{
-		displayName: 'Text',
-		name: 'textBody',
-		type: 'string',
-		typeOptions: {
-			rows: 4,
+	}),
+	textMessageField({
+		show: {
+			resource: ['message'],
+			operation: ['sendText'],
 		},
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendText'],
-			},
-		},
-	},
+	}),
 	{
 		displayName: 'Media Source',
 		name: 'mediaSource',
@@ -58,71 +58,48 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Media Value',
-		name: 'mediaValue',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: messageMediaOps,
-			},
+	mediaIdStringField('mediaId', 'Media ID', {
+		show: {
+			resource: ['message'],
+			operation: messageMediaOps,
+			mediaSource: ['id'],
 		},
-		description: 'Media ID or public URL, depending on Media Source',
-	},
-	{
-		displayName: 'Caption',
-		name: 'caption',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: messageCaptionOperations,
-			},
+	}),
+	publicUrlStringField('mediaUrl', 'Public URL', {
+		show: {
+			resource: ['message'],
+			operation: messageMediaOps,
+			mediaSource: ['link'],
 		},
-	},
-	{
-		displayName: 'Filename',
-		name: 'filename',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendDocument'],
-			},
+	}),
+	mediaCaptionField({
+		show: {
+			resource: ['message'],
+			operation: messageCaptionOperations,
 		},
-		description: 'Used by WhatsApp document messages',
-	},
-	{
-		displayName: 'Body Text',
-		name: 'bodyText',
-		type: 'string',
-		typeOptions: {
-			rows: 3,
+	}),
+	documentFilenameField('filename', 'Filename', {
+		show: {
+			resource: ['message'],
+			operation: ['sendDocument'],
 		},
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: [
-					'sendButtons',
-					'sendList',
-					'sendCtaUrl',
-					'sendProduct',
-					'sendProductList',
-					'sendCatalog',
-					'sendFlow',
-					'requestLocation',
-					'sendCallPermission',
-				],
-			},
+	}),
+	interactiveBodyField('bodyText', 'Body Text', {
+		show: {
+			resource: ['message'],
+			operation: [
+				'sendButtons',
+				'sendList',
+				'sendCtaUrl',
+				'sendProduct',
+				'sendProductList',
+				'sendCatalog',
+				'sendFlow',
+				'requestLocation',
+				'sendCallPermission',
+			],
 		},
-	},
+	}),
 	{
 		displayName: 'Buttons',
 		name: 'buttons',
@@ -143,63 +120,29 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Button',
 				name: 'buttonValues',
-				values: [
-					{
-						displayName: 'Button ID',
-						name: 'buttonId',
-						type: 'string',
-						default: '',
-						required: true,
-					},
-					{
-						displayName: 'Button Title',
-						name: 'buttonTitle',
-						type: 'string',
-						default: '',
-						required: true,
-					},
-				],
+				values: [buttonIdField(), buttonTitleField()],
 			},
 		],
 	},
-	{
-		displayName: 'Header Text',
-		name: 'headerText',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendButtons'],
-				buttonHeaderType: ['text'],
-			},
+	interactiveHeaderTextField('headerText', 'Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendButtons'],
+			buttonHeaderType: ['text'],
 		},
-	},
-	{
-		displayName: 'Footer Text',
-		name: 'footerText',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendButtons', 'sendList', 'sendCtaUrl', 'sendProductList'],
-			},
+	}),
+	interactiveFooterTextField('footerText', 'Footer Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendButtons', 'sendList', 'sendCtaUrl', 'sendProductList'],
 		},
-	},
-	{
-		displayName: 'List Button Text',
-		name: 'listButtonText',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendList'],
-			},
+	}),
+	listButtonTextField({
+		show: {
+			resource: ['message'],
+			operation: ['sendList'],
 		},
-	},
+	}),
 	{
 		displayName: 'Sections',
 		name: 'sections',
@@ -220,13 +163,7 @@ export const messageFields: INodeProperties[] = [
 				displayName: 'Section',
 				name: 'sectionValues',
 				values: [
-					{
-						displayName: 'Section Title',
-						name: 'sectionTitle',
-						type: 'string',
-						default: '',
-						required: true,
-					},
+					listSectionTitleField(),
 					{
 						displayName: 'Rows',
 						name: 'rowValues',
@@ -240,28 +177,7 @@ export const messageFields: INodeProperties[] = [
 							{
 								displayName: 'Row',
 								name: 'row',
-								values: [
-									{
-										displayName: 'Row ID',
-										name: 'rowId',
-										type: 'string',
-										default: '',
-										required: true,
-									},
-									{
-										displayName: 'Row Title',
-										name: 'rowTitle',
-										type: 'string',
-										default: '',
-										required: true,
-									},
-									{
-										displayName: 'Row Description',
-										name: 'rowDescription',
-										type: 'string',
-										default: '',
-									},
-								],
+								values: [listRowIdField(), listRowTitleField(), listRowDescriptionField()],
 							},
 						],
 					},
@@ -546,67 +462,15 @@ export const messageFields: INodeProperties[] = [
 			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 	},
 	{
-		displayName: 'Language Code',
+		displayName: 'Language Name or ID',
 		name: 'languageCode',
-		type: 'string',
-		default: 'en_US',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendTemplate'],
-			},
-		},
-	},
-	{
-		displayName: 'Body Text Parameters',
-		name: 'templateBodyParameters',
-		type: 'fixedCollection',
-		typeOptions: {
-			multipleValues: true,
-		},
-		default: {},
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-			},
-		},
-		options: [
-			{
-				displayName: 'Parameter',
-				name: 'parameterValues',
-				values: [
-					{
-						displayName: 'Parameter Name',
-						name: 'parameterName',
-						type: 'string',
-						default: '',
-						placeholder: 'first_name',
-						description:
-							'Named template variable when the template uses named parameters',
-					},
-					{
-						displayName: 'Text',
-						name: 'parameterText',
-						type: 'string',
-						default: '',
-						required: true,
-					},
-				],
-			},
-		],
-	},
-	{
-		displayName: 'Component Mode',
-		name: 'templateComponentMode',
 		type: 'options',
-		options: [
-			{ name: 'Standard', value: 'standard' },
-			{ name: 'Carousel', value: 'carousel' },
-		],
-		default: 'standard',
+		default: '',
+		required: true,
+		typeOptions: {
+			loadOptionsMethod: 'getTemplateLanguages',
+			loadOptionsDependsOn: ['templateName', 'phoneNumberId'],
+		},
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -614,33 +478,99 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 		description:
-			'Carousel mode builds a template carousel component. Card count must match the approved template.',
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 	},
 	{
-		displayName: 'Header Type',
-		name: 'templateHeaderType',
+		displayName: 'Template Header Format Name or ID',
+		name: 'templateDetectedHeaderFormat',
 		type: 'options',
-		options: templateHeaderTypeOptions,
-		default: 'none',
+		default: '',
+		typeOptions: {
+			loadOptionsMethod: 'getTemplateDetectedHeaderFormat',
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'languageCode'],
+		},
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
 			},
 		},
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 	},
 	{
-		displayName: 'Header Text',
-		name: 'templateHeaderText',
-		type: 'string',
+		displayName: 'Template Component Mode Name or ID',
+		name: 'templateDetectedComponentMode',
+		type: 'options',
 		default: '',
+		typeOptions: {
+			loadOptionsMethod: 'getTemplateDetectedComponentMode',
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'languageCode'],
+		},
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-				templateHeaderType: ['text'],
+			},
+		},
+		description:
+			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+	},
+	{
+		displayName: 'Body Text Parameters',
+		name: 'templateBodyParametersMapper',
+		type: 'resourceMapper',
+		noDataExpression: true,
+		default: {
+			mappingMode: 'defineBelow',
+			value: null,
+		},
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['standard'],
+			},
+		},
+		typeOptions: {
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'languageCode'],
+			resourceMapper: {
+				resourceMapperMethod: 'getTemplateBodyParameterFields',
+				mode: 'add',
+				addAllFields: true,
+				supportAutoMap: false,
+				fieldWords: {
+					singular: 'parameter',
+					plural: 'parameters',
+				},
+				noFieldsError: 'Select a template with body variables before mapping body parameters.',
+			},
+		},
+		description: 'Fill the body variables defined by the selected template',
+	},
+	interactiveHeaderTextField('templateHeaderText', 'Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+			templateDetectedHeaderFormat: ['text'],
+		},
+	}),
+	{
+		displayName: 'Header Media Source',
+		name: 'templateHeaderMediaSource',
+		type: 'options',
+		options: [
+			{ name: 'Public Link', value: 'link' },
+			{ name: 'Media ID', value: 'id' },
+		],
+		default: 'link',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['image'],
 			},
 		},
 	},
@@ -657,8 +587,26 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-				templateHeaderType: ['image', 'video', 'document'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['video'],
+			},
+		},
+	},
+	{
+		displayName: 'Header Media Source',
+		name: 'templateHeaderMediaSource',
+		type: 'options',
+		options: [
+			{ name: 'Public Link', value: 'link' },
+			{ name: 'Media ID', value: 'id' },
+		],
+		default: 'link',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['document'],
 			},
 		},
 	},
@@ -667,31 +615,76 @@ export const messageFields: INodeProperties[] = [
 		name: 'templateHeaderMediaUrl',
 		type: 'string',
 		default: '',
+		validateType: 'url',
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-				templateHeaderType: ['image', 'video', 'document'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['image'],
 				templateHeaderMediaSource: ['link'],
 			},
 		},
 	},
 	{
-		displayName: 'Header Media ID',
-		name: 'templateHeaderMediaId',
+		displayName: 'Header Media URL',
+		name: 'templateHeaderMediaUrl',
 		type: 'string',
 		default: '',
+		validateType: 'url',
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-				templateHeaderType: ['image', 'video', 'document'],
-				templateHeaderMediaSource: ['id'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['video'],
+				templateHeaderMediaSource: ['link'],
 			},
 		},
 	},
+	{
+		displayName: 'Header Media URL',
+		name: 'templateHeaderMediaUrl',
+		type: 'string',
+		default: '',
+		validateType: 'url',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['document'],
+				templateHeaderMediaSource: ['link'],
+			},
+		},
+	},
+	mediaIdStringField('templateHeaderMediaId', 'Header Media ID', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+			templateDetectedHeaderFormat: ['image'],
+			templateHeaderMediaSource: ['id'],
+		},
+	}, false),
+	mediaIdStringField('templateHeaderMediaId', 'Header Media ID', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+			templateDetectedHeaderFormat: ['video'],
+			templateHeaderMediaSource: ['id'],
+		},
+	}, false),
+	mediaIdStringField('templateHeaderMediaId', 'Header Media ID', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+			templateDetectedHeaderFormat: ['document'],
+			templateHeaderMediaSource: ['id'],
+		},
+	}, false),
 	{
 		displayName: 'Header Latitude',
 		name: 'templateHeaderLatitude',
@@ -702,8 +695,8 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-				templateHeaderType: ['location'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['location'],
 			},
 		},
 	},
@@ -717,8 +710,8 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-				templateHeaderType: ['location'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['location'],
 			},
 		},
 	},
@@ -731,8 +724,8 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-				templateHeaderType: ['location'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['location'],
 			},
 		},
 	},
@@ -745,8 +738,8 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
-				templateHeaderType: ['location'],
+				templateDetectedComponentMode: ['standard'],
+				templateDetectedHeaderFormat: ['location'],
 			},
 		},
 	},
@@ -762,11 +755,11 @@ export const messageFields: INodeProperties[] = [
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['carousel'],
+				templateDetectedComponentMode: ['carousel'],
 			},
 		},
 		description:
-			'Each card must match the approved template carousel card count and card_index order',
+			'Each card must match the approved template carousel card count and card_index order. Header type is inferred from the template.',
 		options: [
 			{
 				displayName: 'Card',
@@ -779,16 +772,6 @@ export const messageFields: INodeProperties[] = [
 						default: 0,
 						required: true,
 						typeOptions: { minValue: 0 },
-					},
-					{
-						displayName: 'Header Type',
-						name: 'cardHeaderType',
-						type: 'options',
-						options: [
-							{ name: 'Image', value: 'image' },
-							{ name: 'Video', value: 'video' },
-						],
-						default: 'image',
 					},
 					{
 						displayName: 'Header Media Source',
@@ -805,19 +788,9 @@ export const messageFields: INodeProperties[] = [
 						name: 'cardHeaderMediaUrl',
 						type: 'string',
 						default: '',
-						displayOptions: {
-							show: { cardHeaderMediaSource: ['link'] },
-						},
+						description: 'Public media URL when Header Media Source is Public Link',
 					},
-					{
-						displayName: 'Header Media ID',
-						name: 'cardHeaderMediaId',
-						type: 'string',
-						default: '',
-						displayOptions: {
-							show: { cardHeaderMediaSource: ['id'] },
-						},
-					},
+					mediaIdStringField('cardHeaderMediaId', 'Header Media ID', undefined, false),
 					{
 						displayName: 'Body Parameters',
 						name: 'cardBodyParameters',
@@ -850,15 +823,12 @@ export const messageFields: INodeProperties[] = [
 						displayName: 'Button Parameters',
 						name: 'cardButtonParameters',
 						type: 'fixedCollection',
-						typeOptions: { multipleValues: true },
+						typeOptions: {
+							multipleValues: true,
+							multipleValueButtonText: 'Add Button',
+						},
 						default: {},
-						options: [
-							{
-								displayName: 'Button',
-								name: 'buttonValues',
-								values: templateButtonParameterValues,
-							},
-						],
+						options: templateButtonParameterCollectionOptions,
 					},
 				],
 			},
@@ -866,33 +836,62 @@ export const messageFields: INodeProperties[] = [
 	},
 	{
 		displayName: 'Button Parameters',
-		name: 'templateButtonParameters',
-		type: 'fixedCollection',
-		typeOptions: {
-			multipleValues: true,
+		name: 'templateButtonParametersMapper',
+		type: 'resourceMapper',
+		noDataExpression: true,
+		default: {
+			mappingMode: 'defineBelow',
+			value: null,
 		},
-		default: {},
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateComponentMode: ['standard'],
+				templateDetectedComponentMode: ['standard'],
 			},
 		},
+		typeOptions: {
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'languageCode'],
+			resourceMapper: {
+				resourceMapperMethod: 'getTemplateButtonParameterFields',
+				mode: 'add',
+				addAllFields: true,
+				supportAutoMap: false,
+				fieldWords: {
+					singular: 'button parameter',
+					plural: 'button parameters',
+				},
+				noFieldsError: 'Select a template with dynamic button parameters before mapping button values.',
+			},
+		},
+		description:
+			'Fill dynamic button values for the selected template. MPM sections JSON expects an array of `{ "title": "...", "product_items": [{ "product_retailer_id": "..." }] }`.',
+	},
+	wamidStringField('reactionMessageId', 'React To Message ID', {
+		show: {
+			resource: ['message'],
+			operation: ['sendReaction'],
+		},
+	}),
+	{
+		displayName: 'Reaction Action',
+		name: 'reactionMode',
+		type: 'options',
+		default: 'react',
+		required: true,
 		options: [
 			{
-				displayName: 'Button',
-				name: 'buttonValues',
-				values: templateButtonParameterValues,
+				name: 'Add or Change Emoji',
+				value: 'react',
+				description:
+					'Send an emoji reaction, or replace an existing reaction on this message with a different emoji',
+			},
+			{
+				name: 'Remove Reaction',
+				value: 'remove',
+				description: 'Remove your business reaction from this message',
 			},
 		],
-	},
-	{
-		displayName: 'React To Message ID',
-		name: 'reactionMessageId',
-		type: 'string',
-		default: '',
-		required: true,
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -900,46 +899,19 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Remove Reaction',
-		name: 'removeReaction',
-		type: 'boolean',
-		default: false,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendReaction'],
-			},
+	emojiStringField({
+		show: {
+			resource: ['message'],
+			operation: ['sendReaction'],
+			reactionMode: ['react'],
 		},
-		description: 'Whether to send an empty emoji to remove the reaction from the message',
-	},
-	{
-		displayName: 'Emoji',
-		name: 'emoji',
-		type: 'string',
-		default: '👍',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendReaction'],
-				removeReaction: [false],
-			},
+	}),
+	wamidStringField('messageId', 'Message ID', {
+		show: {
+			resource: ['message'],
+			operation: ['get', 'markRead'],
 		},
-	},
-	{
-		displayName: 'Message ID',
-		name: 'messageId',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['get', 'markRead'],
-			},
-		},
-	},
+	}),
 	{
 		displayName: 'Typing Indicator',
 		name: 'typingIndicator',
