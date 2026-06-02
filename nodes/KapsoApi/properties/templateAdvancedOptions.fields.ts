@@ -7,8 +7,7 @@ export const templateAdvancedOptionsField: INodeProperties = {
 	type: 'collection',
 	placeholder: 'Add Option',
 	default: {},
-	description:
-		'Expert overrides for Send Template. Use only when structured template fields cannot express the approved template',
+	description: 'Expert overrides for Send Template. Use only when structured template fields cannot express the approved template.',
 	displayOptions: {
 		show: {
 			resource: ['message'],

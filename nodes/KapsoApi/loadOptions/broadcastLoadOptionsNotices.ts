@@ -23,12 +23,12 @@ export async function getBroadcastTemplateSummaryNotice(
 	try {
 		const definition = await fetchBroadcastTemplateDefinitionForLoadOptions(this);
 		if (!definition) {
-			return [{ name: 'Select a broadcast to see its template summary', value: '' }];
+			return [{ name: 'Select a Broadcast to See Its Template Summary', value: '' }];
 		}
 
 		return [{ name: broadcastTemplateSummary(definition), value: '' }];
 	} catch {
-		return [{ name: 'Select a broadcast to see its template summary', value: '' }];
+		return [{ name: 'Select a Broadcast to See Its Template Summary', value: '' }];
 	}
 }
 
@@ -38,7 +38,7 @@ export async function getBroadcastSendPreflightNotice(
 	await assertKapsoLoadOptionsReady(this);
 	const broadcastId = readBroadcastId(this);
 	if (!broadcastId) {
-		return [{ name: 'Select a broadcast to see status and recipient count', value: '' }];
+		return [{ name: 'Select a Broadcast to See Status and Recipient Count', value: '' }];
 	}
 
 	try {
@@ -53,6 +53,6 @@ export async function getBroadcastSendPreflightNotice(
 			},
 		];
 	} catch {
-		return [{ name: 'Could not load broadcast status. Reselect the broadcast or check credentials.', value: '' }];
+		return [{ name: 'Could Not Load Broadcast Status. Reselect the Broadcast or Check Credentials.', value: '' }];
 	}
 }

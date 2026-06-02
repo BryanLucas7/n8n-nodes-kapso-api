@@ -260,7 +260,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Detected Template Header Format',
+		displayName: 'Detected Template Header Format Name or ID',
 		name: 'templateDetectedHeaderFormat',
 		type: 'options',
 		default: '',
@@ -274,11 +274,10 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				operation: ['sendTemplate'],
 			},
 		},
-		description:
-			'Read-only header type from the approved template (do not change unless troubleshooting). Drives header media and location fields below',
+		description: 'Read-only header type from the approved template (do not change unless troubleshooting). Drives header media and location fields below. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
-		displayName: 'Detected Template Layout',
+		displayName: 'Detected Template Layout Name or ID',
 		name: 'templateDetectedComponentMode',
 		type: 'options',
 		default: '',
@@ -292,8 +291,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				operation: ['sendTemplate'],
 			},
 		},
-		description:
-			'Read-only layout from the approved template: Standard or Carousel (do not change unless troubleshooting)',
+		description: 'Read-only layout from the approved template: Standard or Carousel (do not change unless troubleshooting). Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName:
@@ -358,10 +356,10 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 		},
 	}),
 	{
-		displayName: 'Template Header Text Hint',
+		displayName: 'Template Header Text Hint Name or ID',
 		name: 'templateHeaderTextHasVariable',
 		type: 'options',
-		default: 'no',
+		default: '',
 		typeOptions: {
 			loadOptionsMethod: 'getTemplateHeaderTextHasVariable',
 			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
@@ -372,7 +370,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				operation: ['sendTemplate'],
 			},
 		},
-		description: 'Loaded automatically from the selected template to show header text only when required',
+		description: 'Loaded automatically from the selected template to show header text only when required. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Header Media Source',
@@ -383,8 +381,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			{ name: 'Media ID', value: 'id' },
 		],
 		default: 'link',
-		description:
-			'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template',
+		description: 'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template.',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -403,8 +400,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			{ name: 'Media ID', value: 'id' },
 		],
 		default: 'link',
-		description:
-			'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template',
+		description: 'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template.',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -423,8 +419,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			{ name: 'Media ID', value: 'id' },
 		],
 		default: 'link',
-		description:
-			'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template',
+		description: 'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template.',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -621,7 +616,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			),
 	},
 	{
-		displayName: 'Carousel Template Guidance',
+		displayName: 'Carousel Template Guidance Name or ID',
 		name: 'templateCarouselGuidance',
 		type: 'options',
 		default: '',
@@ -636,7 +631,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				templateDetectedComponentMode: ['carousel'],
 			},
 		},
-		description: 'Read-only summary of each carousel card from the selected template',
+		description: 'Read-only summary of each carousel card from the selected template. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Carousel Cards',
@@ -665,17 +660,16 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				description: 'One carousel card matching one approved template card at the chosen zero-based index',
 				values: [
 					{
-						displayName: 'Card Index',
+						displayName: 'Card Index Name or ID',
 						name: 'cardIndex',
 						type: 'options',
-						default: 0,
+						default: '',
 						required: true,
 						typeOptions: {
 							loadOptionsMethod: 'getTemplateCarouselCardIndices',
 							loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
 						},
-						description:
-							'Zero-based index for one approved template card (0 = first card). Options load from the template definition',
+						description: 'Zero-based index for one approved template card (0 = first card). Options load from the template definition. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 					},
 					{
 						displayName: 'Header Media Source',
@@ -686,8 +680,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 							{ name: 'Media ID', value: 'id' },
 						],
 						default: 'link',
-						description:
-							'Public Link: HTTPS URL Meta can fetch. Media ID: from Upload Media or Kapso Trigger; must match the approved card header type',
+						description: 'Public Link: HTTPS URL Meta can fetch. Media ID: from Upload Media or Kapso Trigger; must match the approved card header type.',
 					},
 					{
 						displayName: 'Header Media URL',
@@ -729,10 +722,10 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Template MPM Hint',
+		displayName: 'Template MPM Hint Name or ID',
 		name: 'templateMpmButtonHint',
 		type: 'options',
-		default: 'no',
+		default: '',
 		typeOptions: {
 			loadOptionsMethod: 'getTemplateMpmButtonHint',
 			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
@@ -743,7 +736,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				operation: ['sendTemplate'],
 			},
 		},
-		description: 'Loaded automatically from the selected template to show the MPM button notice when needed',
+		description: 'Loaded automatically from the selected template to show the MPM button notice when needed. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	templateButtonParametersField('templateButtonParameters', {
 		show: {

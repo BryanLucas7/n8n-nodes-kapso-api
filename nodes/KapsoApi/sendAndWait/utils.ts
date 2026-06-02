@@ -200,8 +200,7 @@ export function getSendAndWaitProperties(): INodeProperties[] {
 				{
 					name: 'CTA URL Button (Session Only)',
 					value: 'ctaButton',
-					description:
-						'Send one tappable URL button inside the 24-hour customer service window (single approval only).',
+					description: 'Send one tappable URL button inside the 24-hour customer service window (single approval only)',
 				},
 			],
 		},
@@ -222,7 +221,7 @@ export function getSendAndWaitProperties(): INodeProperties[] {
 			options: [
 				limitWaitTimeOption,
 				{
-					displayName: 'Append n8n Attribution',
+					displayName: 'Append N8n Attribution',
 					name: 'appendAttribution',
 					type: 'boolean',
 					default: false,

@@ -11,7 +11,7 @@ export async function getTemplateCarouselCardIndices(
 
 	const definition = await fetchSelectedTemplateDefinition(this, 'phoneNumberId');
 	if (!definition || definition.componentMode !== 'carousel' || definition.carouselCards.length === 0) {
-		return [{ name: 'No carousel cards detected', value: 0 }];
+		return [{ name: 'No Carousel Cards Detected', value: 0 }];
 	}
 
 	return definition.carouselCards.map((card) => ({
@@ -29,7 +29,7 @@ export async function getTemplateCarouselGuidanceNotice(
 
 	const definition = await fetchSelectedTemplateDefinition(this, 'phoneNumberId');
 	if (!definition || definition.componentMode !== 'carousel') {
-		return [{ name: 'Select a carousel template to see card guidance', value: '' }];
+		return [{ name: 'Select a Carousel Template to See Card Guidance', value: '' }];
 	}
 
 	const summary = definition.carouselCards

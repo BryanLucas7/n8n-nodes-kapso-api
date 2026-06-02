@@ -360,6 +360,7 @@ export function flowScreenOptionsField(
 		displayName: optionalLabel('Flow Screen'),
 		name: 'flowScreen',
 		type: 'options',
+		description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		default: '',
 		typeOptions: {
 			loadOptionsMethod: 'getFlowScreens',
@@ -402,6 +403,7 @@ export function flowTokenField(displayOptions?: INodeProperties['displayOptions'
 		name: 'flowToken',
 		type: 'string',
 		default: '',
+		// eslint-disable-next-line n8n-nodes-base/node-param-type-options-password-missing -- visible for copy/paste from Flow responses
 		typeOptions: {
 			maxLength: FLOW_TOKEN_MAX,
 		},

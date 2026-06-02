@@ -16,12 +16,12 @@ export async function getBroadcastInputItemSchemaPreview(
 	try {
 		const definition = await fetchBroadcastTemplateDefinitionForLoadOptions(this);
 		if (!definition) {
-			return [{ name: 'Select a draft broadcast to preview expected input item keys', value: '' }];
+			return [{ name: 'Select a Draft Broadcast to Preview Expected Input Item Keys', value: '' }];
 		}
 
 		const lines = buildBroadcastInputItemSchemaLines(definition, phoneField, contactField);
 		return [{ name: lines.join(', '), value: '' }];
 	} catch {
-		return [{ name: 'Select a draft broadcast to preview expected input item keys', value: '' }];
+		return [{ name: 'Select a Draft Broadcast to Preview Expected Input Item Keys', value: '' }];
 	}
 }

@@ -443,8 +443,7 @@ export const messageInteractiveActionFields: INodeProperties[] = [
 			},
 			hide: hideWhenFlowNavigateOnly,
 		},
-		description:
-			'Leave empty to use the action detected from the Flow. Choose Navigate to open a screen, or Data Exchange only when the Flow has a configured data endpoint',
+		description: 'Leave empty to use the action detected from the Flow. Choose Navigate to open a screen, or Data Exchange only when the Flow has a configured data endpoint. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: FLOW_SINGLE_SCREEN_NOTICE_DISPLAY_NAME,

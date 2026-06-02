@@ -93,8 +93,7 @@ export const limitWaitTimeOption: INodeProperties = {
 	displayName: 'Limit Wait Time',
 	name: 'limitWaitTime',
 	type: 'fixedCollection',
-	description:
-		'Maximum time to wait for an approval link click. If the timeout expires first, the workflow resumes without an approval response in the output data',
+	description: 'Maximum time to wait for an approval link click. If the timeout expires first, the workflow resumes without an approval response in the output data.',
 	default: { values: { limitType: 'afterTimeInterval', resumeAmount: 45, resumeUnit: 'minutes' } },
 	options: [
 		{

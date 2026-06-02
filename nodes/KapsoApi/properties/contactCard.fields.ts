@@ -32,15 +32,14 @@ const phoneEntryFields: INodeProperties[] = [
 			{ name: 'Main', value: 'MAIN' },
 		],
 		default: 'MOBILE',
-		description: 'Category shown on the contact card. Defaults to Mobile',
+		description: 'Category shown on the contact card. Defaults to Mobile.',
 	},
 	{
 		displayName: optionalLabel('WhatsApp ID'),
 		name: 'waId',
 		type: 'string',
 		default: '',
-		description:
-			'WhatsApp user ID for Message/Save contact buttons. Leave empty to show Invite to WhatsApp instead',
+		description: 'WhatsApp user ID for Message/Save contact buttons. Leave empty to show Invite to WhatsApp instead.',
 	},
 ];
 
@@ -63,7 +62,7 @@ const emailEntryFields: INodeProperties[] = [
 			{ name: 'Home', value: 'HOME' },
 		],
 		default: 'WORK',
-		description: 'Category shown on the contact card. Defaults to Work',
+		description: 'Category shown on the contact card. Defaults to Work.',
 	},
 ];
 
@@ -85,7 +84,7 @@ const urlEntryFields: INodeProperties[] = [
 			{ name: 'Home', value: 'HOME' },
 		],
 		default: 'WORK',
-		description: 'Category shown on the contact card. Defaults to Work',
+		description: 'Category shown on the contact card. Defaults to Work.',
 	},
 ];
 
@@ -141,7 +140,7 @@ const addressEntryFields: INodeProperties[] = [
 			{ name: 'Home', value: 'HOME' },
 		],
 		default: 'WORK',
-		description: 'Category shown on the contact card. Defaults to Work',
+		description: 'Category shown on the contact card. Defaults to Work.',
 	},
 ];
 
@@ -174,6 +173,7 @@ export const contactCardEssentialFieldValues: INodeProperties[] = [
 		name: 'phones',
 		type: 'fixedCollection',
 		typeOptions: { multipleValues: true },
+		// eslint-disable-next-line n8n-nodes-base/node-param-default-wrong-for-fixed-collection -- one empty phone row for Send Contact UX
 		default: defaultContactPhonesValue,
 		required: true,
 		description: 'At least one phone number for the contact card',

@@ -9,8 +9,7 @@ export const messageSendOptionsField: INodeProperties = {
 	type: 'collection',
 	placeholder: 'Add Option',
 	default: {},
-	description:
-		'Optional outbound message settings. Reply context works on most send operations — not on Send Template (Meta ignores the quote bubble) or Send Reaction (uses React To Message ID instead)',
+	description: 'Optional outbound message settings. Reply context works on most send operations — not on Send Template (Meta ignores the quote bubble) or Send Reaction (uses React To Message ID instead).',
 	displayOptions: {
 		show: {
 			resource: ['message'],

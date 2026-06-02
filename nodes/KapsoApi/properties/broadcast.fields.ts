@@ -77,8 +77,7 @@ const broadcastTemplateIdMode = {
 export const broadcastFields: INodeProperties[] = [
 	broadcastIdField,
 	{
-		displayName:
-			'Create returns a Draft broadcast. Next add recipients using the returned data.id or select the broadcast from the list, then Send or Schedule. Drafts can also be reviewed in Kapso Dashboard > WhatsApp > Broadcasts.',
+		displayName: 'Create returns a Draft broadcast. Next add recipients using the returned data.ID or select the broadcast from the list, then Send or Schedule. Drafts can also be reviewed in Kapso Dashboard > WhatsApp > Broadcasts.',
 		name: 'broadcastCreateNextStepNotice',
 		type: 'notice',
 		default: '',
@@ -136,11 +135,10 @@ export const broadcastFields: INodeProperties[] = [
 				operation: ['schedule'],
 			},
 		},
-		description:
-			'Date and time to send the broadcast. Use the date picker or ISO 8601; include a timezone offset when entering a value manually',
+		description: 'Date and time to send the broadcast. Use the date picker or ISO 8601; include a timezone offset when entering a value manually.',
 	},
 	{
-		displayName: 'Broadcast Preflight',
+		displayName: 'Broadcast Preflight Name or ID',
 		name: 'broadcastSendPreflightNotice',
 		type: 'options',
 		default: '',
@@ -154,7 +152,7 @@ export const broadcastFields: INodeProperties[] = [
 				operation: ['send', 'schedule'],
 			},
 		},
-		description: 'Read-only status and recipient count before send or schedule',
+		description: 'Read-only status and recipient count before send or schedule. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName:
@@ -196,7 +194,7 @@ export const broadcastFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Broadcast Template Summary',
+		displayName: 'Broadcast Template Summary Name or ID',
 		name: 'broadcastTemplateSummaryNotice',
 		type: 'options',
 		default: '',
@@ -210,7 +208,7 @@ export const broadcastFields: INodeProperties[] = [
 				operation: ['addRecipients'],
 			},
 		},
-		description: 'Read-only summary of the template attached to the selected broadcast',
+		description: 'Read-only summary of the template attached to the selected broadcast. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Kapso accepts up to 1,000 recipients per Add Recipients request. Split larger lists across multiple nodes.',
@@ -247,8 +245,7 @@ export const broadcastFields: INodeProperties[] = [
 				operation: ['addRecipients'],
 			},
 		},
-		description:
-			'Use Recipients Builder for a small manual list. Use From Input Items when each incoming item is one recipient with a phone field plus optional contact ID, template variables, header values, and button values',
+		description: 'Use Recipients Builder for a small manual list. Use From Input Items when each incoming item is one recipient with a phone field plus optional contact ID, template variables, header values, and button values.',
 	},
 	{
 		displayName: 'Phone JSON Field',
@@ -267,7 +264,7 @@ export const broadcastFields: INodeProperties[] = [
 			'Name of the input JSON key containing the E.164 phone number, for example phone',
 	},
 	{
-		displayName: 'Expected Input Item Keys',
+		displayName: 'Expected Input Item Keys Name or ID',
 		name: 'broadcastInputItemSchemaPreview',
 		type: 'options',
 		default: '',
@@ -286,8 +283,7 @@ export const broadcastFields: INodeProperties[] = [
 				broadcastRecipientSource: ['inputItems'],
 			},
 		},
-		description:
-			'Read-only preview of the JSON keys each incoming item must provide for the selected broadcast template. Reselect the broadcast after template changes to refresh this list',
+		description: 'Read-only preview of the JSON keys each incoming item must provide for the selected broadcast template. Reselect the broadcast after template changes to refresh this list. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Contact ID JSON Field',
@@ -301,11 +297,10 @@ export const broadcastFields: INodeProperties[] = [
 				broadcastRecipientSource: ['inputItems'],
 			},
 		},
-		description:
-			'Optional input item JSON key for an existing Kapso contact UUID. Used when no phone is present on the item',
+		description: 'Optional input item JSON key for an existing Kapso contact UUID. Used when no phone is present on the item.',
 	},
 	{
-		displayName: 'Detected Template Header Format',
+		displayName: 'Detected Template Header Format Name or ID',
 		name: 'broadcastDetectedHeaderFormat',
 		type: 'options',
 		default: '',
@@ -320,11 +315,10 @@ export const broadcastFields: INodeProperties[] = [
 				broadcastRecipientSource: ['builder'],
 			},
 		},
-		description:
-			'Read-only header type loaded from the broadcast template. If stale, reselect the broadcast after syncing template changes',
+		description: 'Read-only header type loaded from the broadcast template. If stale, reselect the broadcast after syncing template changes. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
-		displayName: 'Detected Template Layout',
+		displayName: 'Detected Template Layout Name or ID',
 		name: 'broadcastDetectedComponentMode',
 		type: 'options',
 		default: '',
@@ -339,8 +333,7 @@ export const broadcastFields: INodeProperties[] = [
 				broadcastRecipientSource: ['builder'],
 			},
 		},
-		description:
-			'Read-only layout loaded from the broadcast template: standard body fields or carousel cards. If stale, reselect the broadcast after syncing template changes',
+		description: 'Read-only layout loaded from the broadcast template: standard body fields or carousel cards. If stale, reselect the broadcast after syncing template changes. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName:
@@ -359,10 +352,10 @@ export const broadcastFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Broadcast MPM Hint',
+		displayName: 'Broadcast MPM Hint Name or ID',
 		name: 'broadcastMpmButtonHint',
 		type: 'options',
-		default: 'no',
+		default: '',
 		typeOptions: {
 			loadOptionsMethod: 'getBroadcastMpmButtonHint',
 			loadOptionsDependsOn: ['broadcastId'],
@@ -373,7 +366,7 @@ export const broadcastFields: INodeProperties[] = [
 				operation: ['addRecipients'],
 			},
 		},
-		description: 'Loaded automatically from the broadcast template to show the MPM button notice when needed',
+		description: 'Loaded automatically from the broadcast template to show the MPM button notice when needed. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Recipients',
@@ -391,8 +384,7 @@ export const broadcastFields: INodeProperties[] = [
 				broadcastRecipientSource: ['builder'],
 			},
 		},
-		description:
-			'Recipients with template body, header, and button values per phone number or contact. Header type and carousel layout come from the broadcast template',
+		description: 'Recipients with template body, header, and button values per phone number or contact. Header type and carousel layout come from the broadcast template.',
 		options: [
 			{
 				displayName: 'Recipient',
