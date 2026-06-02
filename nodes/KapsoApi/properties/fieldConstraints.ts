@@ -360,7 +360,6 @@ export function flowScreenOptionsField(
 		displayName: optionalLabel('Flow Screen'),
 		name: 'flowScreen',
 		type: 'options',
-		description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 		default: '',
 		typeOptions: {
 			loadOptionsMethod: 'getFlowScreens',
@@ -368,7 +367,7 @@ export function flowScreenOptionsField(
 		},
 		displayOptions,
 		description: withKapsoDoc(
-			'First screen the recipient sees when Flow action is Navigate. Loaded from the Flow builder for the selected Flow',
+			'First screen the recipient sees when Flow action is Navigate. Loaded from the Flow builder for the selected Flow. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 			KAPSO_DOCS.sendFlow,
 			'Send Flow',
 		),
