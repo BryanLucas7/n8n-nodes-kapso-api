@@ -69,8 +69,8 @@ The action node exposes documented Kapso endpoints that are useful inside
 recurring n8n automations:
 
 - **Message**: send text, image, video, audio, document, sticker, location, buttons,
-  list, CTA URL, product, product list, catalog, flow, location request, call permission,
-  contact, template, reaction, mark as read, list messages, get message.
+  list, CTA URL, CTA phone call, product, product list, catalog, flow, location request, call permission,
+  contact, template, reaction, mark as read, list messages, get message, get catalogs.
 - **Platform Message**: list and get messages across conversations (Kapso Platform API).
 - **Contact**: get, list, create, update, erase.
 - **Conversation**: get, list, update status.

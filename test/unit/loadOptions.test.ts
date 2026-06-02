@@ -108,10 +108,10 @@ describe('loadOptions getMessageTemplates', () => {
 		} as never;
 
 		expect(await getMessageTemplates.call(context)).toEqual([
-			{
-				name: 'hello_world · en_US · APPROVED',
-				value: 'hello_world',
-			},
+    {
+     name: 'hello_world · en_US · APPROVED',
+     value: 'hello_world|en_US',
+    },
 		]);
 	});
 });

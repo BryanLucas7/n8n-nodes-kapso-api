@@ -3,6 +3,7 @@ import { ApplicationError } from 'n8n-workflow';
 import {
 	assertHeaderValuesForTemplate,
 	assertTemplateStructureSelection,
+	bodyParametersForCarouselCard,
 	loadSendTemplateDefinition,
 	readTemplateHeaderValues,
 	resolveBodyParametersForTemplate,
@@ -27,6 +28,10 @@ import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
 vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
 	fetchSelectedTemplateDefinition: vi.fn(),
+	resolveSelectedTemplateIdentity: vi.fn(async () => ({
+		name: 'order_update',
+		language: 'en_US',
+	})),
 }));
 
 function mapperValue(entries: Record<string, string>) {
@@ -45,10 +50,10 @@ describe('resolveBodyParametersForTemplate', () => {
 			}),
 		});
 
-		expect(resolveBodyParametersForTemplate(ef, 0, namedOrderUpdateDefinition)).toEqual([
-			{ parameterName: 'first_name', parameterText: 'Jessica' },
-			{ parameterName: 'order_id', parameterText: '12345' },
-		]);
+   expect(resolveBodyParametersForTemplate(ef, 0, namedOrderUpdateDefinition)).toEqual([
+    { parameterName: 'first_name', parameterText: 'Jessica', valueType: 'text' },
+    { parameterName: 'order_id', parameterText: '12345', valueType: 'text' },
+   ]);
 	});
 
 	it('maps positional body variables from the resource mapper', () => {
@@ -59,10 +64,10 @@ describe('resolveBodyParametersForTemplate', () => {
 			}),
 		});
 
-		expect(resolveBodyParametersForTemplate(ef, 0, positionalReminderDefinition)).toEqual([
-			{ parameterName: undefined, parameterText: 'Monday' },
-			{ parameterName: undefined, parameterText: '10:00 AM' },
-		]);
+   expect(resolveBodyParametersForTemplate(ef, 0, positionalReminderDefinition)).toEqual([
+    { parameterName: undefined, parameterText: 'Monday', valueType: 'text' },
+    { parameterName: undefined, parameterText: '10:00 AM', valueType: 'text' },
+   ]);
 	});
 
 	it('returns an empty array when the template has no body variables', () => {
@@ -95,6 +100,28 @@ describe('resolveBodyParametersForTemplate', () => {
 		expect(() => resolveBodyParametersForTemplate(ef, 0, namedOrderUpdateDefinition)).toThrow(
 			'Unexpected body parameter "extra_field" for the selected template.',
 		);
+	});
+});
+
+describe('bodyParametersForCarouselCard', () => {
+	it('maps prefixed text fields for a carousel card', () => {
+		const card = carouselPromoDefinition.carouselCards[0];
+
+		expect(
+			bodyParametersForCarouselCard(
+				{
+					card_0_param_1: 'Summer deal',
+					card_0_param_1__parameter_type: 'text',
+				},
+				card,
+			),
+		).toEqual([
+			{
+				parameterName: undefined,
+				valueType: 'text',
+				parameterText: 'Summer deal',
+			},
+		]);
 	});
 });
 
@@ -651,6 +678,12 @@ describe('assertHeaderValuesForTemplate edge cases', () => {
 		).not.toThrow();
 	});
 
+	it('rejects header text when the template header is static', () => {
+		expect(() =>
+			assertHeaderValuesForTemplate(namedOrderUpdateDefinition, { headerText: 'Extra header' }),
+		).toThrow(/static text header/i);
+	});
+
 	it('requires header text when the template header has a variable and text is omitted', () => {
 		const definition = {
 			...namedOrderUpdateDefinition,
@@ -738,6 +771,7 @@ describe('loadSendTemplateDefinition', () => {
 			headerMediaSource: 'id',
 			headerMediaUrl: '',
 			headerMediaId: 'media-42',
+			headerDocumentFilename: '',
 			headerLatitude: '-23.5',
 			headerLongitude: '-46.6',
 			headerLocationName: 'Store',
@@ -754,8 +788,8 @@ describe('loadSendTemplateDefinition', () => {
 		});
 
 		await expect(loadSendTemplateDefinition(ef, 0)).rejects.toThrow(ApplicationError);
-		await expect(loadSendTemplateDefinition(ef, 0)).rejects.toThrow(
-			'Could not load the selected template definition. Check phone number, template name, and language.',
-		);
+   await expect(loadSendTemplateDefinition(ef, 0)).rejects.toThrow(
+    'Could not load the selected template definition. Check phone number and template selection.',
+   );
 	});
 });

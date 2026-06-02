@@ -5,6 +5,7 @@ import { KAPSO_WEBHOOK_EVENTS } from '../../nodes/KapsoApi/trigger/events';
 import {
 	expandKapsoWebhookPayload,
 	makeKapsoWebhookHandler,
+	resolveKapsoWebhookBody,
 	resolveKapsoWebhookEvent,
 } from '../../nodes/KapsoApi/trigger/trigger';
 
@@ -174,5 +175,85 @@ describe('Kapso webhook trigger routing', () => {
 		const response = await handler.call(webhookContext);
 
 		expect(response.webhookResponse?.statusCode).toBe(500);
+	});
+
+	it('parses webhook body from rawBody when getBodyData is empty', async () => {
+		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
+		const body = {
+			data: [{ message: { id: 'wamid.raw' }, phone_number_id: '123' }],
+		};
+		const rawBody = Buffer.from(JSON.stringify(body), 'utf8');
+		const webhookContext = {
+			getBodyData: () => ({}),
+			getHeaderData: () => ({
+				'x-webhook-event': 'whatsapp.message.received',
+				'x-webhook-signature': signBody(body),
+			}),
+			getCredentials: vi.fn().mockResolvedValue({ webhookSecret: WEBHOOK_SECRET }),
+			getRequestObject: () => ({ rawBody }),
+		} as unknown as IWebhookFunctions;
+
+		const response = await handler.call(webhookContext);
+
+		expect(response.workflowData?.[0]).toEqual([
+			{
+				json: {
+					message: { id: 'wamid.raw' },
+					phone_number_id: '123',
+					kapso_event: 'whatsapp.message.received',
+				},
+			},
+		]);
+	});
+
+	it('rejects empty webhook bodies after signature verification', async () => {
+		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
+		const body = {};
+		const webhookContext = createWebhookContext(body, {
+			'x-webhook-event': 'whatsapp.message.received',
+			'x-webhook-signature': signBody(body),
+		});
+
+		const response = await handler.call(webhookContext);
+
+		expect(response.webhookResponse).toEqual({
+			statusCode: 400,
+			body: 'Empty webhook body. Kapso could not parse the request payload.',
+		});
+	});
+
+	it('rejects invalid signatures before empty-body diagnostics', async () => {
+		const handler = makeKapsoWebhookHandler(KAPSO_WEBHOOK_EVENTS);
+		const webhookContext = {
+			getBodyData: () => ({}),
+			getHeaderData: () => ({
+				'x-webhook-event': 'whatsapp.message.received',
+				'x-webhook-signature': 'invalid',
+			}),
+			getCredentials: vi.fn().mockResolvedValue({ webhookSecret: WEBHOOK_SECRET }),
+			getRequestObject: () => ({ rawBody: Buffer.from('', 'utf8') }),
+		} as unknown as IWebhookFunctions;
+
+		const response = await handler.call(webhookContext);
+
+		expect(response.webhookResponse).toEqual({
+			statusCode: 401,
+			body: 'Invalid webhook signature',
+		});
+	});
+});
+
+describe('resolveKapsoWebhookBody', () => {
+	it('falls back to rawBody JSON when parsed body is empty', () => {
+		const payload = { message: { id: 'wamid.1' } };
+		const rawBody = JSON.stringify(payload);
+
+		expect(
+			resolveKapsoWebhookBody({}, { rawBody }),
+		).toEqual({
+			body: payload,
+			rawBody,
+			isEmpty: false,
+		});
 	});
 });

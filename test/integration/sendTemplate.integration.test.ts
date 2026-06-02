@@ -1,18 +1,35 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildSendTemplateRequest } from '../../nodes/KapsoApi/actions/routing';
-import { fetchSelectedTemplateDefinition } from '../../nodes/KapsoApi/loadOptions/templateFetch';
 import {
 	carouselPromoDefinition,
 	dynamicButtonsDefinition,
 	imageHeaderDefinition,
 	mpmSectionsJson,
+	namedHeaderVariableDefinition,
 	namedOrderUpdateDefinition,
 } from '../fixtures/metaTemplates';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
-vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
-	fetchSelectedTemplateDefinition: vi.fn(),
-}));
+const fetchSelectedTemplateDefinitionMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../nodes/KapsoApi/loadOptions/templateFetch')>();
+	return {
+		...actual,
+		fetchSelectedTemplateDefinition: fetchSelectedTemplateDefinitionMock,
+		resolveSendTemplateContext: vi.fn(async () => {
+			const definition = await fetchSelectedTemplateDefinitionMock();
+			if (!definition) {
+				throw new Error('Could not resolve the selected template name and language.');
+			}
+
+			return {
+				identity: { name: definition.name, language: definition.language },
+				definition,
+			};
+		}),
+	};
+});
 
 function mapperValue(entries: Record<string, string>) {
 	return {
@@ -23,11 +40,11 @@ function mapperValue(entries: Record<string, string>) {
 
 describe('sendTemplate integration', () => {
 	beforeEach(() => {
-		vi.mocked(fetchSelectedTemplateDefinition).mockReset();
+		fetchSelectedTemplateDefinitionMock.mockReset();
 	});
 
-	it('builds a named body and text header template payload', async () => {
-		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(namedOrderUpdateDefinition);
+	it('builds a named body template payload without a static text header component', async () => {
+		fetchSelectedTemplateDefinitionMock.mockResolvedValue(namedOrderUpdateDefinition);
 
 		const request = await buildSendTemplateRequest(
 			createMockExecuteFunctions({
@@ -37,7 +54,6 @@ describe('sendTemplate integration', () => {
 				languageCode: 'en_US',
 				templateDetectedHeaderFormat: 'text',
 				templateDetectedComponentMode: 'standard',
-				templateHeaderText: 'Order shipped',
 				templateBodyParametersMapper: mapperValue({
 					first_name: 'Jessica',
 					order_id: '12345',
@@ -53,10 +69,6 @@ describe('sendTemplate integration', () => {
 				language: { code: 'en_US' },
 				components: [
 					{
-						type: 'header',
-						parameters: [{ type: 'text', text: 'Order shipped' }],
-					},
-					{
 						type: 'body',
 						parameters: [
 							{ type: 'text', text: 'Jessica', parameter_name: 'first_name' },
@@ -68,8 +80,73 @@ describe('sendTemplate integration', () => {
 		});
 	});
 
+	it('builds a named text header with parameter_name', async () => {
+		fetchSelectedTemplateDefinitionMock.mockResolvedValue(namedHeaderVariableDefinition);
+
+		const request = await buildSendTemplateRequest(
+			createMockExecuteFunctions({
+				resource: 'message',
+				operation: 'sendTemplate',
+				templateName: 'seasonal_sale',
+				languageCode: 'en_US',
+				templateDetectedHeaderFormat: 'text',
+				templateDetectedComponentMode: 'standard',
+				templateHeaderTextHasVariable: 'yes',
+				templateHeaderText: 'Summer Sale',
+				templateBodyParametersMapper: mapperValue({
+					first_name: 'Jessica',
+					sale_name: 'Summer',
+				}),
+			}),
+			0,
+		);
+
+		expect(request.body).toMatchObject({
+			template: {
+				components: [
+					{
+						type: 'header',
+						parameters: [
+							{ type: 'text', text: 'Summer Sale', parameter_name: 'sale_name' },
+						],
+					},
+					{
+						type: 'body',
+						parameters: [
+							{ type: 'text', text: 'Jessica', parameter_name: 'first_name' },
+							{ type: 'text', text: 'Summer', parameter_name: 'sale_name' },
+						],
+					},
+				],
+			},
+		});
+	});
+
+	it('rejects header text on static text headers', async () => {
+		fetchSelectedTemplateDefinitionMock.mockResolvedValue(namedOrderUpdateDefinition);
+
+		await expect(
+			buildSendTemplateRequest(
+				createMockExecuteFunctions({
+					resource: 'message',
+					operation: 'sendTemplate',
+					templateName: 'order_update',
+					languageCode: 'en_US',
+					templateDetectedHeaderFormat: 'text',
+					templateDetectedComponentMode: 'standard',
+					templateHeaderText: 'Unexpected header override',
+					templateBodyParametersMapper: mapperValue({
+						first_name: 'Jessica',
+						order_id: '12345',
+					}),
+				}),
+				0,
+			),
+		).rejects.toThrow(/static text header/i);
+	});
+
 	it('builds dynamic button components from the button resource mapper', async () => {
-		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(dynamicButtonsDefinition);
+		fetchSelectedTemplateDefinitionMock.mockResolvedValue(dynamicButtonsDefinition);
 
 		const request = await buildSendTemplateRequest(
 			createMockExecuteFunctions({
@@ -117,7 +194,7 @@ describe('sendTemplate integration', () => {
 	});
 
 	it('builds image header media and carousel card components', async () => {
-		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValueOnce(imageHeaderDefinition);
+		fetchSelectedTemplateDefinitionMock.mockResolvedValueOnce(imageHeaderDefinition);
 
 		const imageRequest = await buildSendTemplateRequest(
 			createMockExecuteFunctions({
@@ -145,7 +222,7 @@ describe('sendTemplate integration', () => {
 			},
 		});
 
-		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValueOnce(carouselPromoDefinition);
+		fetchSelectedTemplateDefinitionMock.mockResolvedValueOnce(carouselPromoDefinition);
 
 		const carouselRequest = await buildSendTemplateRequest(
 			createMockExecuteFunctions({
@@ -155,15 +232,16 @@ describe('sendTemplate integration', () => {
 				languageCode: 'en_US',
 				templateDetectedHeaderFormat: 'none',
 				templateDetectedComponentMode: 'carousel',
+				templateCarouselBodyParametersMapper: mapperValue({
+					card_0_param_1: 'Summer deal',
+					card_1_param_1: 'Video deal',
+				}),
 				templateCarouselCards: {
 					cardValues: [
 						{
 							cardIndex: 0,
 							cardHeaderMediaSource: 'link',
 							cardHeaderMediaUrl: 'https://cdn.example.com/card-0.jpg',
-							cardBodyParameters: {
-								parameterValues: [{ parameterText: 'Summer deal' }],
-							},
 							cardButtonParameters: {
 								buttonParameterValues: [
 									{ templateButtonKind: 'url', buttonIndex: 0, buttonText: 'buy-now' },
@@ -174,9 +252,6 @@ describe('sendTemplate integration', () => {
 							cardIndex: 1,
 							cardHeaderMediaSource: 'id',
 							cardHeaderMediaId: 'video-media-id',
-							cardBodyParameters: {
-								parameterValues: [{ parameterText: 'Video deal' }],
-							},
 						},
 					],
 				},
@@ -201,7 +276,7 @@ describe('sendTemplate integration', () => {
 	});
 
 	it('surfaces mapper and structure validation errors during request build', async () => {
-		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(namedOrderUpdateDefinition);
+		fetchSelectedTemplateDefinitionMock.mockResolvedValue(namedOrderUpdateDefinition);
 
 		await expect(
 			buildSendTemplateRequest(
@@ -216,7 +291,7 @@ describe('sendTemplate integration', () => {
 			),
 		).rejects.toThrow('Body parameter "order_id" is required for this template.');
 
-		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(imageHeaderDefinition);
+		fetchSelectedTemplateDefinitionMock.mockResolvedValue(imageHeaderDefinition);
 
 		await expect(
 			buildSendTemplateRequest(

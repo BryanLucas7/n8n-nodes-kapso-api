@@ -1,5 +1,46 @@
 # Changelog
 
+## Unreleased
+
+- **Send Template / Broadcast carousel body parameters**: carousel card body placeholders now use typed resource mappers (Text, Currency, Date & Time) with `card_{index}_`-prefixed field IDs, matching standard body parameter mapping. Removed manual Parameter Name + Text collections from carousel card UI; Advanced JSON remains the override escape hatch.
+- **Pre-publish P1 fixes**: Phone Number field covers all message send/read ops; Send Catalog omits optional thumbnail when empty; Send Flow blocks data-exchange without dashboard encryption and shows guided fields for manual Meta Flow ID; broadcast input-items infer media ID source; template `parameter_format` inferred from named placeholders; document template headers support filename; broadcast recipients get structured Button Parameters for MPM.
+- **UX/API audit fixes**: Add Recipients From Input Items maps only the current item (not all items); Recipients Builder runs once on item 0; draft preflight before add recipients; scheduled preflight before cancel; `recipientsBodyJson` enforces 1,000 recipient max; template fetch paginates all approved templates at execute time; template/broadcast search warns when WABA cannot be resolved; broadcast template summary and send preflight loadOptions notices; flow fields hidden until Flow selected; execute-time flow ID lookup paginates; removed unused `flowSendOptions` field file; Flow Token no longer masked as password.
+- **FLOW fixes**: Flow Button Label max 20 (matches Kapso API); `flow_message_version` always sends `3` (separate from Flow JSON version); Flow Mode field before Flow picker with Auto/Draft/Published; Meta Flow ID search paginates all pages; Flow Action shows Auto (Detected From Flow).
+- **Broadcast fixes**: Schedule body uses top-level `scheduled_at` per Kapso API; local future-time validation; 1,000 recipient limit enforced; Send/Schedule preflight checks draft status and recipient count; broadcast search filters by operation status; template search paginates all approved templates.
+- **Refactors**: shared WABA resolver (`businessAccount.ts`), detected template structure options, template field ID helpers for input-item schema, `executeListOperation` for list pagination, broadcast list filter validation, notice field helpers.
+- **Descriptions and copy**: node, resource, phone number, template, flow, broadcast, trigger, and Send and Wait field descriptions now explain what each value is, where to get it in Kapso/n8n, and what happens next (aligned with KAPSO UX audit).
+- **Message options UX**: replaced monolithic **Additional Options** with scoped option collections (**Message Send Options**, **Message List Options**, **Template Advanced Options**, **Custom API Options**). Legacy `advancedOptions` still works at execute time. **Link Preview** now appears only on **Send Text** (it was incorrectly offered on media and other message types).
+- **Message field order**: interactive sends now follow Meta message structure — header/setup → body → buttons/sections/CTA → footer → optional reply options. Flow Mode stays before Flow; voice note follows media fields.
+- **Fix autosave / duplicate nodes**: moved **Link Preview** out of **Message Send Options** collection (n8n cannot resolve nested `displayOptions` in collections). Use community nodes volume only — remove duplicate install from Docker image custom extensions path.
+- **Send Template fixes**: named text headers now emit `parameter_name` when the approved template uses `parameter_format: named`; static text headers no longer show **Header Text** in the UI or accept extra header parameters at execute time.
+- **Reply To Message ID coverage**: added to **Request Location**, **Request Call Permission**, and **Send and Wait**. Intentionally excluded from **Send Template** (Meta does not show the quote bubble) and **Send Reaction** (uses **React To Message ID** instead).
+- **Send Contact UX**: main form shows only essentials (Formatted Name, First/Last Name, Phones); middle name, prefix/suffix, birthday, organization, emails, URLs, and addresses move to **Additional Contact Details**. Optional fields are labeled **(optional)** across message sends, list filters, flow/template fields, and option collections. **Send Contact** now supports **Reply To Message ID** via `context.message_id`. Opens with one contact and one phone row ready to fill.
+- **Request Location / Call Permission UX**: replaced the large **Body Text** textarea with a single-line **Location Request Prompt** / **Call Permission Prompt** field and example placeholders.
+- **Send Template UX**: searchable template picker (`searchMessageTemplates`), structured **Button Parameters** collection for MPM, carousel card index/guidance load options, single template fetch per send (`resolveSendTemplateContext`), empty Advanced JSON `[]` treated as absent.
+- **Send Flow UX**: flow list search encodes `jsonVersion` / `hasDataEndpoint` from version assets, draft selection preserved when Flow Mode is default, execute-time initial data validation, ID-like flow search skips `name_contains`, execute enriches incomplete flow selection metadata.
+- **Broadcast Add Recipients**: template-driven conditional fields inside the recipient builder (header/carousel/body/button visibility), input-item schema preview, carousel + currency/date input-item keys.
+- **Broadcast Add Recipients** loads template structure from `GET /whatsapp/broadcasts/{id}` (header format, carousel, body/button mappers) with Send Template–level validation at execute time.
+- **Broadcast Create** uses searchable template picker (`encodeMessageTemplateValue`), shared **Phone Number** field, and a post-create notice to use the returned `id` in Add Recipients.
+- **Broadcast** search labels include template name and status; Add Recipients supports **From Input Items** mode (`$json.phone` and body keys).
+- **Send CTA** replaces separate Send CTA URL / Send CTA Phone Call operations (`ctaType`: URL or phone). No backward compatibility with the old operation names.
+- **Catalog** and **Product** fields use searchable resource locators (`searchCatalogs`, `searchCatalogProducts`) tied to the selected phone number, matching contacts/broadcasts UX (5 initial results, type to filter).
+- **Send Flow** uses a searchable Flow picker from Kapso Platform API; removed Flow Name and Flow Message Version fields.
+- **Flow Mode** is Default (Published) or Draft only; draft mode auto-applies when a draft Flow is selected from the list.
+- **Flow Screen** and **Flow Action** load from the selected Flow JSON / data-endpoint metadata.
+- **Flow Token** and **Flow Button Label** are optional: token defaults to the Flow ID (Kapso response collection); CTA defaults to the Flow name.
+- **Flow Action** auto-selects from Flow metadata when empty; draft Flow Mode filters the Flow picker to drafts only.
+- **Send Flow** adds a resource mapper for initial data from `flow_json`, published-only Flow search by default, draft preview and encryption notices, hides redundant screen/action fields, and moves Flow Mode to Additional Options.
+
+## 0.8.0 - 2026-05-30
+
+- Send Template body mapper now supports manual **Text / Currency / Date & Time** per variable,
+  ISO currency code dropdown, and prefilled example values (including positional `{{1}}` currency).
+- Send and Wait aligned with the official WhatsApp node: no Subject field, default labels
+  `✓ Approve` / `✗ Decline`, n8n attribution link, optional CTA URL button delivery (single
+  approval, 24-hour session), and UI notice for double approval + text links.
+- Added **Send CTA Phone Call** (`sendCtaCall`) interactive message with optional header/footer.
+- Added read-only **Get Catalogs** (`getCatalog`) to list product catalogs for the WABA linked to the selected phone number.
+
 ## 0.7.3 - 2026-06-01
 
 - Added opt-in live Kapso API tests (sandbox messaging + production read-only

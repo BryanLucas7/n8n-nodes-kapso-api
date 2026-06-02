@@ -278,6 +278,10 @@ export function validateListRowDescription(description: string | undefined): str
 	);
 }
 
+export function validateCtaPhoneNumber(phone: string, fieldLabel = 'Button Phone Number'): string {
+	return assertE164Phone(requireNonEmptyString(phone, fieldLabel), fieldLabel);
+}
+
 export function validateCtaButtonLabel(label: string, fieldLabel = 'Button Label'): string {
 	return assertMaxLength(
 		requireNonEmptyString(label, fieldLabel),
@@ -287,7 +291,7 @@ export function validateCtaButtonLabel(label: string, fieldLabel = 'Button Label
 }
 
 export function validateFlowCta(label: string): string {
-	return assertMaxLength(requireNonEmptyString(label, 'Flow CTA'), FLOW_CTA_MAX, 'Flow CTA');
+	return assertMaxLength(requireNonEmptyString(label, 'Flow Button Label'), FLOW_CTA_MAX, 'Flow Button Label');
 }
 
 export function validateHttpUrl(value: string, label = 'URL'): string {

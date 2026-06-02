@@ -8,6 +8,7 @@ import {
 	templateLabel,
 	toOptions,
 } from './helpers';
+import { encodeMessageTemplateValue } from './templateSelection';
 
 function templateIdValue(entry: IDataObject): string {
 	return String(entry.id ?? entry.meta_template_id ?? '');
@@ -59,7 +60,7 @@ export async function getMessageTemplates(this: ILoadOptionsFunctions): Promise<
 	return fetchApprovedTemplates(
 		this,
 		'phoneNumberId',
-		(entry) => String(entry.name ?? ''),
+		(entry) => encodeMessageTemplateValue(entry),
 		templateLabel,
 	);
 }

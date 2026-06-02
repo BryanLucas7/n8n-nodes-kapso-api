@@ -1,5 +1,7 @@
 import { INodeProperties } from 'n8n-workflow';
 import { listSectionTitleField, mediaIdStringField, productRetailerIdField, flowTokenField, publicUrlStringField } from './fieldConstraints';
+import { optionalLabel } from './displayNames';
+import { KAPSO_DOCS, withKapsoDoc } from './expressionHints';
 
 export const TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY = 'buttonParameterValues';
 
@@ -25,7 +27,7 @@ function templateButtonKindField(kind: string): INodeProperties {
 }
 
 const flowActionDataFields: INodeProperties = {
-	displayName: 'Flow Action Data',
+	displayName: optionalLabel('Flow Action Data'),
 	name: 'flowActionData',
 	type: 'fixedCollection',
 	placeholder: 'Add Field',
@@ -39,6 +41,7 @@ const flowActionDataFields: INodeProperties = {
 		{
 			displayName: 'Field',
 			name: 'fieldValues',
+			description: 'One key-value pair passed to the Flow when the button is tapped',
 			values: [
 				{
 					displayName: 'Key',
@@ -46,6 +49,7 @@ const flowActionDataFields: INodeProperties = {
 					type: 'string',
 					default: '',
 					required: true,
+					description: 'Data key sent to the Flow action',
 				},
 				{
 					displayName: 'Value',
@@ -53,6 +57,7 @@ const flowActionDataFields: INodeProperties = {
 					type: 'string',
 					default: '',
 					required: true,
+					description: 'Data value sent to the Flow action',
 				},
 			],
 		},
@@ -94,6 +99,7 @@ const mpmSectionFields: INodeProperties = {
 		{
 			displayName: 'Section',
 			name: 'sectionValues',
+			description: 'One MPM catalog section with a title and product list',
 			values: [listSectionTitleField(), mpmProductItemsField],
 		},
 	],
@@ -103,6 +109,7 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 	{
 		displayName: 'URL',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
+		description: 'Dynamic URL suffix appended to the static template URL',
 		values: [
 			templateButtonKindField('url'),
 			buttonIndexField,
@@ -118,6 +125,7 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 	{
 		displayName: 'Quick Reply (Text)',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
+		description: 'Quick-reply button with a dynamic visible label',
 		values: [
 			templateButtonKindField('quick_reply_text'),
 			buttonIndexField,
@@ -134,6 +142,7 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 	{
 		displayName: 'Quick Reply (Payload)',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
+		description: 'Quick-reply button that returns a developer-defined payload',
 		values: [
 			templateButtonKindField('quick_reply_payload'),
 			buttonIndexField,
@@ -150,11 +159,13 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 	{
 		displayName: 'Flow',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
+		description: 'Flow button that opens a WhatsApp Flow with optional action data',
 		values: [templateButtonKindField('flow'), buttonIndexField, flowTokenField(), flowActionDataFields],
 	},
 	{
 		displayName: 'Copy Code',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
+		description: 'Copy-code button that copies a coupon or offer code',
 		values: [
 			templateButtonKindField('copy_code'),
 			buttonIndexField,
@@ -164,17 +175,19 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 				type: 'string',
 				default: '',
 				required: true,
+				description: 'Coupon or offer code copied when the recipient taps the button',
 			},
 		],
 	},
 	{
 		displayName: 'Catalog',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
+		description: 'Catalog button that opens the business product catalog',
 		values: [
 			templateButtonKindField('catalog'),
 			buttonIndexField,
 			{
-				displayName: 'Thumbnail SKU',
+				displayName: optionalLabel('Thumbnail SKU'),
 				name: 'catalogThumbnailProductRetailerId',
 				type: 'string',
 				default: '',
@@ -185,11 +198,12 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 	{
 		displayName: 'MPM',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
+		description: 'Multi-product message button with catalog sections',
 		values: [
 			templateButtonKindField('mpm'),
 			buttonIndexField,
 			{
-				displayName: 'Thumbnail SKU',
+				displayName: optionalLabel('Thumbnail SKU'),
 				name: 'mpmThumbnailProductRetailerId',
 				type: 'string',
 				default: '',
@@ -232,6 +246,7 @@ export const templateMediaSourceField = (
 		{ name: 'Media ID', value: 'id' },
 	],
 	default: 'link',
+	description: 'Whether the header uses a Meta media ID or a public HTTPS URL',
 	displayOptions: {
 		show: {
 			[`${prefix}HeaderType`]: headerTypes,
@@ -280,6 +295,11 @@ export const templateLocationHeaderFields = (
 				[`${prefix}HeaderType`]: ['location'],
 			},
 		},
+		description: withKapsoDoc(
+			'Latitude in decimal degrees (-90 to 90)',
+			KAPSO_DOCS.templateLocationHeader,
+			'Location header',
+		),
 	},
 	{
 		displayName: 'Header Longitude',
@@ -294,9 +314,10 @@ export const templateLocationHeaderFields = (
 				[`${prefix}HeaderType`]: ['location'],
 			},
 		},
+		description: 'Longitude in decimal degrees (-180 to 180)',
 	},
 	{
-		displayName: 'Header Location Name',
+		displayName: optionalLabel('Header Location Name'),
 		name: `${prefix}HeaderLocationName`,
 		type: 'string',
 		default: '',
@@ -307,9 +328,10 @@ export const templateLocationHeaderFields = (
 				[`${prefix}HeaderType`]: ['location'],
 			},
 		},
+		description: 'Optional location title shown in the map pin',
 	},
 	{
-		displayName: 'Header Location Address',
+		displayName: optionalLabel('Header Location Address'),
 		name: `${prefix}HeaderLocationAddress`,
 		type: 'string',
 		default: '',
@@ -320,5 +342,6 @@ export const templateLocationHeaderFields = (
 				[`${prefix}HeaderType`]: ['location'],
 			},
 		},
+		description: 'Optional street address shown under the location name',
 	},
 ];

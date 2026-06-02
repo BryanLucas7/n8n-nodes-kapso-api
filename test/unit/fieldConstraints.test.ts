@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { messageBodyFields } from '../../nodes/KapsoApi/properties/messageBody.fields';
 import {
 	BUTTON_ID_MAX,
 	BUTTON_TITLE_MAX,
@@ -62,18 +63,26 @@ describe('fieldConstraints', () => {
 		const e164Phone = e164PhoneResourceLocatorField('contactWaId', 'WhatsApp ID');
 
 		expect(metaPhone.type).toBe('resourceLocator');
+		expect(metaPhone.hint).toBeUndefined();
+		expect(metaPhone.description).toContain('8-15 digits');
 		expect(metaPhone.modes?.[0]?.validation?.[0]?.type).toBe('regex');
 		expect(metaPhone.modes?.[0]?.typeOptions?.maxLength).toBe(15);
 
 		expect(e164Phone.type).toBe('resourceLocator');
+		expect(e164Phone.hint).toBeUndefined();
+		expect(e164Phone.description).toContain('E.164');
 		expect(e164Phone.modes?.[0]?.validation?.[0]?.type).toBe('regex');
 		expect(e164Phone.modes?.[0]?.typeOptions?.maxLength).toBe(16);
 	});
 
 	it('applies phase 2 URL and catalog field limits', () => {
 		expect(maxLengthOf(httpUrlStringField('ctaButtonUrl', 'Button URL', { show: {} }))).toBe(URL_FIELD_MAX);
-		expect(maxLengthOf(catalogIdField({ show: {} }))).toBe(CATALOG_ID_MAX);
-		expect(maxLengthOf(productRetailerIdField())).toBe(PRODUCT_RETAILER_ID_MAX);
+		expect(httpUrlStringField('ctaButtonUrl', 'Button URL', { show: {} }).hint).toBeUndefined();
+		expect(catalogIdField({ show: {} }).type).toBe('resourceLocator');
+		expect(catalogIdField({ show: {} }).description).toContain('Catalog');
+		expect(productRetailerIdField().type).toBe('resourceLocator');
+		expect(productRetailerIdField().description).toContain('Catalog');
+		expect(flowTokenField({ show: {} }).description).toContain('Send Flow');
 		expect(maxLengthOf(flowTokenField())).toBe(FLOW_TOKEN_MAX);
 		expect(maxLengthOf(documentFilenameField('filename', 'Filename'))).toBe(DOCUMENT_FILENAME_MAX);
 	});
@@ -84,5 +93,17 @@ describe('fieldConstraints', () => {
 			FILTER_STRING_MAX,
 		);
 		expect(uuidResourceLocatorIdMode('conversation-uuid').validation?.[0]?.type).toBe('regex');
+	});
+
+	it('uses a single-line prompt for Request Location instead of a large body textarea', () => {
+		const locationPrompt = messageBodyFields.find(
+			(field) =>
+				field.name === 'bodyText' &&
+				field.displayOptions?.show?.operation?.includes('requestLocation'),
+		);
+
+		expect(locationPrompt?.displayName).toBe('Location Request Prompt');
+		expect(locationPrompt?.typeOptions?.rows).toBeUndefined();
+		expect(locationPrompt?.placeholder).toContain('share your location');
 	});
 });

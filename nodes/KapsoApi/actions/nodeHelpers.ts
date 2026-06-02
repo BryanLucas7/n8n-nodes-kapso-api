@@ -14,6 +14,38 @@ type FixedCollectionParameter = {
 
 type AdvancedOptionsParameter = IDataObject;
 
+const OPTION_FIELD_COLLECTIONS: Record<string, string> = {
+	linkPreview: 'messageSendOptions',
+	replyToMessageId: 'messageSendOptions',
+	messageListAfter: 'messageListOptions',
+	messageListBefore: 'messageListOptions',
+	messageListConversationId: 'messageListOptions',
+	messageResponseFields: 'messageListOptions',
+	messageListDirection: 'messageListOptions',
+	messageListSince: 'messageListOptions',
+	messageListStatus: 'messageListOptions',
+	messageListUntil: 'messageListOptions',
+	advancedComponentsJson: 'templateAdvancedOptions',
+};
+
+function getCollectionOptionValue(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	field: string,
+): string | boolean | undefined {
+	const collectionName = OPTION_FIELD_COLLECTIONS[field];
+	if (!collectionName) {
+		return undefined;
+	}
+
+	const collection = ef.getNodeParameter(collectionName, itemIndex, {}) as IDataObject;
+	if (field in collection) {
+		return collection[field] as string | boolean | undefined;
+	}
+
+	return undefined;
+}
+
 export function getString(ef: IExecuteFunctions, name: string, itemIndex: number): string {
 	return getResourceParameter(ef, name, itemIndex);
 }
@@ -23,14 +55,16 @@ export function getResourceParameter(
 	name: string,
 	itemIndex: number,
 ): string {
-	const value = ef.getNodeParameter(name, itemIndex, '') as string | { value?: string };
+	return readStringParameterValue(ef.getNodeParameter(name, itemIndex, ''));
+}
 
+export function readStringParameterValue(value: unknown): string {
 	if (typeof value === 'string') {
 		return value;
 	}
 
 	if (value && typeof value === 'object' && 'value' in value) {
-		return String(value.value ?? '');
+		return String((value as { value?: string }).value ?? '');
 	}
 
 	return '';
@@ -185,6 +219,11 @@ function getAdvancedOptionValue(
 	itemIndex: number,
 	field: string,
 ): string | boolean | undefined {
+	const fromCollection = getCollectionOptionValue(ef, itemIndex, field);
+	if (fromCollection !== undefined) {
+		return fromCollection;
+	}
+
 	const advanced = getAdvancedOptions(ef, itemIndex);
 
 	if (field in advanced) {
@@ -219,10 +258,33 @@ export function getAdvancedFixedCollectionItems<T extends IDataObject>(
 	itemName: string,
 	itemIndex: number,
 ): T[] {
+	if (collectionName === 'customQueryParameters') {
+		return getCustomApiQueryParameterItems(ef, itemIndex);
+	}
+
 	const advanced = getAdvancedOptions(ef, itemIndex);
 	const fromAdvanced = advanced[collectionName] as FixedCollectionParameter | undefined;
 	if (fromAdvanced && Array.isArray(fromAdvanced[itemName])) {
 		return fromAdvanced[itemName] as T[];
+	}
+
+	return [];
+}
+
+export function getCustomApiQueryParameterItems<T extends IDataObject>(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): T[] {
+	const customApiOptions = ef.getNodeParameter('customApiOptions', itemIndex, {}) as IDataObject;
+	const fromCustomApi = customApiOptions.customQueryParameters as FixedCollectionParameter | undefined;
+	if (fromCustomApi && Array.isArray(fromCustomApi.parameterValues) && fromCustomApi.parameterValues.length) {
+		return fromCustomApi.parameterValues as T[];
+	}
+
+	const advanced = getAdvancedOptions(ef, itemIndex);
+	const fromAdvanced = advanced.customQueryParameters as FixedCollectionParameter | undefined;
+	if (fromAdvanced && Array.isArray(fromAdvanced.parameterValues)) {
+		return fromAdvanced.parameterValues as T[];
 	}
 
 	return [];
@@ -248,8 +310,13 @@ export function getReplyToMessageId(ef: IExecuteFunctions, itemIndex: number): s
 }
 
 export function getLinkPreview(ef: IExecuteFunctions, itemIndex: number, fallback: boolean): boolean {
-	const linkPreview = getAdvancedOptionValue(ef, itemIndex, 'linkPreview');
-	return typeof linkPreview === 'boolean' ? linkPreview : fallback;
+	const fromCollection = getAdvancedOptionValue(ef, itemIndex, 'linkPreview');
+	if (typeof fromCollection === 'boolean') {
+		return fromCollection;
+	}
+
+	const direct = ef.getNodeParameter('linkPreview', itemIndex, fallback);
+	return typeof direct === 'boolean' ? direct : fallback;
 }
 
 export function bodyJson(ef: IExecuteFunctions, itemIndex: number): IDataObject {
@@ -258,7 +325,16 @@ export function bodyJson(ef: IExecuteFunctions, itemIndex: number): IDataObject 
 
 export function advancedComponentsJson(ef: IExecuteFunctions, itemIndex: number): string | undefined {
 	const value = getAdvancedOptionValue(ef, itemIndex, 'advancedComponentsJson');
-	return typeof value === 'string' && value.trim() ? value : undefined;
+	if (typeof value !== 'string') {
+		return undefined;
+	}
+
+	const trimmed = value.trim();
+	if (!trimmed || trimmed === '[]') {
+		return undefined;
+	}
+
+	return trimmed;
 }
 
 function getListOptions(

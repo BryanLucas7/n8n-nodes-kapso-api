@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+	BODY_MAPPER_EMPTY_NOTICE,
+	BUTTON_MAPPER_EMPTY_NOTICE,
+	CAROUSEL_BODY_MAPPER_EMPTY_NOTICE,
 	buttonDynamicKindFromFieldId,
 	buttonIndexFromFieldId,
 	getTemplateBodyParameterFields,
 	getTemplateButtonParameterFields,
+	getTemplateCarouselBodyParameterFields,
 } from '../../nodes/KapsoApi/resourceMapping/templateParameters';
 import { fetchSelectedTemplateDefinition } from '../../nodes/KapsoApi/loadOptions/templateFetch';
 import {
@@ -19,6 +23,10 @@ import { createLoadOptionsContext } from '../fixtures/loadOptionsContext';
 
 vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
 	fetchSelectedTemplateDefinition: vi.fn(),
+	resolveSelectedTemplateIdentity: vi.fn(async () => ({
+		name: 'order_update',
+		language: 'en_US',
+	})),
 }));
 
 describe('template parameter resource mapping helpers', () => {
@@ -48,12 +56,49 @@ describe('getTemplateBodyParameterFields', () => {
 	it('returns body variable fields for standard templates', async () => {
 		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(namedOrderUpdateDefinition);
 
-		await expect(getTemplateBodyParameterFields.call(createLoadOptionsContext())).resolves.toEqual({
-			fields: [
-				expect.objectContaining({ id: 'first_name', displayName: 'first_name', required: true }),
-				expect.objectContaining({ id: 'order_id', displayName: 'order_id', required: true }),
-			],
-		});
+		const result = await getTemplateBodyParameterFields.call(createLoadOptionsContext());
+
+		expect(result.fields).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ id: 'first_name__parameter_type', type: 'options' }),
+				expect.objectContaining({ id: 'first_name', displayName: 'first_name · Text' }),
+				expect.objectContaining({ id: 'order_id__parameter_type', type: 'options' }),
+				expect.objectContaining({ id: 'order_id', displayName: 'order_id · Text' }),
+			]),
+		);
+		expect(result.fields).toHaveLength(4);
+	});
+
+	it('shows only currency fields when the mapper type is currency', async () => {
+		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(namedOrderUpdateDefinition);
+
+		const result = await getTemplateBodyParameterFields.call(
+			createLoadOptionsContext({
+				parameters: {
+					templateBodyParametersMapper: {
+						value: {
+							first_name__parameter_type: 'currency',
+							order_id__parameter_type: 'text',
+						},
+					},
+				},
+			}),
+		);
+
+		const fieldIds = result.fields?.map((field) => field.id) ?? [];
+
+		expect(fieldIds).toEqual(
+			expect.arrayContaining([
+				'first_name__parameter_type',
+				'first_name__currency_code',
+				'first_name__currency_amount',
+				'first_name__currency_fallback',
+				'order_id__parameter_type',
+				'order_id',
+			]),
+		);
+		expect(fieldIds).not.toEqual(expect.arrayContaining(['first_name']));
+		expect(fieldIds).toHaveLength(6);
 	});
 
 	it('returns an empty mapper notice when the template has no body variables', async () => {
@@ -61,8 +106,7 @@ describe('getTemplateBodyParameterFields', () => {
 
 		await expect(getTemplateBodyParameterFields.call(createLoadOptionsContext())).resolves.toEqual({
 			fields: [],
-			emptyFieldsNotice:
-				'This template has no body text variables. You can continue without filling body parameters.',
+			emptyFieldsNotice: BODY_MAPPER_EMPTY_NOTICE,
 		});
 	});
 
@@ -71,8 +115,46 @@ describe('getTemplateBodyParameterFields', () => {
 
 		await expect(getTemplateBodyParameterFields.call(createLoadOptionsContext())).resolves.toEqual({
 			fields: [],
-			emptyFieldsNotice:
-				'This template has no body text variables. You can continue without filling body parameters.',
+			emptyFieldsNotice: BODY_MAPPER_EMPTY_NOTICE,
+		});
+	});
+});
+
+describe('getTemplateCarouselBodyParameterFields', () => {
+	beforeEach(() => {
+		vi.mocked(fetchSelectedTemplateDefinition).mockReset();
+	});
+
+	it('returns prefixed body fields for each carousel card', async () => {
+		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(carouselPromoDefinition);
+
+		const result = await getTemplateCarouselBodyParameterFields.call(createLoadOptionsContext());
+
+		expect(result.fields).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: 'card_0_param_1__parameter_type',
+					displayName: 'Card 0 · Parameter 1 · Type',
+				}),
+				expect.objectContaining({
+					id: 'card_0_param_1',
+					displayName: 'Card 0 · Parameter 1 · Text',
+				}),
+				expect.objectContaining({
+					id: 'card_1_param_1',
+					displayName: 'Card 1 · Parameter 1 · Text',
+				}),
+			]),
+		);
+		expect(result.fields).toHaveLength(4);
+	});
+
+	it('returns an empty mapper notice for standard templates', async () => {
+		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(namedOrderUpdateDefinition);
+
+		await expect(getTemplateCarouselBodyParameterFields.call(createLoadOptionsContext())).resolves.toEqual({
+			fields: [],
+			emptyFieldsNotice: CAROUSEL_BODY_MAPPER_EMPTY_NOTICE,
 		});
 	});
 });
@@ -91,9 +173,9 @@ describe('getTemplateButtonParameterFields', () => {
 			expect.arrayContaining([
 				expect.objectContaining({ id: 'btn_0_url_suffix', displayName: 'Button 0 · URL suffix' }),
 				expect.objectContaining({ id: 'btn_1_flow_token', displayName: 'Button 1 · Flow token' }),
-				expect.objectContaining({ id: 'btn_4_mpm', displayName: 'Button 4 · MPM sections JSON' }),
 			]),
 		);
+		expect(result.fields?.some((field) => field.id === 'btn_4_mpm')).toBe(false);
 	});
 
 	it('includes quick reply mapper fields when defined by the template', async () => {
@@ -112,7 +194,7 @@ describe('getTemplateButtonParameterFields', () => {
 
 		await expect(getTemplateButtonParameterFields.call(createLoadOptionsContext())).resolves.toEqual({
 			fields: [],
-			emptyFieldsNotice: 'This template has no dynamic button parameters at send time.',
+			emptyFieldsNotice: BUTTON_MAPPER_EMPTY_NOTICE,
 		});
 	});
 
@@ -121,7 +203,7 @@ describe('getTemplateButtonParameterFields', () => {
 
 		await expect(getTemplateButtonParameterFields.call(createLoadOptionsContext())).resolves.toEqual({
 			fields: [],
-			emptyFieldsNotice: 'This template has no dynamic button parameters at send time.',
+			emptyFieldsNotice: BUTTON_MAPPER_EMPTY_NOTICE,
 		});
 	});
 
@@ -130,8 +212,7 @@ describe('getTemplateButtonParameterFields', () => {
 
 		await expect(getTemplateBodyParameterFields.call(createLoadOptionsContext())).resolves.toEqual({
 			fields: [],
-			emptyFieldsNotice:
-				'This template has no body text variables. You can continue without filling body parameters.',
+			emptyFieldsNotice: BODY_MAPPER_EMPTY_NOTICE,
 		});
 	});
 

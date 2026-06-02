@@ -278,25 +278,29 @@ export function buildPlatformMessageListQuery(ef: IExecuteFunctions, itemIndex: 
 export function buildBroadcastListQuery(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	const query: IDataObject = {};
 
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'phone_number_id',
 		getBroadcastListOptionString(ef, itemIndex, 'broadcastListPhoneNumberId'),
+		'Phone Number ID',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'status',
 		getBroadcastListOptionString(ef, itemIndex, 'broadcastStatusFilter'),
+		'Status',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'created_after',
 		getBroadcastListOptionString(ef, itemIndex, 'broadcastCreatedAfter'),
+		'Created After',
 	);
-	appendStringQuery(
+	appendFilterQuery(
 		query,
 		'created_before',
 		getBroadcastListOptionString(ef, itemIndex, 'broadcastCreatedBefore'),
+		'Created Before',
 	);
 
 	return query;

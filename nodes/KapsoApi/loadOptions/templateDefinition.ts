@@ -1,14 +1,22 @@
 import { IDataObject } from 'n8n-workflow';
+import {
+	inferValueTypeFromExample,
+	normalizeBodyVariableType,
+} from './templateBodyParameterUtils';
 
 export type TemplateHeaderFormat = 'none' | 'text' | 'image' | 'video' | 'document' | 'location';
 export type TemplateComponentMode = 'standard' | 'carousel';
 export type TemplateParameterFormat = 'named' | 'positional';
+
+export type TemplateBodyValueType = 'text' | 'currency' | 'date_time';
 
 export type TemplateBodyVariable = {
 	id: string;
 	displayName: string;
 	parameterName?: string;
 	positionalIndex?: number;
+	valueType: TemplateBodyValueType;
+	exampleValue?: string;
 };
 
 export type TemplateButtonDynamicKind =
@@ -40,6 +48,7 @@ export type TemplateDefinition = {
 	componentMode: TemplateComponentMode;
 	headerFormat: TemplateHeaderFormat;
 	headerTextHasVariable: boolean;
+	headerVariable?: TemplateBodyVariable;
 	bodyVariables: TemplateBodyVariable[];
 	buttonSlots: TemplateButtonSlot[];
 	carouselCards: TemplateCarouselCardDefinition[];
@@ -52,9 +61,44 @@ function normalizeComponentType(value: unknown): string {
 	return String(value ?? '').trim().toUpperCase();
 }
 
-function normalizeParameterFormat(value: unknown): TemplateParameterFormat {
+function normalizeParameterFormat(
+	value: unknown,
+	components: IDataObject[] = [],
+): TemplateParameterFormat {
 	const normalized = String(value ?? '').trim().toUpperCase();
-	return normalized === 'NAMED' ? 'named' : 'positional';
+
+	if (normalized === 'NAMED') {
+		return 'named';
+	}
+
+	if (normalized === 'POSITIONAL') {
+		return 'positional';
+	}
+
+	return inferParameterFormatFromComponents(components);
+}
+
+function inferParameterFormatFromComponents(components: IDataObject[]): TemplateParameterFormat {
+	let hasNamed = false;
+	let hasPositional = false;
+
+	for (const component of components) {
+		const text = String(component.text ?? '');
+
+		if (extractNamedVariables(text).length > 0) {
+			hasNamed = true;
+		}
+
+		if (extractPositionalCount(text) > 0) {
+			hasPositional = true;
+		}
+	}
+
+	if (hasNamed && !hasPositional) {
+		return 'named';
+	}
+
+	return 'positional';
 }
 
 function normalizeHeaderFormat(value: unknown): TemplateHeaderFormat {
@@ -103,7 +147,41 @@ function extractPositionalCount(text: string): number {
 	return Math.max(...indices);
 }
 
-function bodyVariablesFromExample(example: unknown, parameterFormat: TemplateParameterFormat): TemplateBodyVariable[] {
+function resolveHeaderVariable(
+	headerText: string,
+	parameterFormat: TemplateParameterFormat,
+): TemplateBodyVariable | undefined {
+	if (parameterFormat === 'named') {
+		const [name] = extractNamedVariables(headerText);
+		if (!name) {
+			return undefined;
+		}
+
+		return {
+			id: name,
+			displayName: name,
+			parameterName: name,
+			valueType: 'text',
+		};
+	}
+
+	if (extractPositionalCount(headerText) === 0) {
+		return undefined;
+	}
+
+	return {
+		id: 'param_1',
+		displayName: 'Parameter 1',
+		positionalIndex: 1,
+		valueType: 'text',
+	};
+}
+
+function bodyVariablesFromExample(
+	example: unknown,
+	parameterFormat: TemplateParameterFormat,
+	libraryParamTypes?: unknown[],
+): TemplateBodyVariable[] {
 	if (!example || typeof example !== 'object') {
 		return [];
 	}
@@ -112,21 +190,30 @@ function bodyVariablesFromExample(example: unknown, parameterFormat: TemplatePar
 	const namedParams = record.body_text_named_params;
 
 	if (Array.isArray(namedParams)) {
-		return namedParams.flatMap((entry) => {
+		return namedParams.flatMap((entry, index) => {
 			if (!entry || typeof entry !== 'object') {
 				return [];
 			}
 
-			const paramName = String((entry as IDataObject).param_name ?? '').trim();
+			const paramRecord = entry as IDataObject;
+			const paramName = String(paramRecord.param_name ?? '').trim();
 			if (!paramName) {
 				return [];
 			}
+
+			const exampleValue = String(paramRecord.example ?? '').trim();
+			const valueType = inferValueTypeFromExample(
+				exampleValue,
+				paramRecord.type ?? paramRecord.param_type ?? libraryParamTypes?.[index],
+			);
 
 			return [
 				{
 					id: paramName,
 					displayName: paramName,
 					parameterName: paramName,
+					valueType,
+					exampleValue,
 				} satisfies TemplateBodyVariable,
 			];
 		});
@@ -135,15 +222,50 @@ function bodyVariablesFromExample(example: unknown, parameterFormat: TemplatePar
 	if (parameterFormat === 'positional' && Array.isArray(record.body_text)) {
 		const firstExample = record.body_text[0];
 		if (Array.isArray(firstExample)) {
-			return firstExample.map((_, index) => ({
-				id: `param_${index + 1}`,
-				displayName: `Parameter ${index + 1}`,
-				positionalIndex: index + 1,
-			}));
+			return firstExample.map((exampleValue, index) => {
+				const exampleText =
+					typeof exampleValue === 'string'
+						? exampleValue
+						: exampleValue && typeof exampleValue === 'object'
+							? String((exampleValue as IDataObject).fallback_value ?? '')
+							: '';
+
+				return {
+					id: `param_${index + 1}`,
+					displayName: `Parameter ${index + 1}`,
+					positionalIndex: index + 1,
+					valueType: inferValueTypeFromExample(
+						exampleText,
+						exampleValue && typeof exampleValue === 'object'
+							? (exampleValue as IDataObject).type
+							: libraryParamTypes?.[index],
+					),
+					exampleValue: exampleText,
+				};
+			});
 		}
 	}
 
 	return [];
+}
+
+function applyLibraryBodyParamTypes(
+	variables: TemplateBodyVariable[],
+	libraryParamTypes: unknown[] | undefined,
+): TemplateBodyVariable[] {
+	if (!Array.isArray(libraryParamTypes) || libraryParamTypes.length === 0) {
+		return variables;
+	}
+
+	return variables.map((variable, index) => {
+		const libraryType = libraryParamTypes[index];
+		if (!libraryType) {
+			return variable;
+		}
+
+		const valueType = normalizeBodyVariableType(libraryType);
+		return valueType === 'text' ? variable : { ...variable, valueType };
+	});
 }
 
 function bodyVariablesFromText(text: string, parameterFormat: TemplateParameterFormat): TemplateBodyVariable[] {
@@ -152,6 +274,7 @@ function bodyVariablesFromText(text: string, parameterFormat: TemplateParameterF
 			id: name,
 			displayName: name,
 			parameterName: name,
+			valueType: 'text' as const,
 		}));
 	}
 
@@ -160,6 +283,7 @@ function bodyVariablesFromText(text: string, parameterFormat: TemplateParameterF
 		id: `param_${index + 1}`,
 		displayName: `Parameter ${index + 1}`,
 		positionalIndex: index + 1,
+		valueType: 'text' as const,
 	}));
 }
 
@@ -167,13 +291,14 @@ function resolveBodyVariables(
 	text: string,
 	example: unknown,
 	parameterFormat: TemplateParameterFormat,
+	libraryParamTypes?: unknown[],
 ): TemplateBodyVariable[] {
-	const fromExample = bodyVariablesFromExample(example, parameterFormat);
+	const fromExample = bodyVariablesFromExample(example, parameterFormat, libraryParamTypes);
 	if (fromExample.length > 0) {
-		return fromExample;
+		return applyLibraryBodyParamTypes(fromExample, libraryParamTypes);
 	}
 
-	return bodyVariablesFromText(text, parameterFormat);
+	return applyLibraryBodyParamTypes(bodyVariablesFromText(text, parameterFormat), libraryParamTypes);
 }
 
 function normalizeButtonSubType(type: unknown): string {
@@ -199,11 +324,19 @@ function normalizeButtonSubType(type: unknown): string {
 	}
 }
 
+function containsPositionalPlaceholder(text: string): boolean {
+	return /\{\{\d+\}\}/.test(text);
+}
+
+function containsNamedPlaceholder(text: string): boolean {
+	return /\{\{[a-z][a-z0-9_]*\}\}/i.test(text);
+}
+
 function buttonDynamicKind(button: IDataObject): TemplateButtonDynamicKind | undefined {
 	const subType = normalizeButtonSubType(button.type);
 	const url = String(button.url ?? '');
 
-	if (subType === 'url' && POSITIONAL_VARIABLE_PATTERN.test(url)) {
+	if (subType === 'url' && containsPositionalPlaceholder(url)) {
 		return 'url_suffix';
 	}
 
@@ -225,7 +358,7 @@ function buttonDynamicKind(button: IDataObject): TemplateButtonDynamicKind | und
 
 	if (subType === 'quick_reply') {
 		const text = String(button.text ?? button.title ?? '');
-		if (NAMED_VARIABLE_PATTERN.test(text) || POSITIONAL_VARIABLE_PATTERN.test(text)) {
+		if (containsNamedPlaceholder(text) || containsPositionalPlaceholder(text)) {
 			return 'quick_reply_text';
 		}
 	}
@@ -297,8 +430,8 @@ function parseCarouselCards(
 export function parseTemplateDefinition(entry: IDataObject): TemplateDefinition {
 	const name = String(entry.name ?? '');
 	const language = String(entry.language ?? entry.language_code ?? '');
-	const parameterFormat = normalizeParameterFormat(entry.parameter_format);
 	const components = Array.isArray(entry.components) ? (entry.components as IDataObject[]) : [];
+	const parameterFormat = normalizeParameterFormat(entry.parameter_format, components);
 
 	const carouselCards = parseCarouselCards(components, parameterFormat);
 	const componentMode: TemplateComponentMode = carouselCards.length > 0 ? 'carousel' : 'standard';
@@ -313,6 +446,12 @@ export function parseTemplateDefinition(entry: IDataObject): TemplateDefinition 
 
 	const headerText = String(headerComponent?.text ?? '');
 	const headerFormat = headerComponent ? normalizeHeaderFormat(headerComponent.format) : 'none';
+	const headerVariable =
+		headerFormat === 'text' ? resolveHeaderVariable(headerText, parameterFormat) : undefined;
+
+	const libraryParamTypes = Array.isArray(entry.body_param_types)
+		? (entry.body_param_types as unknown[])
+		: undefined;
 
 	return {
 		name,
@@ -320,13 +459,13 @@ export function parseTemplateDefinition(entry: IDataObject): TemplateDefinition 
 		parameterFormat,
 		componentMode,
 		headerFormat,
-		headerTextHasVariable:
-			headerFormat === 'text' &&
-			(extractNamedVariables(headerText).length > 0 || extractPositionalCount(headerText) > 0),
+		headerTextHasVariable: Boolean(headerVariable),
+		headerVariable,
 		bodyVariables: resolveBodyVariables(
 			String(bodyComponent?.text ?? ''),
 			bodyComponent?.example,
 			parameterFormat,
+			libraryParamTypes,
 		),
 		buttonSlots: parseButtonSlots(buttonsComponent?.buttons),
 		carouselCards,

@@ -19,7 +19,8 @@ export class KapsoTrigger implements INodeType {
 		icon: 'file:kapso.svg',
 		group: ['trigger'],
 		version: 1,
-		description: 'Starts the workflow when Kapso WhatsApp webhook events are received',
+		description:
+			'Starts the workflow when Kapso WhatsApp webhook events are received. Copy the n8n webhook URL into Kapso and set the matching Webhook Secret on the Kapso API credential.',
 		documentationUrl: KAPSO_WEBHOOK_DOCS_URL,
 		defaults: {
 			name: 'Kapso Trigger',

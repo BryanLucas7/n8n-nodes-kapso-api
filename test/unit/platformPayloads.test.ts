@@ -1,21 +1,88 @@
-import { describe, expect, it } from 'vitest';
-import { ApplicationError } from 'n8n-workflow';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	buildBlockUsersBody,
 	buildBroadcastAddRecipientsBody,
 	buildBroadcastCreateBody,
+	buildBroadcastScheduleBody,
 	buildContactCreateBody,
 	buildConversationStatusBody,
 	buildMediaIngestBody,
 } from '../../nodes/KapsoApi/actions/platformPayloads';
-import { TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY } from '../../nodes/KapsoApi/properties/templateShared.fields';
+import { PARAMETER_TYPE_SUFFIX } from '../../nodes/KapsoApi/resourceMapping/templateParameters';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
 const e164Phone = { mode: 'phone', value: '+15551234567', __rl: true };
 const broadcastPhone = { mode: 'phone', value: '+14155550123', __rl: true };
 const contactUuid = '550e8400-e29b-41d4-a716-446655440000';
 
+const imageTemplateDefinition = {
+	name: 'promo',
+	language: 'en_US',
+	parameterFormat: 'named',
+	componentMode: 'standard',
+	headerFormat: 'image',
+	headerTextHasVariable: false,
+	bodyVariables: [
+		{
+			id: 'first_name',
+			displayName: 'first_name',
+			parameterName: 'first_name',
+			valueType: 'text',
+		},
+		{
+			id: 'discount',
+			displayName: 'discount',
+			parameterName: 'discount',
+			valueType: 'text',
+		},
+	],
+	buttonSlots: [{ index: 0, subType: 'url', dynamicKind: 'url_suffix' }],
+	carouselCards: [],
+};
+
+const mpmTemplateDefinition = {
+	name: 'mpm_promo',
+	language: 'en_US',
+	parameterFormat: 'named',
+	componentMode: 'standard',
+	headerFormat: 'none',
+	headerTextHasVariable: false,
+	bodyVariables: [],
+	buttonSlots: [{ index: 0, subType: 'mpm', dynamicKind: 'mpm' }],
+	carouselCards: [],
+};
+
+const emptyTemplateDefinition = {
+	name: 'plain',
+	language: 'en_US',
+	parameterFormat: 'named',
+	componentMode: 'standard',
+	headerFormat: 'none',
+	headerTextHasVariable: false,
+	bodyVariables: [],
+	buttonSlots: [],
+	carouselCards: [],
+};
+
+vi.mock('../../nodes/KapsoApi/loadOptions/broadcastTemplateFetch', () => ({
+	loadBroadcastTemplateDefinition: vi.fn(),
+}));
+
+vi.mock('../../nodes/KapsoApi/loadOptions/broadcastCreateTemplate', () => ({
+	resolveBroadcastCreateTemplateId: vi.fn(async () => '784203120908608'),
+}));
+
+vi.mock('../../nodes/KapsoApi/actions/broadcastPreflight', () => ({
+	assertBroadcastDraftForRecipients: vi.fn(async () => undefined),
+}));
+
+import { loadBroadcastTemplateDefinition } from '../../nodes/KapsoApi/loadOptions/broadcastTemplateFetch';
+
 describe('platformPayloads', () => {
+	beforeEach(() => {
+		vi.mocked(loadBroadcastTemplateDefinition).mockResolvedValue(emptyTemplateDefinition);
+	});
+
 	it('builds conversation status body', () => {
 		const ef = createMockExecuteFunctions({
 			conversationStatus: 'ended',
@@ -48,18 +115,18 @@ describe('platformPayloads', () => {
 		});
 
 		expect(() => buildContactCreateBody(ef, 0)).toThrow(
-			'WhatsApp ID must use the phone number selector',
+			'Contact Phone Number must use the phone number selector',
 		);
 	});
 
-	it('builds broadcast create body', () => {
+	it('builds broadcast create body', async () => {
 		const ef = createMockExecuteFunctions({
 			broadcastName: 'Weekend Sale',
-			broadcastPhoneNumberId: '1234567890',
+			phoneNumberId: '1234567890',
 			broadcastTemplateId: '784203120908608',
 		});
 
-		expect(buildBroadcastCreateBody(ef, 0)).toEqual({
+		await expect(buildBroadcastCreateBody(ef, 0)).resolves.toEqual({
 			whatsapp_broadcast: {
 				name: 'Weekend Sale',
 				phone_number_id: '1234567890',
@@ -108,7 +175,7 @@ describe('platformPayloads', () => {
 		});
 
 		expect(buildBlockUsersBody(ef, 0)).toEqual({
-		 block_users: [{ user: '15551234567' }],
+			block_users: [{ user: '15551234567' }],
 		});
 	});
 
@@ -124,31 +191,38 @@ describe('platformPayloads', () => {
 		);
 	});
 
-	it('builds broadcast recipients with template components', () => {
+	it('builds broadcast recipients with template components', async () => {
+		vi.mocked(loadBroadcastTemplateDefinition).mockResolvedValue(imageTemplateDefinition);
+
 		const ef = createMockExecuteFunctions({
+			broadcastDetectedHeaderFormat: 'image',
+			broadcastDetectedComponentMode: 'standard',
 			broadcastRecipients: {
 				recipientValues: [
 					{
 						phoneNumber: broadcastPhone,
-						bodyParameters: {
-							bodyParameterValues: [
-								{ parameterName: 'first_name', parameterText: 'John' },
-								{ parameterName: 'discount', parameterText: 'SAVE50' },
-							],
+						recipientHeaderMediaUrl: 'https://cdn.example.com/banner.jpg',
+						recipientBodyParametersMapper: {
+							mappingMode: 'defineBelow',
+							value: {
+								first_name: 'John',
+								[`first_name${PARAMETER_TYPE_SUFFIX}`]: 'text',
+								discount: 'SAVE50',
+								[`discount${PARAMETER_TYPE_SUFFIX}`]: 'text',
+							},
 						},
-						headerType: 'image',
-						headerMediaUrl: 'https://cdn.example.com/banner.jpg',
-						buttonParameters: {
-							[TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY]: [
-								{ templateButtonKind: 'url', buttonIndex: 0, buttonText: 'promo-code-12345' },
-							],
+						recipientButtonParametersMapper: {
+							mappingMode: 'defineBelow',
+							value: {
+								btn_0_url_suffix: 'promo-code-12345',
+							},
 						},
 					},
 				],
 			},
 		});
 
-		expect(buildBroadcastAddRecipientsBody(ef, 0)).toEqual({
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).resolves.toEqual({
 			whatsapp_broadcast: {
 				recipients: [
 					{
@@ -183,40 +257,36 @@ describe('platformPayloads', () => {
 		});
 	});
 
-	it('builds broadcast recipients with MPM template button sections', () => {
+	it('builds broadcast recipients with MPM template button sections', async () => {
+		vi.mocked(loadBroadcastTemplateDefinition).mockResolvedValue(mpmTemplateDefinition);
+
 		const ef = createMockExecuteFunctions({
+			broadcastDetectedHeaderFormat: 'none',
+			broadcastDetectedComponentMode: 'standard',
 			broadcastRecipients: {
 				recipientValues: [
 					{
 						phoneNumber: broadcastPhone,
-						buttonParameters: {
-							[TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY]: [
-								{
-									templateButtonKind: 'mpm',
-									buttonIndex: 0,
-									mpmThumbnailProductRetailerId: 'SKU_1',
-									mpmSectionValues: {
-										sectionValues: [
-											{
-												sectionTitle: 'Popular',
-												productValues: {
-													productItems: [
-														{ productRetailerId: 'SKU_1' },
-														{ productRetailerId: 'SKU_2' },
-													],
-												},
-											},
+						recipientButtonParametersMapper: {
+							mappingMode: 'defineBelow',
+							value: {
+								btn_0_mpm: [
+									{
+										title: 'Popular',
+										product_items: [
+											{ product_retailer_id: 'SKU_1' },
+											{ product_retailer_id: 'SKU_2' },
 										],
 									},
-								},
-							],
+								],
+							},
 						},
 					},
 				],
 			},
 		});
 
-		expect(buildBroadcastAddRecipientsBody(ef, 0)).toEqual({
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).resolves.toEqual({
 			whatsapp_broadcast: {
 				recipients: [
 					{
@@ -230,7 +300,6 @@ describe('platformPayloads', () => {
 									{
 										type: 'action',
 										action: {
-											thumbnail_product_retailer_id: 'SKU_1',
 											sections: [
 												{
 													title: 'Popular',
@@ -251,51 +320,118 @@ describe('platformPayloads', () => {
 		});
 	});
 
-	it('rejects invalid broadcast contact UUID values', () => {
+	it('rejects invalid broadcast contact UUID values', async () => {
 		const ef = createMockExecuteFunctions({
 			broadcastRecipients: {
 				recipientValues: [{ whatsappContactId: 'not-a-uuid' }],
 			},
 		});
 
-		expect(() => buildBroadcastAddRecipientsBody(ef, 0)).toThrow('Contact ID must be a valid UUID');
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).rejects.toThrow(
+			'Contact ID must be a valid UUID',
+		);
 	});
 
-	it('builds broadcast recipients with contact UUID instead of phone', () => {
+	it('builds broadcast recipients with contact UUID instead of phone', async () => {
 		const ef = createMockExecuteFunctions({
 			broadcastRecipients: {
 				recipientValues: [{ whatsappContactId: contactUuid }],
 			},
 		});
 
-		expect(buildBroadcastAddRecipientsBody(ef, 0)).toEqual({
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).resolves.toEqual({
 			whatsapp_broadcast: {
 				recipients: [{ whatsapp_contact_id: contactUuid }],
 			},
 		});
 	});
 
-	it('rejects legacy plain-text broadcast recipient phone values', () => {
+	it('rejects legacy plain-text broadcast recipient phone values', async () => {
 		const ef = createMockExecuteFunctions({
 			broadcastRecipients: {
 				recipientValues: [{ phoneNumber: '+14155550123' }],
 			},
 		});
 
-		expect(() => buildBroadcastAddRecipientsBody(ef, 0)).toThrow(
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).rejects.toThrow(
 			'Phone Number must use the phone number selector',
 		);
 	});
 
-	it('rejects broadcast recipients without phone number or contact ID', () => {
+	it('rejects broadcast recipients without phone number or contact ID', async () => {
 		const ef = createMockExecuteFunctions({
 			broadcastRecipients: {
 				recipientValues: [{}],
 			},
 		});
 
-		expect(() => buildBroadcastAddRecipientsBody(ef, 0)).toThrow(
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).rejects.toThrow(
 			'Each broadcast recipient requires a phone number or contact ID.',
 		);
+	});
+
+	it('builds top-level broadcast schedule body', () => {
+		const ef = createMockExecuteFunctions({
+			scheduledAt: '2099-06-01T12:00:00.000Z',
+		});
+
+		expect(buildBroadcastScheduleBody(ef, 0)).toEqual({
+			scheduled_at: '2099-06-01T12:00:00.000Z',
+		});
+	});
+
+	it('rejects past broadcast schedule timestamps', () => {
+		const ef = createMockExecuteFunctions({
+			scheduledAt: '2000-01-01T00:00:00.000Z',
+		});
+
+		expect(() => buildBroadcastScheduleBody(ef, 0)).toThrow('Scheduled At must be in the future.');
+	});
+
+	it('rejects more than 1000 broadcast recipients', async () => {
+		const ef = createMockExecuteFunctions({
+			broadcastRecipients: {
+				recipientValues: Array.from({ length: 1001 }, () => ({
+					phoneNumber: { mode: 'phone', value: '+14155550123', __rl: true },
+				})),
+			},
+		});
+
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).rejects.toThrow('1000 recipients');
+	});
+
+	it('rejects recipientsBodyJson with more than 1000 recipients', async () => {
+		const ef = createMockExecuteFunctions({
+			recipientsBodyJson: JSON.stringify({
+				whatsapp_broadcast: {
+					recipients: Array.from({ length: 1001 }, () => ({
+						phone_number: '+14155550123',
+					})),
+				},
+			}),
+		});
+
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).rejects.toThrow('1000 recipients');
+	});
+
+	it('maps only the current input item in inputItems mode', async () => {
+		vi.mocked(loadBroadcastTemplateDefinition).mockResolvedValue(emptyTemplateDefinition);
+
+		const ef = createMockExecuteFunctions(
+			{
+				broadcastRecipientSource: 'inputItems',
+				broadcastRecipientPhoneField: 'phone',
+			},
+			{
+				items: [{ json: { phone: '+15551111111' } }, { json: { phone: '+15552222222' } }],
+				itemIndex: 1,
+			},
+		);
+
+		await expect(buildBroadcastAddRecipientsBody(ef, 1)).resolves.toEqual({
+			whatsapp_broadcast: {
+				recipients: [{ phone_number: '+15552222222' }],
+			},
+		});
 	});
 });

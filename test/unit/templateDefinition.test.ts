@@ -39,11 +39,39 @@ describe('parseTemplateDefinition', () => {
 		expect(definition.componentMode).toBe('standard');
 		expect(definition.headerFormat).toBe('text');
 		expect(definition.headerTextHasVariable).toBe(true);
+		expect(definition.headerVariable).toEqual({
+			id: 'customer_name',
+			displayName: 'customer_name',
+			parameterName: 'customer_name',
+			valueType: 'text',
+		});
 		expect(definition.bodyVariables.map((entry) => entry.id)).toEqual(['barber_name', 'appointment_date']);
 		expect(definition.buttonSlots).toEqual([
 			{ index: 0, subType: 'url', dynamicKind: 'url_suffix' },
 			{ index: 1, subType: 'copy_code', dynamicKind: 'copy_code' },
 		]);
+	});
+
+	it('infers named parameter_format from textual placeholders when the API omits parameter_format', () => {
+		const definition = parseTemplateDefinition({
+			name: 'seasonal_sale',
+			language: 'en_US',
+			components: [
+				{
+					type: 'HEADER',
+					format: 'TEXT',
+					text: 'Sale {{sale_name}}',
+				},
+				{
+					type: 'BODY',
+					text: 'Hi {{first_name}}, shop our {{sale_name}} event today.',
+				},
+			],
+		});
+
+		expect(definition.parameterFormat).toBe('named');
+		expect(definition.headerVariable?.parameterName).toBe('sale_name');
+		expect(definition.bodyVariables.map((entry) => entry.id)).toEqual(['first_name', 'sale_name']);
 	});
 
 	it('parses positional body variables and carousel cards', () => {
@@ -268,6 +296,28 @@ describe('parseTemplateDefinition', () => {
 				components: [{ type: 'CAROUSEL' }],
 			}).carouselCards,
 		).toEqual([]);
+	});
+
+	it('detects dynamic url buttons when multiple url buttons are parsed in sequence', () => {
+		const definition = parseTemplateDefinition({
+			name: 'multi_url',
+			language: 'en_US',
+			components: [
+				{ type: 'BODY', text: 'Links' },
+				{
+					type: 'BUTTONS',
+					buttons: [
+						{ type: 'URL', text: 'First', url: 'https://example.com/{{1}}' },
+						{ type: 'URL', text: 'Second', url: 'https://example.com/{{1}}' },
+					],
+				},
+			],
+		});
+
+		expect(definition.buttonSlots).toEqual([
+			{ index: 0, subType: 'url', dynamicKind: 'url_suffix' },
+			{ index: 1, subType: 'url', dynamicKind: 'url_suffix' },
+		]);
 	});
 });
 

@@ -10,6 +10,7 @@ import {
 	buildCatalogMessage,
 	buildContactMessage,
 	buildCtaUrlMessage,
+	buildCtaCallMessage,
 	buildFlowMessage,
 	buildListMessage,
 	buildLocationMessage,
@@ -24,21 +25,36 @@ import {
 	buildTextMessage,
 	type CtaHeaderType,
 	type KapsoButtonInput,
-	type KapsoContactInput,
 	type KapsoListSectionInput,
 	type KapsoProductSectionInput,
 } from './messagePayloads';
+import { normalizeContactInputs } from './contactInput';
+import { validateFlowInitialDataAtExecute } from './flowMapperInput';
 import { buildSendTemplateComponentsInput } from './templateInput';
+import {
+	resolveBusinessAccountIdForExecute,
+	resolveSendTemplateContext,
+} from '../loadOptions/templateFetch';
+import {
+	parseFlowSelection,
+	resolveFlowAction,
+	resolveFlowCta,
+	resolveFlowMessageVersion,
+	resolveFlowMode,
+	resolveFlowToken,
+} from '../loadOptions/flowSelection';
+import { readFlowModeFromExecuteParameters } from '../loadOptions/flowModeHelpers';
+import { enrichFlowSelectionForExecute } from '../loadOptions/flowAssets';
 import {
 	getBoolean,
 	getFixedCollectionItems,
 	getLinkPreview,
 	getMetaPhoneResourceLocatorValue,
 	getNumber,
-	getOptionalJsonObject,
 	getReplyToMessageId,
 	getString,
 	getValidatedMediaSourceValue,
+	readStringParameterValue,
 	bodyJson,
 } from './nodeHelpers';
 import { buildMessageQuery, buildOperationQuery } from './queryBuilders';
@@ -60,7 +76,6 @@ import {
 	assertReactionEmoji,
 	assertUuid,
 	assertWamid,
-	requireNonEmptyString,
 	validateDownloadToken,
 } from './validation';
 
@@ -175,6 +190,10 @@ function extractListRows(
 	return [];
 }
 
+function readProductRetailerId(value: unknown): string {
+	return readStringParameterValue(value).trim();
+}
+
 function extractProductRetailerIds(productItems: unknown): string[] {
 	if (!productItems) {
 		return [];
@@ -183,13 +202,14 @@ function extractProductRetailerIds(productItems: unknown): string[] {
 	if (Array.isArray(productItems)) {
 		return productItems.flatMap((entry) => {
 			if (entry && typeof entry === 'object' && 'productRetailerId' in entry) {
-				return [String(entry.productRetailerId)];
+				const retailerId = readProductRetailerId((entry as { productRetailerId?: unknown }).productRetailerId);
+				return retailerId ? [retailerId] : [];
 			}
 
 			if (entry && typeof entry === 'object' && Array.isArray((entry as { product?: unknown[] }).product)) {
-				return (entry as { product: Array<{ productRetailerId: string }> }).product.map(
-					(product) => product.productRetailerId,
-				);
+				return (entry as { product: Array<{ productRetailerId?: unknown }> }).product
+					.map((product) => readProductRetailerId(product.productRetailerId))
+					.filter(Boolean);
 			}
 
 			return [];
@@ -197,9 +217,9 @@ function extractProductRetailerIds(productItems: unknown): string[] {
 	}
 
 	if (typeof productItems === 'object' && Array.isArray((productItems as { product?: unknown[] }).product)) {
-		return (productItems as { product: Array<{ productRetailerId: string }> }).product.map(
-			(product) => product.productRetailerId,
-		);
+		return (productItems as { product: Array<{ productRetailerId?: unknown }> }).product
+			.map((product) => readProductRetailerId(product.productRetailerId))
+			.filter(Boolean);
 	}
 
 	return [];
@@ -367,11 +387,39 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildRequestLocationMessage(to, getString(ef, 'bodyText', itemIndex)),
+			body: buildRequestLocationMessage(
+				to,
+				getString(ef, 'bodyText', itemIndex),
+				replyToMessageId,
+			),
 		};
 	}
 
-	if (operation === 'sendCtaUrl') {
+	if (operation === 'sendCta') {
+		const ctaType = getString(ef, 'ctaType', itemIndex) || 'url';
+
+		if (ctaType === 'phone') {
+			return {
+				api: 'whatsapp',
+				method: 'POST' as IHttpRequestMethods,
+				path: phonePath,
+				body: buildCtaCallMessage(
+					to,
+					getString(ef, 'bodyText', itemIndex),
+					getString(ef, 'ctaButtonLabel', itemIndex),
+					getString(ef, 'ctaButtonPhone', itemIndex),
+					getString(ef, 'ctaHeaderType', itemIndex) as CtaHeaderType,
+					getString(ef, 'ctaHeaderText', itemIndex) || undefined,
+					(getString(ef, 'ctaHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+					getString(ef, 'ctaHeaderMediaUrl', itemIndex) || undefined,
+					getString(ef, 'ctaHeaderMediaId', itemIndex) || undefined,
+					getString(ef, 'ctaHeaderDocumentFilename', itemIndex) || undefined,
+					getString(ef, 'footerText', itemIndex) || undefined,
+					replyToMessageId,
+				),
+			};
+		}
+
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
@@ -455,47 +503,7 @@ export function buildMessageRequest(
 	}
 
 	if (operation === 'sendFlow') {
-		const flowAction = getString(ef, 'flowAction', itemIndex) as 'navigate' | 'data_exchange';
-		const flowId = getString(ef, 'flowId', itemIndex) || undefined;
-		const flowName = getString(ef, 'flowName', itemIndex) || undefined;
-
-		if (!flowId && !flowName) {
-			throw new ApplicationError('Provide a Flow ID or Flow Name.');
-		}
-
-		if (flowId && flowName) {
-			throw new ApplicationError('Provide only one of Flow ID or Flow Name.');
-		}
-
-		const flowCta = requireNonEmptyString(getString(ef, 'flowCta', itemIndex), 'Flow CTA');
-		const flowToken = requireNonEmptyString(getString(ef, 'flowToken', itemIndex), 'Flow token');
-
-		return {
-			api: 'whatsapp',
-			method: 'POST' as IHttpRequestMethods,
-			path: phonePath,
-			body: buildFlowMessage(
-				to,
-				getString(ef, 'bodyText', itemIndex),
-				flowCta,
-				flowToken,
-				getString(ef, 'flowMessageVersion', itemIndex) || '3',
-				flowAction,
-				getString(ef, 'flowScreen', itemIndex) || undefined,
-				getOptionalJsonObject(ef, 'flowInitialDataJson', itemIndex, 'Flow Initial Data JSON'),
-				replyToMessageId,
-				(getString(ef, 'flowMode', itemIndex) || undefined) as 'draft' | 'published' | undefined,
-				getString(ef, 'flowHeaderType', itemIndex) || undefined,
-				getString(ef, 'flowHeaderText', itemIndex) || undefined,
-				(getString(ef, 'flowHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
-				getString(ef, 'flowHeaderMediaUrl', itemIndex) || undefined,
-				getString(ef, 'flowHeaderMediaId', itemIndex) || undefined,
-				getString(ef, 'flowHeaderDocumentFilename', itemIndex) || undefined,
-				getString(ef, 'flowFooterText', itemIndex) || undefined,
-				flowId,
-				flowName,
-			),
-		};
+		throw new ApplicationError('Use buildSendFlowRequest for sendFlow operations.');
 	}
 
 	if (operation === 'sendCallPermission') {
@@ -503,23 +511,24 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildCallPermissionMessage(to, getString(ef, 'bodyText', itemIndex)),
+			body: buildCallPermissionMessage(
+				to,
+				getString(ef, 'bodyText', itemIndex),
+				replyToMessageId,
+			),
 		};
 	}
 
 	if (operation === 'sendContact') {
-		const contacts = getFixedCollectionItems<KapsoContactInput>(
-			ef,
-			'contacts',
-			'contactValues',
-			itemIndex,
+		const contacts = normalizeContactInputs(
+			getFixedCollectionItems<IDataObject>(ef, 'contacts', 'contactValues', itemIndex),
 		);
 
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildContactMessage(to, contacts),
+			body: buildContactMessage(to, contacts, getReplyToMessageId(ef, itemIndex)),
 		};
 	}
 
@@ -587,6 +596,98 @@ export function buildMessageRequest(
 	throw new ApplicationError(`Unsupported message operation: ${operation}`);
 }
 
+export async function buildSendFlowRequest(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): Promise<KapsoRequestArgs> {
+	const phonePath = messagePath(ef, itemIndex);
+	const to = assertMetaRecipientPhone(
+		getMetaPhoneResourceLocatorValue(ef, 'recipient', itemIndex, 'Recipient Phone'),
+	);
+	const replyToMessageId = getReplyToMessageId(ef, itemIndex);
+	const flowSelection = await enrichFlowSelectionForExecute(
+		ef,
+		itemIndex,
+		parseFlowSelection(getString(ef, 'flowId', itemIndex)),
+	);
+
+	if (!flowSelection.metaFlowId) {
+		throw new ApplicationError('Select a Flow or provide a Meta Flow ID.');
+	}
+
+	const flowCta = resolveFlowCta(getString(ef, 'flowCta', itemIndex), flowSelection.flowName);
+	const flowToken = resolveFlowToken(getString(ef, 'flowToken', itemIndex), flowSelection.metaFlowId);
+	const userFlowAction = getString(ef, 'flowAction', itemIndex);
+	const flowAction = resolveFlowAction(userFlowAction, flowSelection);
+	const flowOptions = ef.getNodeParameter('flowOptions', itemIndex, {}) as { flowMode?: string };
+	const flowMode = resolveFlowMode(
+		readFlowModeFromExecuteParameters(ef.getNodeParameter('flowMode', itemIndex), flowOptions),
+		flowSelection,
+	);
+	let flowScreen = getString(ef, 'flowScreen', itemIndex) || undefined;
+
+	if (!flowScreen && flowAction === 'navigate') {
+		flowScreen = flowSelection.defaultScreen;
+	}
+
+	if (
+		flowAction === 'data_exchange' &&
+		flowSelection.hasDataEndpoint === true &&
+		flowSelection.flowsEncryptionConfigured === false
+	) {
+		throw new ApplicationError(
+			'This Flow uses a data endpoint but Flow encryption is not configured. Configure it in Kapso Dashboard > WhatsApp > Flows > [Flow] > Encryption before sending data-exchange messages.',
+		);
+	}
+
+	return {
+		api: 'whatsapp',
+		method: 'POST' as IHttpRequestMethods,
+		path: phonePath,
+		body: buildFlowMessage(
+			to,
+			getString(ef, 'bodyText', itemIndex),
+			flowCta,
+			flowToken,
+			resolveFlowMessageVersion('', flowSelection),
+			flowAction,
+			flowScreen,
+			await validateFlowInitialDataAtExecute(ef, itemIndex),
+			replyToMessageId,
+			flowMode,
+			getString(ef, 'flowHeaderType', itemIndex) || undefined,
+			getString(ef, 'flowHeaderText', itemIndex) || undefined,
+			(getString(ef, 'flowHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+			getString(ef, 'flowHeaderMediaUrl', itemIndex) || undefined,
+			getString(ef, 'flowHeaderMediaId', itemIndex) || undefined,
+			getString(ef, 'flowHeaderDocumentFilename', itemIndex) || undefined,
+			getString(ef, 'flowFooterText', itemIndex) || undefined,
+			flowSelection.metaFlowId,
+			undefined,
+		),
+	};
+}
+
+export async function buildGetCatalogRequest(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): Promise<KapsoRequestArgs> {
+	const phoneNumberId = getString(ef, 'phoneNumberId', itemIndex);
+	const wabaId = await resolveBusinessAccountIdForExecute(ef, phoneNumberId, itemIndex);
+
+	if (!wabaId) {
+		throw new ApplicationError(
+			'Could not resolve the WhatsApp Business Account for the selected phone number.',
+		);
+	}
+
+	return {
+		api: 'whatsapp',
+		method: 'GET' as IHttpRequestMethods,
+		path: `/${pathId(wabaId, 'WhatsApp Business Account ID')}/product_catalogs`,
+	};
+}
+
 export async function buildSendTemplateRequest(
 	ef: IExecuteFunctions,
 	itemIndex: number,
@@ -596,15 +697,17 @@ export async function buildSendTemplateRequest(
 		getMetaPhoneResourceLocatorValue(ef, 'recipient', itemIndex, 'Recipient Phone'),
 	);
 
+	const { identity, definition } = await resolveSendTemplateContext(ef, itemIndex);
+
 	return {
 		api: 'whatsapp',
 		method: 'POST' as IHttpRequestMethods,
 		path: `/${phoneNumberId}/messages`,
 		body: buildTemplateMessageFromParams(
 			to,
-			getString(ef, 'templateName', itemIndex),
-			getString(ef, 'languageCode', itemIndex),
-			await buildSendTemplateComponentsInput(ef, itemIndex),
+			identity.name,
+			identity.language,
+			await buildSendTemplateComponentsInput(ef, itemIndex, definition),
 		),
 	};
 }
@@ -741,18 +844,16 @@ export function buildRequest(
 			path: '/whatsapp/broadcasts',
 			query,
 		}),
-		'broadcast:create': () => ({
-			api: 'platform',
-			method: 'POST' as IHttpRequestMethods,
-			path: '/whatsapp/broadcasts',
-			body: buildBroadcastCreateBody(ef, itemIndex),
-		}),
-		'broadcast:addRecipients': () => ({
-			api: 'platform',
-			method: 'POST' as IHttpRequestMethods,
-			path: `/whatsapp/broadcasts/${broadcastId()}/recipients`,
-			body: buildBroadcastAddRecipientsBody(ef, itemIndex),
-		}),
+		'broadcast:create': () => {
+			throw new ApplicationError(
+				'Broadcast create requests are built asynchronously. Use buildBroadcastCreateRequest instead of buildRequest.',
+			);
+		},
+		'broadcast:addRecipients': () => {
+			throw new ApplicationError(
+				'Add Recipients requests are built asynchronously. Use buildBroadcastAddRecipientsRequest instead of buildRequest.',
+			);
+		},
 		'broadcast:listRecipients': () => ({
 			api: 'platform',
 			method: 'GET' as IHttpRequestMethods,
@@ -808,4 +909,28 @@ export function buildRequest(
 	}
 
 	return config();
+}
+
+export async function buildBroadcastCreateRequest(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): Promise<KapsoRequestArgs> {
+	return {
+		api: 'platform',
+		method: 'POST' as IHttpRequestMethods,
+		path: '/whatsapp/broadcasts',
+		body: await buildBroadcastCreateBody(ef, itemIndex),
+	};
+}
+
+export async function buildBroadcastAddRecipientsRequest(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): Promise<KapsoRequestArgs> {
+	return {
+		api: 'platform',
+		method: 'POST' as IHttpRequestMethods,
+		path: `/whatsapp/broadcasts/${pathUuidId(getString(ef, 'broadcastId', itemIndex), 'Broadcast ID')}/recipients`,
+		body: await buildBroadcastAddRecipientsBody(ef, itemIndex),
+	};
 }

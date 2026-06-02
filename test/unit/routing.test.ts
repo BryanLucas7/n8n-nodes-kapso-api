@@ -1,17 +1,54 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ApplicationError } from 'n8n-workflow';
 import {
 	CUSTOM_API_CALL,
 	operationOptionsByResource,
 } from '../../nodes/KapsoApi/actions/operations';
 import {
+	buildBroadcastAddRecipientsRequest,
+	buildBroadcastCreateRequest,
+	buildGetCatalogRequest,
 	buildRequest,
+	buildSendFlowRequest,
 	customRelativePath,
 	pathId,
 	resolveWhatsappCustomPath,
 } from '../../nodes/KapsoApi/actions/routing';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
+
+vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../nodes/KapsoApi/loadOptions/templateFetch')>();
+	return {
+		...actual,
+		resolveBusinessAccountIdForExecute: vi.fn(async () => 'WABA_TEST'),
+	};
+});
+
+vi.mock('../../nodes/KapsoApi/actions/broadcastPreflight', () => ({
+	assertBroadcastDraftForRecipients: vi.fn(async () => undefined),
+	assertBroadcastReadyToSend: vi.fn(async () => undefined),
+	assertBroadcastScheduledForCancel: vi.fn(async () => undefined),
+	fetchBroadcastPreflight: vi.fn(async () => ({ status: 'draft', totalRecipients: 1 })),
+}));
+
+vi.mock('../../nodes/KapsoApi/loadOptions/broadcastTemplateFetch', () => ({
+	loadBroadcastTemplateDefinition: vi.fn(async () => ({
+		name: 'plain',
+		language: 'en_US',
+		parameterFormat: 'named',
+		componentMode: 'standard',
+		headerFormat: 'none',
+		headerTextHasVariable: false,
+		bodyVariables: [],
+		buttonSlots: [],
+		carouselCards: [],
+	})),
+}));
+
+vi.mock('../../nodes/KapsoApi/loadOptions/broadcastCreateTemplate', () => ({
+	resolveBroadcastCreateTemplateId: vi.fn(async () => '784203120908608'),
+}));
 
 const PHONE = TEST_PHONE_NUMBER_ID;
 const CONV = '550e8400-e29b-41d4-a716-446655440000';
@@ -34,7 +71,7 @@ const ROUTING_EXPECTATIONS: Record<
 	'message:requestLocation': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendButtons': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendList': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
-	'message:sendCtaUrl': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
+	'message:sendCta': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendProduct': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendProductList': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
 	'message:sendCatalog': { api: 'whatsapp', method: 'POST', path: `/${PHONE}/messages` },
@@ -109,7 +146,11 @@ describe('routing', () => {
 				continue;
 			}
 
-			if (resource === 'message' && operation === 'sendTemplate') {
+			if (resource === 'message' && (operation === 'sendTemplate' || operation === 'sendAndWait' || operation === 'getCatalog' || operation === 'sendFlow')) {
+				continue;
+			}
+
+			if (resource === 'broadcast' && (operation === 'create' || operation === 'addRecipients')) {
 				continue;
 			}
 
@@ -147,6 +188,58 @@ describe('routing', () => {
 
 		expect(sendRequest.body).toBeUndefined();
 		expect(cancelRequest.body).toBeUndefined();
+	});
+
+	it('builds broadcast:create asynchronously', async () => {
+		const request = await buildBroadcastCreateRequest(
+			createMockExecuteFunctions({
+				resource: 'broadcast',
+				operation: 'create',
+				broadcastName: 'Weekend Sale',
+				phoneNumberId: PHONE,
+				broadcastTemplateId: '784203120908608',
+			}),
+			0,
+		);
+
+		expect(request).toMatchObject({
+			api: 'platform',
+			method: 'POST',
+			path: '/whatsapp/broadcasts',
+		});
+		expect(request.body).toEqual({
+			whatsapp_broadcast: {
+				name: 'Weekend Sale',
+				phone_number_id: PHONE,
+				whatsapp_template_id: '784203120908608',
+			},
+		});
+	});
+
+	it('builds broadcast:addRecipients asynchronously', async () => {
+		const request = await buildBroadcastAddRecipientsRequest(
+			createMockExecuteFunctions({
+				resource: 'broadcast',
+				operation: 'addRecipients',
+				broadcastRecipients: {
+					recipientValues: [
+						{ phoneNumber: { mode: 'phone', value: '+14155550123', __rl: true } },
+					],
+				},
+			}),
+			0,
+		);
+
+		expect(request).toMatchObject({
+			api: 'platform',
+			method: 'POST',
+			path: `/whatsapp/broadcasts/${BROADCAST}/recipients`,
+		});
+		expect(request.body).toEqual({
+			whatsapp_broadcast: {
+				recipients: [{ phone_number: '+14155550123' }],
+			},
+		});
 	});
 
 	it('builds message list query from dedicated filter fields', () => {
@@ -260,5 +353,37 @@ describe('routing', () => {
 		expect(resolveWhatsappCustomPath(PHONE, '/messages')).toBe(`/${PHONE}/messages`);
 		expect(() => customRelativePath('https://api.kapso.ai/platform')).toThrow(/must be relative/);
 		expect(() => customRelativePath('../whatsapp/contacts')).toThrow(/\.\./);
+	});
+
+	it('builds get catalog request from the selected phone WABA', async () => {
+		const request = await buildGetCatalogRequest(
+			createMockExecuteFunctions({
+				resource: 'message',
+				operation: 'getCatalog',
+			}),
+			0,
+		);
+
+		expect(request).toEqual({
+			api: 'whatsapp',
+			method: 'GET',
+			path: '/WABA_TEST/product_catalogs',
+		});
+	});
+
+	it('builds send flow request with auto-resolved draft mode', async () => {
+		const request = await buildSendFlowRequest(
+			createMockExecuteFunctions({
+				resource: 'message',
+				operation: 'sendFlow',
+				flowId: 'kapso-uuid|flow-1|draft|3.0|0|WELCOME',
+			}),
+			0,
+		);
+
+		expect(request.api).toBe('whatsapp');
+		expect(request.method).toBe('POST');
+		expect((request.body as { interactive?: { action?: { parameters?: { flow_id?: string; mode?: string } } } }).interactive?.action?.parameters?.flow_id).toBe('flow-1');
+		expect((request.body as { interactive?: { action?: { parameters?: { mode?: string } } } }).interactive?.action?.parameters?.mode).toBe('draft');
 	});
 });

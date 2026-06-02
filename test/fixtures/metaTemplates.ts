@@ -112,8 +112,28 @@ export const locationHeaderRaw: IDataObject = {
 	],
 };
 
+export const namedHeaderVariableRaw: IDataObject = {
+	name: 'seasonal_sale',
+	language: 'en_US',
+	parameter_format: 'named',
+	components: [
+		{ type: 'HEADER', format: 'TEXT', text: 'Sale {{sale_name}}' },
+		{
+			type: 'BODY',
+			text: 'Hi {{first_name}}, shop our {{sale_name}} event today.',
+			example: {
+				body_text_named_params: [
+					{ param_name: 'first_name', example: 'Jessica' },
+					{ param_name: 'sale_name', example: 'Summer' },
+				],
+			},
+		},
+	],
+};
+
 export const approvedTemplateList: IDataObject[] = [
 	namedOrderUpdateRaw,
+	namedHeaderVariableRaw,
 	positionalReminderRaw,
 	noBodyVariablesRaw,
 	imageHeaderRaw,
@@ -123,6 +143,7 @@ export const approvedTemplateList: IDataObject[] = [
 ];
 
 export const namedOrderUpdateDefinition = parseTemplateDefinition(namedOrderUpdateRaw);
+export const namedHeaderVariableDefinition = parseTemplateDefinition(namedHeaderVariableRaw);
 export const positionalReminderDefinition = parseTemplateDefinition(positionalReminderRaw);
 export const noBodyVariablesDefinition = parseTemplateDefinition(noBodyVariablesRaw);
 export const imageHeaderDefinition = parseTemplateDefinition(imageHeaderRaw);

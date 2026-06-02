@@ -97,9 +97,15 @@ function contactLabel(entry: IDataObject): string {
 function broadcastLabel(entry: IDataObject): string {
 	const id = String(entry.id ?? '');
 	const name = String(entry.name ?? entry.title ?? 'Broadcast');
-	const status = entry.status ? ` · ${String(entry.status)}` : '';
+	const status = entry.status ? String(entry.status) : '';
+	const template = entry.whatsapp_template;
+	const templateName =
+		template && typeof template === 'object'
+			? String((template as IDataObject).name ?? '')
+			: '';
+	const summary = [name, templateName, status].filter(Boolean).join(' · ');
 
-	return `${name}${status} (${id})`;
+	return `${summary || 'Broadcast'} (${id})`;
 }
 
 function contactValue(entry: IDataObject): string {
@@ -157,6 +163,7 @@ async function searchPaginatedResource(
 	filter?: string,
 	paginationToken?: string,
 	query: IDataObject = {},
+	entryFilter?: (entry: IDataObject) => boolean,
 ): Promise<INodeListSearchResult> {
 	const page = parsePageToken(paginationToken);
 	const response = await kapsoLoadOptionsRequest(context, {
@@ -170,7 +177,13 @@ async function searchPaginatedResource(
 		},
 	});
 
-	const entries = extractResponseData(response).filter((entry) => matchesFilter(entry, filter));
+	const entries = extractResponseData(response).filter((entry) => {
+		if (entryFilter && !entryFilter(entry)) {
+			return false;
+		}
+
+		return matchesFilter(entry, filter);
+	});
 	const totalPages = (response as { meta?: { total_pages?: number } }).meta?.total_pages;
 
 	return {
@@ -223,17 +236,44 @@ export async function searchContacts(
 	);
 }
 
+function broadcastStatusForOperation(operation: string | undefined): string | undefined {
+	if (!operation) {
+		return undefined;
+	}
+
+	if (['addRecipients', 'send', 'schedule'].includes(operation)) {
+		return 'draft';
+	}
+
+	if (operation === 'cancel') {
+		return 'scheduled';
+	}
+
+	return undefined;
+}
+
 export async function searchBroadcasts(
 	this: ILoadOptionsFunctions,
 	filter?: string,
 	paginationToken?: string,
 ): Promise<INodeListSearchResult> {
-	return searchPaginatedResource(
+	const operation = this.getCurrentNodeParameter('operation');
+	const requiredStatus = broadcastStatusForOperation(
+		typeof operation === 'string' ? operation : undefined,
+	);
+
+	const result = await searchPaginatedResource(
 		this,
 		'/whatsapp/broadcasts',
 		broadcastLabel,
 		(entry) => String(entry.id ?? ''),
 		filter,
 		paginationToken,
+		requiredStatus ? { status: requiredStatus } : {},
+		requiredStatus
+			? (entry) => String(entry.status ?? '').toLowerCase() === requiredStatus
+			: undefined,
 	);
+
+	return result;
 }

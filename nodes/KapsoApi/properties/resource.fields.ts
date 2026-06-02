@@ -4,7 +4,6 @@ import {
 	e164PhoneResourceLocatorField,
 	FILTER_STRING_MAX,
 	httpUrlStringField,
-	interactiveHeaderTextField,
 	limitedStringField,
 	mediaIdStringField,
 	metaPhoneResourceLocatorField,
@@ -14,9 +13,11 @@ import {
 	CUSTOM_RELATIVE_PATH_MAX,
 } from './fieldConstraints';
 import {
-	templateButtonParameterCollectionOptions,
-	templateButtonParametersField,
-} from './templateShared.fields';
+	KAPSO_DOCS,
+	withKapsoDoc,
+} from './expressionHints';
+import { broadcastFields } from './broadcast.fields';
+import { optionalLabel } from './displayNames';
 
 const listSearchMode = (searchListMethod: string) => ({
 	displayName: 'From List',
@@ -76,7 +77,8 @@ export const resourceFields: INodeProperties[] = [
 				operation: ['download'],
 			},
 		},
-		description: 'Short-lived token returned by the media URL endpoint download_url',
+		description:
+			'Short-lived download_url token returned by Get Media URL (not the media ID itself)',
 	},
 	{
 		displayName: 'Output Binary Property',
@@ -90,6 +92,7 @@ export const resourceFields: INodeProperties[] = [
 				operation: ['download'],
 			},
 		},
+		description: 'Output binary property name where the downloaded file is stored',
 	},
 	{
 		displayName: 'Conversation',
@@ -120,23 +123,13 @@ export const resourceFields: INodeProperties[] = [
 				operation: ['get', 'update', 'erase'],
 			},
 		},
-		description: 'Contact UUID, phone number, or WhatsApp ID. Search shows 5 recent contacts.',
+		description: withKapsoDoc(
+			'Contact UUID, phone number, or WhatsApp ID. Search shows 5 recent contacts',
+			KAPSO_DOCS.inboxMessaging,
+			'Contacts',
+		),
 	},
-	{
-		displayName: 'Broadcast',
-		name: 'broadcastId',
-		type: 'resourceLocator',
-		default: { mode: 'list', value: '' },
-		required: true,
-		modes: [listSearchMode('searchBroadcasts'), uuidResourceLocatorIdMode('broadcast-uuid')],
-		displayOptions: {
-			show: {
-				resource: ['broadcast'],
-				operation: ['get', 'addRecipients', 'listRecipients', 'send', 'schedule', 'cancel'],
-			},
-		},
-		description: 'Broadcast campaign. Search shows 5 recent campaigns; type to filter.',
-	},
+	...broadcastFields,
 	{
 		displayName: 'Custom API Surface',
 		name: 'customApiSurface',
@@ -171,6 +164,7 @@ export const resourceFields: INodeProperties[] = [
 			{ name: 'PUT', value: 'PUT' },
 			{ name: 'DELETE', value: 'DELETE' },
 		],
+		description: 'HTTP method for the custom Kapso API request',
 	},
 	limitedStringField('customPath', 'Custom Relative Path', CUSTOM_RELATIVE_PATH_MAX, {
 		displayOptions: {
@@ -180,8 +174,11 @@ export const resourceFields: INodeProperties[] = [
 		},
 		required: true,
 		placeholder: '/whatsapp/contacts',
-		description:
-			'Relative path under the selected API surface. For WhatsApp API with Phone Number set, use paths such as /messages and the phone ID is prefixed automatically.',
+		description: withKapsoDoc(
+			'Relative path under the selected API surface. For WhatsApp API with Phone Number set, use paths such as /messages and the phone ID is prefixed automatically',
+			KAPSO_DOCS.customApi,
+			'API',
+		),
 	}),
 	{
 		displayName: 'Status',
@@ -201,12 +198,17 @@ export const resourceFields: INodeProperties[] = [
 		},
 		description: 'Kapso conversation status (`active` reopens, `ended` closes)',
 	},
-	e164PhoneResourceLocatorField('contactWaId', 'WhatsApp ID', {
-		show: {
-			resource: ['contact'],
-			operation: ['create'],
+	e164PhoneResourceLocatorField(
+		'contactWaId',
+		'Contact Phone Number',
+		{
+			show: {
+				resource: ['contact'],
+				operation: ['create'],
+			},
 		},
-	}),
+		'E.164 phone number with leading +. Kapso stores it as the contact wa_id for WhatsApp messaging.',
+	),
 	{
 		displayName: 'Profile Name',
 		name: 'contactProfileName',
@@ -218,9 +220,10 @@ export const resourceFields: INodeProperties[] = [
 				operation: ['create', 'update'],
 			},
 		},
+		description: 'WhatsApp profile name shown in the Kapso inbox',
 	},
 	{
-		displayName: 'Display Name',
+		displayName: optionalLabel('Display Name'),
 		name: 'contactDisplayName',
 		type: 'string',
 		default: '',
@@ -230,6 +233,7 @@ export const resourceFields: INodeProperties[] = [
 				operation: ['create', 'update'],
 			},
 		},
+		description: 'Optional Kapso display name override for the contact',
 	},
 	uuidStringField('contactCustomerId', 'Customer ID', {
 		displayOptions: {
@@ -241,7 +245,7 @@ export const resourceFields: INodeProperties[] = [
 		description: 'Optional Kapso customer UUID',
 	}),
 	{
-		displayName: 'Metadata JSON',
+		displayName: optionalLabel('Metadata JSON'),
 		name: 'contactMetadataJson',
 		type: 'json',
 		default: '{}',
@@ -252,325 +256,6 @@ export const resourceFields: INodeProperties[] = [
 			},
 		},
 		description: 'Optional custom metadata object',
-	},
-	{
-		displayName: 'Broadcast Name',
-		name: 'broadcastName',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['broadcast'],
-				operation: ['create'],
-			},
-		},
-	},
-	{
-		displayName: 'Phone Number Name or ID',
-		name: 'broadcastPhoneNumberId',
-		type: 'options',
-		default: '',
-		required: true,
-		typeOptions: {
-			loadOptionsMethod: 'getPhoneNumbers',
-		},
-		displayOptions: {
-			show: {
-				resource: ['broadcast'],
-				operation: ['create'],
-			},
-		},
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-	},
-	{
-		displayName: 'Template Name or ID',
-		name: 'broadcastTemplateId',
-		type: 'options',
-		default: '',
-		required: true,
-		typeOptions: {
-			loadOptionsMethod: 'getBroadcastTemplates',
-			loadOptionsDependsOn: ['broadcastPhoneNumberId'],
-		},
-		displayOptions: {
-			show: {
-				resource: ['broadcast'],
-				operation: ['create'],
-			},
-		},
-		description:
-			'Approved template Meta ID from the selected phone number. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-	},
-	{
-		displayName: 'Scheduled At',
-		name: 'scheduledAt',
-		type: 'dateTime',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['broadcast'],
-				operation: ['schedule'],
-			},
-		},
-		description: 'ISO 8601 datetime when the broadcast should send',
-	},
-	{
-		displayName: 'Recipients',
-		name: 'broadcastRecipients',
-		type: 'fixedCollection',
-		typeOptions: {
-			multipleValues: true,
-		},
-		default: {},
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['broadcast'],
-				operation: ['addRecipients'],
-			},
-		},
-		options: [
-			{
-				displayName: 'Recipient',
-				name: 'recipientValues',
-				values: [
-					e164PhoneResourceLocatorField('phoneNumber', 'Phone Number', undefined, undefined, false),
-					uuidStringField('whatsappContactId', 'Contact ID', {
-						description: 'Optional existing Kapso contact UUID',
-					}),
-					{
-						displayName: 'Body Parameters',
-						name: 'bodyParameters',
-						type: 'fixedCollection',
-						typeOptions: {
-							multipleValues: true,
-						},
-						default: {},
-						options: [
-							{
-								displayName: 'Parameter',
-								name: 'bodyParameterValues',
-								values: [
-									{
-										displayName: 'Parameter Name',
-										name: 'parameterName',
-										type: 'string',
-										default: '',
-										placeholder: 'first_name',
-										description:
-											'Named template variable when the template uses named parameters',
-									},
-									{
-										displayName: 'Text',
-										name: 'parameterText',
-										type: 'string',
-										default: '',
-										required: true,
-									},
-								],
-							},
-						],
-					},
-					{
-						displayName: 'Component Mode',
-						name: 'componentMode',
-						type: 'options',
-						options: [
-							{ name: 'Standard', value: 'standard' },
-							{ name: 'Carousel', value: 'carousel' },
-						],
-						default: 'standard',
-					},
-					{
-						displayName: 'Header Type',
-						name: 'headerType',
-						type: 'options',
-						options: [
-							{ name: 'None', value: 'none' },
-							{ name: 'Text', value: 'text' },
-							{ name: 'Image', value: 'image' },
-							{ name: 'Video', value: 'video' },
-							{ name: 'Document', value: 'document' },
-							{ name: 'Location', value: 'location' },
-						],
-						default: 'none',
-						description: 'Standard template header type (ignored when Component Mode is Carousel)',
-					},
-					interactiveHeaderTextField('headerText', 'Header Text'),
-					{
-						displayName: 'Header Media Source',
-						name: 'headerMediaSource',
-						type: 'options',
-						options: [
-							{ name: 'Public Link', value: 'link' },
-							{ name: 'Media ID', value: 'id' },
-						],
-						default: 'link',
-						description: 'Media source when Header Type is Image, Video, or Document',
-					},
-					{
-						displayName: 'Header Media URL',
-						name: 'headerMediaUrl',
-						type: 'string',
-						default: '',
-						placeholder: 'https://cdn.example.com/banner.jpg',
-						description: 'Public media URL when Header Media Source is Public Link',
-					},
-					mediaIdStringField('headerMediaId', 'Header Media ID', undefined, false),
-					{
-						displayName: 'Header Latitude',
-						name: 'headerLatitude',
-						type: 'string',
-						default: '',
-						description: 'Location latitude when Header Type is Location',
-					},
-					{
-						displayName: 'Header Longitude',
-						name: 'headerLongitude',
-						type: 'string',
-						default: '',
-						description: 'Location longitude when Header Type is Location',
-					},
-					{
-						displayName: 'Header Location Name',
-						name: 'headerLocationName',
-						type: 'string',
-						default: '',
-						description: 'Location name when Header Type is Location',
-					},
-					{
-						displayName: 'Header Location Address',
-						name: 'headerLocationAddress',
-						type: 'string',
-						default: '',
-						description: 'Location address when Header Type is Location',
-					},
-					templateButtonParametersField('buttonParameters'),
-					{
-						displayName: 'Carousel Cards',
-						name: 'carouselCards',
-						type: 'fixedCollection',
-						typeOptions: {
-							multipleValues: true,
-						},
-						default: {},
-						description:
-							'Carousel cards when Component Mode is Carousel. Card count must match the approved template.',
-						options: [
-							{
-								displayName: 'Card',
-								name: 'cardValues',
-								values: [
-									{
-										displayName: 'Card Index',
-										name: 'cardIndex',
-										type: 'number',
-										default: 0,
-										required: true,
-										typeOptions: { minValue: 0 },
-									},
-									{
-										displayName: 'Header Type',
-										name: 'cardHeaderType',
-										type: 'options',
-										options: [
-											{ name: 'Image', value: 'image' },
-											{ name: 'Video', value: 'video' },
-										],
-										default: 'image',
-									},
-									{
-										displayName: 'Header Media Source',
-										name: 'cardHeaderMediaSource',
-										type: 'options',
-										options: [
-											{ name: 'Public Link', value: 'link' },
-											{ name: 'Media ID', value: 'id' },
-										],
-										default: 'link',
-									},
-									{
-										displayName: 'Header Media URL',
-										name: 'cardHeaderMediaUrl',
-										type: 'string',
-										default: '',
-										description: 'Public media URL when Header Media Source is Public Link',
-									},
-									mediaIdStringField('cardHeaderMediaId', 'Header Media ID', undefined, false),
-									{
-										displayName: 'Body Parameters',
-										name: 'cardBodyParameters',
-										type: 'fixedCollection',
-										typeOptions: { multipleValues: true },
-										default: {},
-										options: [
-											{
-												displayName: 'Parameter',
-												name: 'parameterValues',
-												values: [
-													{
-														displayName: 'Parameter Name',
-														name: 'parameterName',
-														type: 'string',
-														default: '',
-													},
-													{
-														displayName: 'Text',
-														name: 'parameterText',
-														type: 'string',
-														default: '',
-														required: true,
-													},
-												],
-											},
-										],
-									},
-									{
-										displayName: 'Button Parameters',
-										name: 'cardButtonParameters',
-										type: 'fixedCollection',
-										placeholder: 'Add Button Parameter',
-										typeOptions: {
-											multipleValues: true,
-											multipleValueButtonText: 'Add Button Parameter',
-										},
-										default: {},
-										description:
-											'Add one entry per carousel card button index. Pick the type that matches that button.',
-										options: templateButtonParameterCollectionOptions,
-									},
-								],
-							},
-						],
-					},
-					{
-						displayName: 'Advanced Components JSON',
-						name: 'recipientComponentsJson',
-						type: 'json',
-						default: '',
-						description:
-							'Optional raw Meta components array for this recipient. Overrides the body, header, and button fields above.',
-					},
-				],
-			},
-		],
-	},
-	{
-		displayName: 'Recipients Body JSON (Advanced)',
-		name: 'recipientsBodyJson',
-		type: 'json',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['broadcast'],
-				operation: ['addRecipients'],
-			},
-		},
-		description:
-			'Optional full Kapso request body with `whatsapp_broadcast.recipients` and Meta template components. When set, it overrides the Recipients builder.',
 	},
 	{
 		displayName: 'Phone Number Name or ID',
@@ -588,7 +273,7 @@ export const resourceFields: INodeProperties[] = [
 			},
 		},
 		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+			'WhatsApp account that stores the ingested media. Loaded from your connected Kapso numbers. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 	},
 	httpUrlStringField('ingestSourceUrl', 'Source URL', {
 		show: {
@@ -597,7 +282,7 @@ export const resourceFields: INodeProperties[] = [
 		},
 	}, {
 		placeholder: 'https://example.com/image.png',
-		description: 'Public URL of the media file to ingest',
+		description: 'Public URL of the media file to ingest into the selected WhatsApp account media store',
 	}),
 	{
 		displayName: 'Delivery',
@@ -614,6 +299,7 @@ export const resourceFields: INodeProperties[] = [
 				operation: ['uploadFromUrl'],
 			},
 		},
+		description: 'Whether Kapso stores the file as Meta media or a resumable upload asset',
 	},
 	{
 		displayName: 'Users',
@@ -630,6 +316,7 @@ export const resourceFields: INodeProperties[] = [
 				operation: ['block', 'unblock'],
 			},
 		},
+		description: 'Block or unblock WhatsApp users for this phone number',
 		options: [
 			{
 				displayName: 'User',
@@ -646,7 +333,7 @@ export const resourceFields: INodeProperties[] = [
 		],
 	},
 	{
-		displayName: 'Body JSON',
+		displayName: optionalLabel('Body JSON'),
 		name: 'bodyJson',
 		type: 'json',
 		default: '{}',
@@ -656,6 +343,6 @@ export const resourceFields: INodeProperties[] = [
 				customMethod: ['POST', 'PATCH', 'PUT', 'DELETE'],
 			},
 		},
-		description: 'Optional Kapso or Meta-compatible JSON request body for Custom API Call',
+		description: 'Optional JSON request body for Custom API Call',
 	},
 ];

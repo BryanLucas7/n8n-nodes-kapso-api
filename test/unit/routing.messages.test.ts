@@ -4,10 +4,12 @@ import * as messagePayloads from '../../nodes/KapsoApi/actions/messagePayloads';
 import {
 	buildMessageRequest,
 	buildRequest,
+	buildSendFlowRequest,
 	customRelativePath,
 	resolveWhatsappCustomPath,
 } from '../../nodes/KapsoApi/actions/routing';
 import { CUSTOM_API_CALL } from '../../nodes/KapsoApi/actions/operations';
+import * as flowAssets from '../../nodes/KapsoApi/loadOptions/flowAssets';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
 function messageRequest(operation: string, parameters: Record<string, unknown> = {}) {
@@ -350,38 +352,67 @@ describe('routing message edge cases', () => {
 	});
 
 	describe('sendFlow validation', () => {
-		it('requires flow id or flow name', () => {
-			expect(() =>
-				messageRequest('sendFlow', {
-					flowId: '',
-					flowName: '',
-				}),
-			).toThrow(/Provide a Flow ID or Flow Name/);
+		it('requires a flow id', async () => {
+			await expect(
+				buildSendFlowRequest(
+					createMockExecuteFunctions({
+						resource: 'message',
+						operation: 'sendFlow',
+						flowId: '',
+					}),
+					0,
+				),
+			).rejects.toThrow(/Select a Flow/);
 		});
 
-		it('rejects providing both flow id and flow name', () => {
-			expect(() =>
-				messageRequest('sendFlow', {
-					flowId: 'flow-1',
-					flowName: 'Checkout',
-				}),
-			).toThrow(/Provide only one of Flow ID or Flow Name/);
+		it('blocks data-exchange sends when flow encryption is not configured', async () => {
+			const enrichSpy = vi.spyOn(flowAssets, 'enrichFlowSelectionForExecute').mockResolvedValue({
+				metaFlowId: 'flow-1',
+				hasDataEndpoint: true,
+				flowsEncryptionConfigured: false,
+				defaultScreen: 'BOOKING',
+			});
+
+			try {
+				await expect(
+					buildSendFlowRequest(
+						createMockExecuteFunctions({
+							resource: 'message',
+							operation: 'sendFlow',
+							flowId: 'flow-1',
+							flowAction: 'data_exchange',
+						}),
+						0,
+					),
+				).rejects.toThrow(/Flow encryption is not configured/);
+			} finally {
+				enrichSpy.mockRestore();
+			}
 		});
 
-		it('builds sendFlow using flow name only', () => {
+		it('builds sendFlow using parsed flow metadata', async () => {
 			const spy = vi
 				.spyOn(messagePayloads, 'buildFlowMessage')
 				.mockReturnValue({ type: 'interactive' } as IDataObject);
 
 			try {
-				messageRequest('sendFlow', {
-					flowId: '',
-					flowName: 'Checkout',
-				});
+				await buildSendFlowRequest(
+					createMockExecuteFunctions({
+						resource: 'message',
+						operation: 'sendFlow',
+						flowId: 'kapso-uuid|flow-1|draft|3.0|0|BOOKING|Flow|0|0|',
+						flowOptions: {},
+					}),
+					0,
+				);
 
 				const flowArgs = spy.mock.calls[0] ?? [];
-				expect(flowArgs.at(-2)).toBeUndefined();
-				expect(flowArgs.at(-1)).toBe('Checkout');
+    expect(flowArgs[4]).toBe('3');
+				expect(flowArgs[5]).toBe('navigate');
+				expect(flowArgs[6]).toBe('BOOKING');
+				expect(flowArgs[9]).toBe('draft');
+				expect(flowArgs.at(-2)).toBe('flow-1');
+				expect(flowArgs.at(-1)).toBeUndefined();
 			} finally {
 				spy.mockRestore();
 			}

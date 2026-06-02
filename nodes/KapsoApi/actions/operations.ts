@@ -1,16 +1,49 @@
 import { INodePropertyOptions } from 'n8n-workflow';
+import { SEND_AND_WAIT_OPERATION } from 'n8n-workflow';
 
 export const CUSTOM_API_CALL = '__CUSTOM_API_CALL__';
 
 export const resourceOptions: INodePropertyOptions[] = [
-	{ name: 'Message', value: 'message' },
-	{ name: 'Platform Message', value: 'platformMessage' },
-	{ name: 'Media', value: 'media' },
-	{ name: 'Contact', value: 'contact' },
-	{ name: 'Conversation', value: 'conversation' },
-	{ name: 'Broadcast', value: 'broadcast' },
-	{ name: 'Block User', value: 'blockUser' },
-	{ name: 'Custom API Call', value: CUSTOM_API_CALL },
+	{
+		name: 'Message',
+		value: 'message',
+		description: 'Send text, media, interactive messages, templates, flows, and catalog messages to a recipient',
+	},
+	{
+		name: 'Platform Messages',
+		value: 'platformMessage',
+		description: 'List or get inbox messages across Kapso conversations by WAMID or filters',
+	},
+	{
+		name: 'Media',
+		value: 'media',
+		description: 'Upload, download, or delete WhatsApp media for the selected phone number',
+	},
+	{
+		name: 'Contact',
+		value: 'contact',
+		description: 'Create, update, list, or erase Kapso contact records tied to WhatsApp numbers',
+	},
+	{
+		name: 'Conversation',
+		value: 'conversation',
+		description: 'Get, list, or update Kapso inbox conversation status',
+	},
+	{
+		name: 'Broadcast',
+		value: 'broadcast',
+		description: 'Create draft campaigns, add recipients, send or schedule template broadcasts',
+	},
+	{
+		name: 'Block User',
+		value: 'blockUser',
+		description: 'Block or unblock WhatsApp users for the selected business phone number',
+	},
+	{
+		name: 'Custom API Call',
+		value: CUSTOM_API_CALL,
+		description: 'Call any documented Kapso or Meta-compatible endpoint with a custom path and body',
+	},
 ];
 
 export const operationOptionsByResource: Record<string, INodePropertyOptions[]> = {
@@ -25,14 +58,20 @@ export const operationOptionsByResource: Record<string, INodePropertyOptions[]> 
 		{ name: 'Request Location', value: 'requestLocation', action: 'Ask the user to share their location' },
 		{ name: 'Send Buttons', value: 'sendButtons', action: 'Send an interactive button message' },
 		{ name: 'Send List', value: 'sendList', action: 'Send an interactive list message' },
-		{ name: 'Send CTA URL', value: 'sendCtaUrl', action: 'Send an interactive call-to-action URL button' },
+		{ name: 'Send CTA', value: 'sendCta', action: 'Send an interactive call-to-action button (URL or phone)' },
 		{ name: 'Send Product', value: 'sendProduct', action: 'Send a single catalog product message' },
+		{ name: 'Get Catalogs', value: 'getCatalog', action: 'List WhatsApp product catalogs for the WABA' },
 		{ name: 'Send Product List', value: 'sendProductList', action: 'Send a multi-product catalog message' },
 		{ name: 'Send Catalog', value: 'sendCatalog', action: 'Send a catalog browse message' },
 		{ name: 'Send Flow', value: 'sendFlow', action: 'Send a WhatsApp Flow message' },
 		{ name: 'Request Call Permission', value: 'sendCallPermission', action: 'Request permission to call the user' },
 		{ name: 'Send Contact', value: 'sendContact', action: 'Send a contact card message' },
 		{ name: 'Send Template', value: 'sendTemplate', action: 'Send a template message' },
+		{
+			name: 'Send and Wait for Response',
+			value: SEND_AND_WAIT_OPERATION,
+			action: 'Send a message and wait for response',
+		},
 		{ name: 'Send or Remove Reaction', value: 'sendReaction', action: 'Send or remove a message reaction' },
 		{ name: 'Mark as Read', value: 'markRead', action: 'Mark a message as read' },
 		{ name: 'List Messages', value: 'list', action: 'List messages (advanced)' },
@@ -62,14 +101,22 @@ export const operationOptionsByResource: Record<string, INodePropertyOptions[]> 
 		{ name: 'Update Status', value: 'updateStatus', action: 'Update conversation status' },
 	],
 	broadcast: [
-		{ name: 'Create', value: 'create', action: 'Create a broadcast' },
+		{ name: 'Create Draft Broadcast', value: 'create', action: 'Create a draft broadcast campaign' },
 		{ name: 'List', value: 'list', action: 'List broadcasts' },
-		{ name: 'Add Recipients', value: 'addRecipients', action: 'Add broadcast recipients' },
-		{ name: 'Send', value: 'send', action: 'Send a broadcast' },
-		{ name: 'Schedule', value: 'schedule', action: 'Schedule a broadcast' },
+		{
+			name: 'Add Recipients to Broadcast',
+			value: 'addRecipients',
+			action: 'Add recipients to a draft broadcast',
+		},
+		{ name: 'Send Broadcast Now', value: 'send', action: 'Send a draft broadcast immediately' },
+		{ name: 'Schedule Broadcast', value: 'schedule', action: 'Schedule a draft broadcast' },
 		{ name: 'Get', value: 'get', action: 'Get a broadcast' },
 		{ name: 'List Recipients', value: 'listRecipients', action: 'List broadcast recipients' },
-		{ name: 'Cancel Scheduled Broadcast', value: 'cancel', action: 'Cancel a scheduled broadcast' },
+		{
+			name: 'Cancel Scheduled Broadcast',
+			value: 'cancel',
+			action: 'Cancel a scheduled broadcast and return it to draft',
+		},
 	],
 	blockUser: [
 		{ name: 'Block Users', value: 'block', action: 'Block users' },
@@ -107,7 +154,7 @@ export const messageSendOperations = [
 	'requestLocation',
 	'sendButtons',
 	'sendList',
-	'sendCtaUrl',
+	'sendCta',
 	'sendProduct',
 	'sendProductList',
 	'sendCatalog',
@@ -115,12 +162,15 @@ export const messageSendOperations = [
 	'sendCallPermission',
 	'sendContact',
 	'sendTemplate',
+	SEND_AND_WAIT_OPERATION,
 	'sendReaction',
 ] as const;
 
 export const messageMediaOperations = ['sendImage', 'sendVideo', 'sendAudio', 'sendDocument'] as const;
 
 export const messageStickerOperations = ['sendSticker'] as const;
+
+export const messageLinkPreviewOperations = ['sendText'] as const;
 
 export const messageReplyOperations = [
 	'sendText',
@@ -129,9 +179,13 @@ export const messageReplyOperations = [
 	'sendLocation',
 	'sendButtons',
 	'sendList',
-	'sendCtaUrl',
+	'sendCta',
 	'sendProduct',
 	'sendProductList',
 	'sendCatalog',
 	'sendFlow',
+	'sendContact',
+	'requestLocation',
+	'sendCallPermission',
+	SEND_AND_WAIT_OPERATION,
 ] as const;

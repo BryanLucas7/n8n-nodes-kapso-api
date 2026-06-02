@@ -76,6 +76,32 @@ describe('fetchSelectedTemplateDefinition', () => {
 		expect(request).toHaveBeenCalledTimes(2);
 	});
 
+	it('paginates approved templates on the execute path', async () => {
+		kapsoApiRequestMock
+			.mockResolvedValueOnce({
+				data: { business_account_id: 'waba-test' },
+			})
+			.mockResolvedValueOnce({
+				data: [{ name: 'page_one', language: 'en_US', status: 'APPROVED', components: [] }],
+				paging: { cursors: { after: 'cursor-2' } },
+			})
+			.mockResolvedValueOnce({
+				data: [namedOrderUpdateRaw],
+			});
+
+		const ef = createMockExecuteFunctions({
+			templateName: 'order_update',
+			languageCode: 'en_US',
+			phoneNumberId: TEST_PHONE_NUMBER_ID,
+		});
+		delete (ef.helpers as { request?: unknown }).request;
+
+		const definition = await fetchSelectedTemplateDefinition(ef);
+
+		expect(definition?.name).toBe('order_update');
+		expect(kapsoApiRequestMock).toHaveBeenCalledTimes(3);
+	});
+
 	it('loads template definitions through the execute transport when request helper is unavailable', async () => {
 		kapsoApiRequestMock
 			.mockResolvedValueOnce({

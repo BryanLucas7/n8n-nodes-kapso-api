@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-kapso-api",
-	"version": "0.7.3",
+	"version": "0.8.0",
   "description": "n8n community node for documented Kapso Platform and Meta-compatible WhatsApp APIs",
   "keywords": [
     "n8n-community-node-package",

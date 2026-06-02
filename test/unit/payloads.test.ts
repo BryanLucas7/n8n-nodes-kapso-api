@@ -5,6 +5,7 @@ import {
 	buildButtonsMessage,
 	buildCatalogMessage,
 	buildContactMessage,
+	buildCtaCallMessage,
 	buildCtaUrlMessage,
 	buildFlowMessage,
 	buildListMessage,
@@ -20,6 +21,7 @@ import {
 	buildTemplateMessageFromParams,
 	buildTextMessage,
 } from '../../nodes/KapsoApi/actions/messagePayloads';
+import { buildSendAndWaitMessagePayload } from '../../nodes/KapsoApi/sendAndWait/message';
 import { parseJsonObject, parseJsonValue } from '../../nodes/KapsoApi/transport/json';
 import {
 	BUTTON_TITLE_MAX,
@@ -196,6 +198,35 @@ describe('Kapso message payload builders', () => {
 					emails: [{ email: 'john@example.com', type: 'WORK' }],
 					org: { company: 'Kapso' },
 					urls: [{ url: 'https://kapso.ai', type: 'WORK' }],
+				},
+			],
+		});
+	});
+
+	it('builds contact payloads with reply context', () => {
+		expect(
+			buildContactMessage(
+				'15551234567',
+				[
+					{
+						formattedName: 'John Doe',
+						phones: {
+							phoneValues: [{ phoneNumber: '+15559876543' }],
+						},
+					},
+				],
+				'wamid.reply123',
+			),
+		).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'contacts',
+			context: { message_id: 'wamid.reply123' },
+			contacts: [
+				{
+					name: { formatted_name: 'John Doe' },
+					phones: [{ phone: '+15559876543', type: 'MOBILE' }],
 				},
 			],
 		});
@@ -424,6 +455,28 @@ describe('Kapso extended message payload builders', () => {
 			},
 		});
 
+		expect(
+			buildCtaCallMessage(
+				'15551234567',
+				'Call us',
+				'Call',
+				'+15559876543',
+				'none',
+			),
+		).toMatchObject({
+			type: 'interactive',
+			interactive: {
+				type: 'cta_call',
+				action: {
+					name: 'cta_call',
+					parameters: {
+						display_text: 'Call',
+						phone_number: '+15559876543',
+					},
+				},
+			},
+		});
+
 		expect(buildCatalogMessage('15551234567', 'Browse our catalog', 'SKU_THUMB')).toMatchObject({
 			type: 'interactive',
 			interactive: {
@@ -436,6 +489,21 @@ describe('Kapso extended message payload builders', () => {
 				},
 			},
 		});
+
+		expect(buildCatalogMessage('15551234567', 'Browse our catalog')).toMatchObject({
+			type: 'interactive',
+			interactive: {
+				type: 'catalog_message',
+				action: {
+					name: 'catalog_message',
+				},
+			},
+		});
+		expect(
+			(buildCatalogMessage('15551234567', 'Browse our catalog') as {
+				interactive: { action: { parameters?: unknown } };
+			}).interactive.action.parameters,
+		).toBeUndefined();
 	});
 
 	it('builds product and flow payloads', () => {
@@ -567,6 +635,41 @@ describe('Kapso extended message payload builders', () => {
 		});
 	});
 
+	it('adds reply context to location request, call permission, and send-and-wait payloads', () => {
+		expect(buildRequestLocationMessage('15551234567', 'Share your location', 'wamid.parent')).toEqual({
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to: '15551234567',
+			type: 'interactive',
+			context: { message_id: 'wamid.parent' },
+			interactive: {
+				type: 'location_request_message',
+				body: { text: 'Share your location' },
+				action: { name: 'send_location' },
+			},
+		});
+
+		expect(buildCallPermissionMessage('15551234567', 'May we call you?', 'wamid.parent')).toMatchObject({
+			context: { message_id: 'wamid.parent' },
+		});
+
+		expect(
+			buildSendAndWaitMessagePayload(
+				'15551234567',
+				{
+					message: 'Approve?',
+					options: [{ label: '✓ Approve', url: 'https://n8n.example/resume?approved=true' }],
+					replyToMessageId: 'wamid.parent',
+				},
+				'textLinks',
+				'instance-123',
+			),
+		).toMatchObject({
+			type: 'text',
+			context: { message_id: 'wamid.parent' },
+		});
+	});
+
 	it('rejects interactive payloads that exceed Meta limits', () => {
 		expect(() =>
 			buildButtonsMessage('15551234567', 'Pick one', [
@@ -641,7 +744,7 @@ describe('Kapso extended message payload builders', () => {
 				'3',
 				'navigate',
 			),
-		).toThrow(/Flow CTA is required/);
+		).toThrow(/Flow Button Label is required/);
 
 		expect(() =>
 			buildFlowMessage(
@@ -1222,6 +1325,19 @@ describe('Kapso extended message payload builders', () => {
 				},
 			},
 		});
+	});
+
+	it('rejects flow button labels longer than 20 characters', () => {
+		expect(() =>
+			buildFlowMessage(
+				'15551234567',
+				'Start',
+				'123456789012345678901',
+				'token',
+				'3',
+				'navigate',
+			),
+		).toThrow('Flow Button Label');
 	});
 
 	it('builds location, sticker, and media link payloads with reply context', () => {

@@ -16,7 +16,7 @@ const CUST_UUID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 describe('queryBuilders', () => {
 	it('builds message list filters from dedicated fields', () => {
 		const ef = createMockExecuteFunctions({
-			advancedOptions: {
+			messageListOptions: {
 				messageListConversationId: CONV_UUID,
 				messageListDirection: 'inbound',
 				messageListStatus: 'delivered',
@@ -37,7 +37,7 @@ describe('queryBuilders', () => {
 
 	it('prefers custom response fields over the Kapso extensions toggle', () => {
 		const ef = createMockExecuteFunctions({
-			advancedOptions: {
+			messageListOptions: {
 				messageResponseFields: 'kapso(direction,status)',
 			},
 		});
@@ -59,7 +59,7 @@ describe('queryBuilders', () => {
 
 	it('builds custom API query parameters from fixed collection', () => {
 		const ef = createMockExecuteFunctions({
-			advancedOptions: {
+			customApiOptions: {
 				customQueryParameters: {
 					parameterValues: [
 						{ name: 'page', value: '2' },

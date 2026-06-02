@@ -20,11 +20,18 @@ describe('KapsoTrigger node', () => {
 		expect(notices).toHaveLength(2);
 		expect(notices[0]?.name).toBe('kapsoSetupNotice');
 		expect(String(notices[0]?.displayName)).toContain('API &amp; Webhooks');
-		expect(String(notices[0]?.displayName)).toContain('Kapso dashboard');
-		expect(String(notices[0]?.displayName)).toContain('webhook documentation');
+		expect(String(notices[0]?.displayName)).toContain('Dashboard');
+		expect(String(notices[0]?.displayName)).toContain('Webhooks');
 		expect(String(notices[0]?.displayName)).toContain('<a href="');
 		expect(notices[1]?.name).toBe('kapsoEventsNotice');
+		expect(String(notices[0]?.displayName)).toContain('event-types');
+		expect(String(notices[0]?.displayName)).toContain('Production URL');
+		expect(String(notices[0]?.displayName)).toContain('Test URL');
+		expect(String(notices[0]?.displayName)).toContain('Webhook Secret');
 		expect(String(notices[1]?.displayName)).toContain('Message Received');
+		expect(String(notices[1]?.displayName)).toContain('kapso_event');
+		expect(String(notices[1]?.displayName)).not.toContain('event-types');
+		expect(String(notices[1]?.displayName)).not.toContain('security');
 	});
 
 	it('exposes documentationUrl for the node panel docs link', () => {

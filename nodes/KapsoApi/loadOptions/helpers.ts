@@ -108,6 +108,39 @@ export async function fetchAllListData(
 	return collected;
 }
 
+export async function fetchAllApprovedTemplateEntries(
+	context: ILoadOptionsFunctions,
+	wabaId: string,
+): Promise<IDataObject[]> {
+	const collected: IDataObject[] = [];
+	let after: string | undefined;
+
+	for (let page = 0; page < LOAD_OPTIONS_MAX_PAGES; page += 1) {
+		const response = await kapsoLoadOptionsRequest(context, {
+			api: 'whatsapp',
+			method: 'GET',
+			path: `/${encodeURIComponent(wabaId)}/message_templates`,
+			query: {
+				status: 'APPROVED',
+				limit: LOAD_OPTIONS_PAGE_SIZE,
+				...(after ? { after } : {}),
+			},
+		});
+
+		collected.push(...extractResponseData(response));
+
+		const nextAfter = (response as { paging?: { cursors?: { after?: string } } }).paging?.cursors
+			?.after;
+		if (!nextAfter || nextAfter === after) {
+			break;
+		}
+
+		after = nextAfter;
+	}
+
+	return collected;
+}
+
 export function toOptions(
 	entries: IDataObject[],
 	labelFn: (entry: IDataObject) => string,

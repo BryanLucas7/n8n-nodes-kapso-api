@@ -19,6 +19,90 @@ function normalizeHeaderValue(value: string | string[] | undefined): string | un
 	return value;
 }
 
+type WebhookRequestObject = {
+	rawBody?: Buffer | string;
+	body?: unknown;
+};
+
+export function resolveKapsoWebhookBody(
+	parsedBody: IDataObject,
+	request: WebhookRequestObject,
+): {
+	body: IDataObject;
+	rawBody?: Buffer | string;
+	isEmpty: boolean;
+	parseError?: string;
+} {
+	let body = parsedBody;
+	let rawBody = request.rawBody;
+	let parseError: string | undefined;
+
+	if (Object.keys(body ?? {}).length > 0) {
+		return {
+			body,
+			rawBody,
+			isEmpty: false,
+		};
+	}
+
+	if (rawBody !== undefined) {
+		const rawText = Buffer.isBuffer(rawBody) ? rawBody.toString('utf8') : String(rawBody);
+		const trimmed = rawText.trim();
+
+		if (!trimmed) {
+			return { body, rawBody, isEmpty: true };
+		}
+
+		try {
+			const fromRaw = JSON.parse(trimmed) as unknown;
+			if (typeof fromRaw === 'object' && fromRaw !== null && !Array.isArray(fromRaw)) {
+				body = fromRaw as IDataObject;
+			} else {
+				return {
+					body,
+					rawBody,
+					isEmpty: true,
+					parseError: 'Webhook body must be a JSON object.',
+				};
+			}
+		} catch {
+			return {
+				body,
+				rawBody,
+				isEmpty: true,
+				parseError: 'Webhook body is not valid JSON.',
+			};
+		}
+	} else {
+		const fallbackBody = request.body;
+		if (typeof fallbackBody === 'string' && fallbackBody.trim()) {
+			try {
+				const fromString = JSON.parse(fallbackBody) as unknown;
+				if (typeof fromString === 'object' && fromString !== null && !Array.isArray(fromString)) {
+					body = fromString as IDataObject;
+					rawBody = fallbackBody;
+				} else {
+					parseError = 'Webhook body must be a JSON object.';
+				}
+			} catch {
+				parseError = 'Webhook body is not valid JSON.';
+			}
+		} else if (fallbackBody && typeof fallbackBody === 'object' && !Array.isArray(fallbackBody)) {
+			body = fallbackBody as IDataObject;
+			rawBody = JSON.stringify(fallbackBody);
+		}
+	}
+
+	const isEmpty = Object.keys(body ?? {}).length === 0;
+
+	return {
+		body,
+		rawBody,
+		isEmpty,
+		...(isEmpty && parseError ? { parseError } : {}),
+	};
+}
+
 export function resolveKapsoWebhookEvent(
 	headerData: IDataObject,
 	body: IDataObject,
@@ -52,7 +136,11 @@ export function expandKapsoWebhookPayload(body: IDataObject): IDataObject[] {
 
 export function makeKapsoWebhookHandler(events: readonly KapsoWebhookEvent[]) {
 	return async function webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		const body = this.getBodyData() as IDataObject;
+		const request = this.getRequestObject() as WebhookRequestObject;
+		const { body, rawBody, isEmpty, parseError } = resolveKapsoWebhookBody(
+			this.getBodyData() as IDataObject,
+			request,
+		);
 		const headerData = this.getHeaderData();
 		const credentials = await this.getCredentials('kapsoApi');
 		const webhookSecret = String(credentials.webhookSecret ?? '').trim();
@@ -67,12 +155,11 @@ export function makeKapsoWebhookHandler(events: readonly KapsoWebhookEvent[]) {
 		}
 
 		const signature = resolveKapsoWebhookSignature(headerData);
-		const request = this.getRequestObject() as { rawBody?: Buffer | string };
 		const isValid = verifyKapsoWebhookSignature(
 			body,
 			signature,
 			webhookSecret,
-			request.rawBody,
+			rawBody,
 		);
 
 		if (!isValid) {
@@ -80,6 +167,17 @@ export function makeKapsoWebhookHandler(events: readonly KapsoWebhookEvent[]) {
 				webhookResponse: {
 					statusCode: 401,
 					body: 'Invalid webhook signature',
+				},
+			};
+		}
+
+		if (isEmpty) {
+			return {
+				webhookResponse: {
+					statusCode: 400,
+					body:
+						parseError ??
+						'Empty webhook body. Kapso could not parse the request payload.',
 				},
 			};
 		}

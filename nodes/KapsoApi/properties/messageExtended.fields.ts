@@ -1,5 +1,6 @@
 import { INodeProperties } from 'n8n-workflow';
 import { messageStickerOperations } from '../actions/operations';
+import { optionalLabel } from './displayNames';
 import {
 	catalogIdField,
 	ctaButtonLabelField,
@@ -17,15 +18,182 @@ import {
 	productRetailerIdField,
 	publicUrlStringField,
 } from './fieldConstraints';
+import { KAPSO_DOCS, withKapsoDoc } from './expressionHints';
 import {
 	interactiveHeaderMediaFields,
-	interactiveHeaderTypeOptions,
+	interactiveHeaderTypeField,
 	productListHeaderTypeOptions,
 } from './interactiveHeaderOptions';
+import {
+	FLOW_PREVIEW_NOTICE_DISPLAY_NAME,
+	FLOW_SINGLE_SCREEN_NOTICE_DISPLAY_NAME,
+	hideWhenFlowNavigateOnly,
+	hideWhenFlowSingleScreen,
+	showWhenFlowEncryptionWarning,
+	showWhenFlowPreviewAvailable,
+	showWhenFlowSelected,
+	showWhenFlowSingleScreenNotice,
+} from './flowDisplayConditions';
+import { flowModeField } from './flowMode.fields';
 
 const stickerOps = [...messageStickerOperations];
+const ctaOps = ['sendCta'];
 
-export const messageExtendedFields: INodeProperties[] = [
+/** Headers and setup fields shown before body text. */
+export const messageInteractiveHeaderFields: INodeProperties[] = [
+	interactiveHeaderTypeField('buttonHeaderType', 'Header Type', ['sendButtons']),
+	...interactiveHeaderMediaFields('button', ['sendButtons']),
+	interactiveHeaderTextField('headerText', 'Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendButtons'],
+			buttonHeaderType: ['text'],
+		},
+	}),
+	interactiveHeaderTypeField('listHeaderType', 'List Header Type', ['sendList']),
+	interactiveHeaderTextField('listHeaderText', 'List Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendList'],
+			listHeaderType: ['text'],
+		},
+	}),
+	...interactiveHeaderMediaFields('list', ['sendList']),
+	interactiveHeaderTypeField('ctaHeaderType', 'Header Type', ctaOps),
+	interactiveHeaderTextField('ctaHeaderText', 'Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ctaOps,
+			ctaHeaderType: ['text'],
+		},
+	}),
+	...interactiveHeaderMediaFields('cta', ctaOps),
+	{
+		displayName: 'Product List Header Type',
+		name: 'productListHeaderType',
+		type: 'options',
+		options: productListHeaderTypeOptions,
+		default: 'text',
+		required: true,
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendProductList'],
+			},
+		},
+		description: 'Header format for the multi-product list message',
+	},
+	limitedStringField('productListHeaderText', 'Product List Header Text', INTERACTIVE_HEADER_MAX, {
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendProductList'],
+				productListHeaderType: ['text'],
+			},
+		},
+		required: true,
+		description: 'Header text shown above the product sections',
+	}),
+	...interactiveHeaderMediaFields('productList', ['sendProductList']),
+	flowModeField,
+	flowIdField({
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
+		},
+	}),
+	{
+		displayName:
+			'Kapso always sends flow_message_version 3 to Meta. Flow JSON version in Kapso Dashboard is separate and does not change this field.',
+		name: 'flowMessageVersionNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendFlow'],
+				...showWhenFlowSelected,
+			},
+		},
+	},
+	{
+		displayName: FLOW_PREVIEW_NOTICE_DISPLAY_NAME,
+		name: 'flowPreviewNotice',
+		type: 'notice',
+		default: '',
+		typeOptions: {
+			theme: 'info',
+		},
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendFlow'],
+				...showWhenFlowPreviewAvailable,
+			},
+		},
+	},
+	{
+		displayName:
+			'This Flow uses a data endpoint but Flow encryption is not configured. Configure it in Kapso Dashboard > WhatsApp > Flows > [Flow] > Encryption before sending data-exchange messages.',
+		name: 'flowEncryptionNotice',
+		type: 'notice',
+		default: '',
+		typeOptions: {
+			theme: 'warning',
+		},
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendFlow'],
+				...showWhenFlowEncryptionWarning,
+			},
+		},
+	},
+	{
+		...interactiveHeaderTypeField('flowHeaderType', 'Flow Header Type', ['sendFlow']),
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendFlow'],
+				...showWhenFlowSelected,
+			},
+		},
+	},
+	interactiveHeaderTextField('flowHeaderText', 'Flow Header Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
+			flowHeaderType: ['text'],
+			...showWhenFlowSelected,
+		},
+	}),
+	...interactiveHeaderMediaFields('flow', ['sendFlow']).map((field) => ({
+		...field,
+		displayOptions: {
+			...field.displayOptions,
+			show: {
+				...(field.displayOptions?.show ?? {}),
+				...showWhenFlowSelected,
+			},
+		},
+	})),
+];
+
+/** Media, location, and catalog setup fields grouped with primary content. */
+export const messageMediaAndLocationFields: INodeProperties[] = [
+	{
+		displayName: 'Send As Voice Note',
+		name: 'sendAsVoiceNote',
+		type: 'boolean',
+		default: false,
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendAudio'],
+			},
+		},
+		description: 'Whether to send audio as a WhatsApp voice message (push-to-talk)',
+	},
 	{
 		displayName: 'Latitude',
 		name: 'locationLatitude',
@@ -41,6 +209,11 @@ export const messageExtendedFields: INodeProperties[] = [
 				operation: ['sendLocation'],
 			},
 		},
+		description: withKapsoDoc(
+			'Latitude in decimal degrees (-90 to 90)',
+			KAPSO_DOCS.sendLocation,
+			'Location',
+		),
 	},
 	{
 		displayName: 'Longitude',
@@ -57,9 +230,10 @@ export const messageExtendedFields: INodeProperties[] = [
 				operation: ['sendLocation'],
 			},
 		},
+		description: 'Longitude in decimal degrees (-180 to 180)',
 	},
 	{
-		displayName: 'Location Name',
+		displayName: optionalLabel('Location Name'),
 		name: 'locationName',
 		type: 'string',
 		default: '',
@@ -69,9 +243,10 @@ export const messageExtendedFields: INodeProperties[] = [
 				operation: ['sendLocation'],
 			},
 		},
+		description: 'Optional location title shown in the map pin',
 	},
 	{
-		displayName: 'Location Address',
+		displayName: optionalLabel('Location Address'),
 		name: 'locationAddress',
 		type: 'string',
 		default: '',
@@ -81,6 +256,7 @@ export const messageExtendedFields: INodeProperties[] = [
 				operation: ['sendLocation'],
 			},
 		},
+		description: 'Optional street address shown under the location name',
 	},
 	{
 		displayName: 'Sticker Source',
@@ -97,6 +273,7 @@ export const messageExtendedFields: INodeProperties[] = [
 				operation: stickerOps,
 			},
 		},
+		description: 'Whether the sticker is sent from a Meta media ID or a public WEBP URL',
 	},
 	mediaIdStringField('stickerMediaId', 'Sticker Media ID', {
 		show: {
@@ -112,124 +289,80 @@ export const messageExtendedFields: INodeProperties[] = [
 			stickerSource: ['link'],
 		},
 	}, 'Public HTTPS URL of a WEBP sticker'),
-	{
-		displayName: 'Header Type',
-		name: 'buttonHeaderType',
-		type: 'options',
-		options: interactiveHeaderTypeOptions,
-		default: 'none',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendButtons'],
-			},
-		},
-	},
-	...interactiveHeaderMediaFields('button', ['sendButtons']),
-	{
-		displayName: 'List Header Type',
-		name: 'listHeaderType',
-		type: 'options',
-		options: interactiveHeaderTypeOptions,
-		default: 'none',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendList'],
-			},
-		},
-	},
-	interactiveHeaderTextField('listHeaderText', 'List Header Text', {
-		show: {
-			resource: ['message'],
-			operation: ['sendList'],
-			listHeaderType: ['text'],
-		},
-	}),
-	...interactiveHeaderMediaFields('list', ['sendList']),
-	ctaButtonLabelField({
-		show: {
-			resource: ['message'],
-			operation: ['sendCtaUrl'],
-		},
-	}),
-	httpUrlStringField('ctaButtonUrl', 'Button URL', {
-		show: {
-			resource: ['message'],
-			operation: ['sendCtaUrl'],
-		},
-	}),
-	{
-		displayName: 'Header Type',
-		name: 'ctaHeaderType',
-		type: 'options',
-		options: interactiveHeaderTypeOptions,
-		default: 'none',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendCtaUrl'],
-			},
-		},
-	},
-	interactiveHeaderTextField('ctaHeaderText', 'Header Text', {
-		show: {
-			resource: ['message'],
-			operation: ['sendCtaUrl'],
-			ctaHeaderType: ['text'],
-		},
-	}),
-	...interactiveHeaderMediaFields('cta', ['sendCtaUrl']),
 	catalogIdField({
 		show: {
 			resource: ['message'],
 			operation: ['sendProduct', 'sendProductList'],
 		},
 	}),
-	productRetailerIdField('productRetailerId', 'Product Retailer ID', {
+	productRetailerIdField('productRetailerId', 'Product', {
 		show: {
 			resource: ['message'],
 			operation: ['sendProduct'],
 		},
 	}, true),
-	{
-		displayName: 'Send As Voice Note',
-		name: 'sendAsVoiceNote',
-		type: 'boolean',
-		default: false,
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendAudio'],
-			},
+	productRetailerIdField('catalogThumbnailProductId', 'Thumbnail Product', {
+		show: {
+			resource: ['message'],
+			operation: ['sendCatalog'],
 		},
-		description: 'Whether to send audio as a WhatsApp voice message (push-to-talk)',
-	},
+	}, false),
+];
+
+/** Action fields shown after body text (buttons, CTA target, flow action, product sections). */
+export const messageInteractiveActionFields: INodeProperties[] = [
 	{
-		displayName: 'Product List Header Type',
-		name: 'productListHeaderType',
+		displayName: 'CTA Type',
+		name: 'ctaType',
 		type: 'options',
-		options: productListHeaderTypeOptions,
-		default: 'text',
-		required: true,
+		options: [
+			{ name: 'URL', value: 'url' },
+			{ name: 'Phone Call', value: 'phone' },
+		],
+		default: 'url',
 		displayOptions: {
 			show: {
 				resource: ['message'],
-				operation: ['sendProductList'],
+				operation: ctaOps,
+			},
+		},
+		description: 'Whether the button opens a URL or starts a phone call',
+	},
+	ctaButtonLabelField({
+		show: {
+			resource: ['message'],
+			operation: ctaOps,
+		},
+	}),
+	httpUrlStringField('ctaButtonUrl', 'Button URL', {
+		show: {
+			resource: ['message'],
+			operation: ctaOps,
+			ctaType: ['url'],
+		},
+	}, {
+		description: withKapsoDoc(
+			'HTTPS URL opened when the recipient taps the button',
+			KAPSO_DOCS.sendButtons,
+			'Buttons',
+		),
+	}),
+	{
+		displayName: 'Button Phone Number',
+		name: 'ctaButtonPhone',
+		type: 'string',
+		default: '',
+		required: true,
+		placeholder: '+15551234567',
+		description: 'E.164 phone number with + that opens in the dialer when the recipient taps the button',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ctaOps,
+				ctaType: ['phone'],
 			},
 		},
 	},
-	limitedStringField('productListHeaderText', 'Product List Header Text', INTERACTIVE_HEADER_MAX, {
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendProductList'],
-				productListHeaderType: ['text'],
-			},
-		},
-		required: true,
-	}),
-	...interactiveHeaderMediaFields('productList', ['sendProductList']),
 	{
 		displayName: 'Product Sections',
 		name: 'productSections',
@@ -270,7 +403,7 @@ export const messageExtendedFields: INodeProperties[] = [
 								displayName: 'Product',
 								name: 'product',
 								values: [
-									productRetailerIdField('productRetailerId', 'Product SKU'),
+									productRetailerIdField('productRetailerId', 'Product'),
 								],
 							},
 						],
@@ -279,113 +412,54 @@ export const messageExtendedFields: INodeProperties[] = [
 			},
 		],
 	},
-	productRetailerIdField('catalogThumbnailProductId', 'Thumbnail SKU', {
-		show: {
-			resource: ['message'],
-			operation: ['sendCatalog'],
-		},
-	}),
-	{
-		displayName: 'Flow Mode',
-		name: 'flowMode',
-		type: 'options',
-		options: [
-			{ name: 'Default (Published)', value: '' },
-			{ name: 'Draft', value: 'draft' },
-			{ name: 'Published', value: 'published' },
-		],
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-			},
-		},
-		description: 'Whether to send the Flow in draft or published mode',
-	},
-	{
-		displayName: 'Flow Header Type',
-		name: 'flowHeaderType',
-		type: 'options',
-		options: interactiveHeaderTypeOptions,
-		default: 'none',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-			},
-		},
-	},
-	interactiveHeaderTextField('flowHeaderText', 'Flow Header Text', {
-		show: {
-			resource: ['message'],
-			operation: ['sendFlow'],
-			flowHeaderType: ['text'],
-		},
-	}),
-	...interactiveHeaderMediaFields('flow', ['sendFlow']),
-	interactiveFooterTextField('flowFooterText', 'Flow Footer Text', {
-		show: {
-			resource: ['message'],
-			operation: ['sendFlow'],
-		},
-	}),
-	flowIdField({
-		show: {
-			resource: ['message'],
-			operation: ['sendFlow'],
-		},
-	}),
-	{
-		displayName: 'Flow Name',
-		name: 'flowName',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-			},
-		},
-		description: 'Human-readable Flow name registered in Meta. Provide Flow ID or Flow Name, not both.',
-	},
 	flowCtaField({
 		show: {
 			resource: ['message'],
 			operation: ['sendFlow'],
+			...showWhenFlowSelected,
 		},
 	}),
 	flowTokenField({
 		show: {
 			resource: ['message'],
 			operation: ['sendFlow'],
+			...showWhenFlowSelected,
 		},
 	}),
 	{
-		displayName: 'Flow Message Version',
-		name: 'flowMessageVersion',
-		type: 'string',
-		default: '3',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendFlow'],
-			},
-		},
-	},
-	{
-		displayName: 'Flow Action',
+		displayName: optionalLabel('Flow Action'),
 		name: 'flowAction',
 		type: 'options',
-		options: [
-			{ name: 'Navigate', value: 'navigate' },
-			{ name: 'Data Exchange', value: 'data_exchange' },
-		],
-		default: 'navigate',
+		default: '',
+		typeOptions: {
+			loadOptionsMethod: 'getFlowActions',
+			loadOptionsDependsOn: ['phoneNumberId', 'flowId', 'flowMode'],
+		},
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendFlow'],
+				...showWhenFlowSelected,
+			},
+			hide: hideWhenFlowNavigateOnly,
+		},
+		description:
+			'Leave empty to use the action detected from the Flow. Choose Navigate to open a screen, or Data Exchange only when the Flow has a configured data endpoint',
+	},
+	{
+		displayName: FLOW_SINGLE_SCREEN_NOTICE_DISPLAY_NAME,
+		name: 'flowScreenAutoNotice',
+		type: 'notice',
+		default: '',
+		typeOptions: {
+			theme: 'info',
+		},
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendFlow'],
+				flowAction: ['navigate', ''],
+				...showWhenFlowSingleScreenNotice,
 			},
 		},
 	},
@@ -393,20 +467,59 @@ export const messageExtendedFields: INodeProperties[] = [
 		show: {
 			resource: ['message'],
 			operation: ['sendFlow'],
-			flowAction: ['navigate'],
+			flowAction: ['navigate', ''],
+			...showWhenFlowSelected,
 		},
+		hide: hideWhenFlowSingleScreen,
 	}),
 	{
-		displayName: 'Flow Initial Data JSON',
-		name: 'flowInitialDataJson',
-		type: 'json',
-		default: '{}',
+		displayName: 'Flow Initial Data',
+		name: 'flowInitialDataMapper',
+		type: 'resourceMapper',
+		noDataExpression: true,
+		default: {
+			mappingMode: 'defineBelow',
+			value: null,
+		},
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendFlow'],
+				...showWhenFlowSelected,
 			},
 		},
-		description: 'Optional initial data passed to the Flow screen',
+		typeOptions: {
+			loadOptionsDependsOn: ['phoneNumberId', 'flowId', 'flowScreen', 'flowMode'],
+			resourceMapper: {
+				resourceMapperMethod: 'getFlowInitialDataFields',
+				mode: 'add',
+				addAllFields: true,
+				supportAutoMap: false,
+				fieldWords: {
+					singular: 'initial data field',
+					plural: 'initial data fields',
+				},
+				noFieldsError: 'Select a Flow with screen data fields before mapping initial data.',
+			},
+		},
+		description: withKapsoDoc(
+			'Initial data fields for the selected Flow screen, as defined in the Flow builder. Map values sent when the Flow opens',
+			KAPSO_DOCS.sendFlow,
+			'Send Flow',
+		),
 	},
+	interactiveFooterTextField('flowFooterText', 'Flow Footer Text', {
+		show: {
+			resource: ['message'],
+			operation: ['sendFlow'],
+			...showWhenFlowSelected,
+		},
+	}),
+];
+
+/** @deprecated Use split exports from index.ts for field order. */
+export const messageExtendedFields: INodeProperties[] = [
+	...messageInteractiveHeaderFields,
+	...messageMediaAndLocationFields,
+	...messageInteractiveActionFields,
 ];

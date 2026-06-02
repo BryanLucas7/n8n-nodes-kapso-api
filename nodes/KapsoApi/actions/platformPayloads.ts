@@ -1,11 +1,13 @@
 import { ApplicationError, IDataObject, IExecuteFunctions } from 'n8n-workflow';
+import { assertBroadcastDraftForRecipients } from './broadcastPreflight';
 import { parseJsonObject } from '../transport/json';
+import { buildMetaTemplateComponents } from './templateComponents';
 import {
-	buildMetaTemplateComponents,
-	type TemplateComponentsInput,
-} from './templateComponents';
-import { buildRecipientTemplateComponentsInput } from './templateInput';
-import type { TemplateButtonParameterCollection } from './templateButtonInput';
+	buildBroadcastRecipientComponentsInputs,
+	buildBroadcastRecipientsFromInputItems,
+	type BroadcastRecipientEntry,
+} from './broadcastRecipientInput';
+import { resolveBroadcastCreateTemplateId } from '../loadOptions/broadcastCreateTemplate';
 import {
 	getFixedCollectionItems,
 	getOptionalJsonObject,
@@ -21,33 +23,59 @@ import {
 	validateOptionalUuid,
 } from './validation';
 
-type BodyParameterCollection = {
-	bodyParameterValues?: Array<{ parameterName?: string; parameterText: string }>;
-};
+function resolveBroadcastPhoneNumberId(ef: IExecuteFunctions, itemIndex: number): string {
+	const phoneNumberId = getString(ef, 'phoneNumberId', itemIndex);
+	if (phoneNumberId) {
+		return phoneNumberId;
+	}
 
-type ButtonParameterCollection = TemplateButtonParameterCollection;
+	return getString(ef, 'broadcastPhoneNumberId', itemIndex);
+}
 
-type BroadcastRecipientInput = Omit<
-	TemplateComponentsInput,
-	'bodyParameters' | 'buttonParameters' | 'carouselCards' | 'advancedComponentsJson'
-> & {
-	phoneNumber?: string | IDataObject;
-	whatsappContactId?: string;
-	bodyParameters?: BodyParameterCollection;
-	buttonParameters?: ButtonParameterCollection;
-	recipientComponentsJson?: string;
-	carouselCards?: {
-		cardValues?: Array<{
-			cardIndex: number;
-			cardHeaderType?: string;
-			cardHeaderMediaSource?: string;
-			cardHeaderMediaUrl?: string;
-			cardHeaderMediaId?: string;
-			cardBodyParameters?: BodyParameterCollection;
-			cardButtonParameters?: ButtonParameterCollection;
-		}>;
-	};
-};
+function resolveRecipientPhone(
+	entry: BroadcastRecipientEntry,
+	allowPlainPhone: boolean,
+): string | undefined {
+	if (typeof entry.phoneNumber === 'string') {
+		if (!allowPlainPhone) {
+			throw new ApplicationError('Phone Number must use the phone number selector');
+		}
+
+		return assertE164Phone(entry.phoneNumber, 'Phone Number');
+	}
+
+	return tryReadE164PhoneResourceLocatorValue(entry.phoneNumber, 'Phone Number');
+}
+
+function mapRecipientPayload(
+	entry: BroadcastRecipientEntry,
+	componentsInputIndex: number,
+	componentsInputs: Awaited<ReturnType<typeof buildBroadcastRecipientComponentsInputs>>,
+	allowPlainPhone: boolean,
+): IDataObject {
+	const phoneNumber = resolveRecipientPhone(entry, allowPlainPhone);
+
+	if (!phoneNumber && !entry.whatsappContactId?.trim()) {
+		throw new ApplicationError('Each broadcast recipient requires a phone number or contact ID.');
+	}
+
+	const recipient: IDataObject = {};
+
+	if (entry.whatsappContactId) {
+		recipient.whatsapp_contact_id = validateOptionalUuid(entry.whatsappContactId, 'Contact ID');
+	}
+
+	if (phoneNumber) {
+		recipient.phone_number = phoneNumber;
+	}
+
+	const components = buildMetaTemplateComponents(componentsInputs[componentsInputIndex]);
+	if (components) {
+		recipient.components = components;
+	}
+
+	return recipient;
+}
 
 export function buildConversationStatusBody(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	return {
@@ -60,8 +88,8 @@ export function buildConversationStatusBody(ef: IExecuteFunctions, itemIndex: nu
 export function buildContactCreateBody(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	const contact: IDataObject = {
 		wa_id: assertE164Phone(
-			getE164PhoneResourceLocatorValue(ef, 'contactWaId', itemIndex, 'WhatsApp ID'),
-			'WhatsApp ID',
+			getE164PhoneResourceLocatorValue(ef, 'contactWaId', itemIndex, 'Contact Phone Number'),
+			'Contact Phone Number',
 		),
 	};
 
@@ -102,73 +130,105 @@ export function buildContactUpdateBody(ef: IExecuteFunctions, itemIndex: number)
 	return { contact };
 }
 
-export function buildBroadcastCreateBody(ef: IExecuteFunctions, itemIndex: number): IDataObject {
+export async function buildBroadcastCreateBody(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): Promise<IDataObject> {
+	const phoneNumberId = resolveBroadcastPhoneNumberId(ef, itemIndex);
+	if (!phoneNumberId) {
+		throw new ApplicationError('Phone Number is required to create a broadcast.');
+	}
+
 	return {
 		whatsapp_broadcast: {
 			name: getString(ef, 'broadcastName', itemIndex),
-			phone_number_id: getString(ef, 'broadcastPhoneNumberId', itemIndex),
-			whatsapp_template_id: getString(ef, 'broadcastTemplateId', itemIndex),
+			phone_number_id: phoneNumberId,
+			whatsapp_template_id: await resolveBroadcastCreateTemplateId(ef, itemIndex),
 		},
 	};
+}
+
+export const BROADCAST_RECIPIENTS_MAX = 1000;
+
+function countRecipientsInAdvancedBody(body: IDataObject): number {
+	const nested = body.whatsapp_broadcast;
+	if (nested && typeof nested === 'object') {
+		const recipients = (nested as IDataObject).recipients;
+		if (Array.isArray(recipients)) {
+			return recipients.length;
+		}
+	}
+
+	if (Array.isArray(body.recipients)) {
+		return body.recipients.length;
+	}
+
+	return 0;
 }
 
 export function buildBroadcastScheduleBody(ef: IExecuteFunctions, itemIndex: number): IDataObject {
+	const scheduledAt = getString(ef, 'scheduledAt', itemIndex);
+	const scheduledTime = Date.parse(scheduledAt);
+
+	if (!scheduledAt.trim() || Number.isNaN(scheduledTime)) {
+		throw new ApplicationError('Scheduled At must be a valid ISO 8601 date and time with timezone.');
+	}
+
+	if (scheduledTime <= Date.now()) {
+		throw new ApplicationError('Scheduled At must be in the future.');
+	}
+
 	return {
-		whatsapp_broadcast: {
-			scheduled_at: getString(ef, 'scheduledAt', itemIndex),
-		},
+		scheduled_at: scheduledAt,
 	};
 }
 
-function buildRecipientTemplateComponents(entry: BroadcastRecipientInput): IDataObject[] | undefined {
-	return buildMetaTemplateComponents(buildRecipientTemplateComponentsInput(entry));
-}
-
-export function buildBroadcastAddRecipientsBody(
+export async function buildBroadcastAddRecipientsBody(
 	ef: IExecuteFunctions,
 	itemIndex: number,
-): IDataObject {
+): Promise<IDataObject> {
+	await assertBroadcastDraftForRecipients(ef, itemIndex);
+
 	const advancedJson = getString(ef, 'recipientsBodyJson', itemIndex);
 	if (advancedJson.trim()) {
-		return parseJsonObject(advancedJson, 'Recipients Body JSON');
-	}
-
-	const recipients = getFixedCollectionItems<BroadcastRecipientInput>(
-		ef,
-		'broadcastRecipients',
-		'recipientValues',
-		itemIndex,
-	).map((entry) => {
-		const phoneNumber = tryReadE164PhoneResourceLocatorValue(entry.phoneNumber, 'Phone Number');
-
-		if (!phoneNumber && !entry.whatsappContactId?.trim()) {
-			throw new ApplicationError('Each broadcast recipient requires a phone number or contact ID.');
-		}
-
-		const recipient: IDataObject = {};
-
-		if (entry.whatsappContactId) {
-			recipient.whatsapp_contact_id = validateOptionalUuid(
-				entry.whatsappContactId,
-				'Contact ID',
+		const body = parseJsonObject(advancedJson, 'Recipients Body JSON');
+		const recipientCount = countRecipientsInAdvancedBody(body);
+		if (recipientCount > BROADCAST_RECIPIENTS_MAX) {
+			throw new ApplicationError(
+				`Kapso accepts up to ${BROADCAST_RECIPIENTS_MAX} recipients per Add Recipients request. Split larger lists across multiple nodes.`,
 			);
 		}
 
-		if (phoneNumber) {
-			recipient.phone_number = assertE164Phone(phoneNumber, 'Phone Number');
-		}
+		return body;
+	}
 
-		const components = buildRecipientTemplateComponents(entry);
-		if (components) {
-			recipient.components = components;
-		}
+	const source = getString(ef, 'broadcastRecipientSource', itemIndex) || 'builder';
+	const allowPlainPhone = source === 'inputItems';
+	const entries =
+		source === 'inputItems'
+			? await buildBroadcastRecipientsFromInputItems(ef, itemIndex)
+			: getFixedCollectionItems<BroadcastRecipientEntry>(
+					ef,
+					'broadcastRecipients',
+					'recipientValues',
+					itemIndex,
+				);
 
-		return recipient;
-	});
-
-	if (!recipients.length) {
+	if (!entries.length) {
 		throw new ApplicationError('Add at least one broadcast recipient.');
 	}
+
+	if (entries.length > BROADCAST_RECIPIENTS_MAX) {
+		throw new ApplicationError(
+			`Kapso accepts up to ${BROADCAST_RECIPIENTS_MAX} recipients per Add Recipients request. Split larger lists across multiple nodes.`,
+		);
+	}
+
+	const componentsInputs = await buildBroadcastRecipientComponentsInputs(ef, itemIndex, entries);
+
+	const recipients = entries.map((entry, index) =>
+		mapRecipientPayload(entry, index, componentsInputs, allowPlainPhone),
+	);
 
 	return {
 		whatsapp_broadcast: {

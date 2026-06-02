@@ -1,21 +1,68 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { messageSendOperations } from '../../nodes/KapsoApi/actions/operations';
-import { buildRequest, buildSendTemplateRequest } from '../../nodes/KapsoApi/actions/routing';
+import { buildRequest, buildBroadcastAddRecipientsRequest, buildBroadcastCreateRequest, buildSendTemplateRequest } from '../../nodes/KapsoApi/actions/routing';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
 
-vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
-	fetchSelectedTemplateDefinition: vi.fn(async () => ({
+const fetchSelectedTemplateDefinitionMock = vi.hoisted(() =>
+	vi.fn(async () => ({
 		name: 'order_update',
 		language: 'en_US',
 		parameterFormat: 'named',
 		componentMode: 'standard',
 		headerFormat: 'text',
 		headerTextHasVariable: false,
-		bodyVariables: [{ id: 'first_name', displayName: 'first_name', parameterName: 'first_name' }],
+		bodyVariables: [
+			{
+				id: 'first_name',
+				displayName: 'first_name',
+				parameterName: 'first_name',
+				valueType: 'text',
+			},
+		],
 		buttonSlots: [],
 		carouselCards: [],
 	})),
+);
+
+vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../nodes/KapsoApi/loadOptions/templateFetch')>();
+	return {
+		...actual,
+		fetchSelectedTemplateDefinition: fetchSelectedTemplateDefinitionMock,
+		resolveSendTemplateContext: vi.fn(async () => {
+			const definition = await fetchSelectedTemplateDefinitionMock();
+			return {
+				identity: { name: definition.name, language: definition.language },
+				definition,
+			};
+		}),
+	};
+});
+
+vi.mock('../../nodes/KapsoApi/loadOptions/broadcastTemplateFetch', () => ({
+	loadBroadcastTemplateDefinition: vi.fn(async () => ({
+		name: 'plain',
+		language: 'en_US',
+		parameterFormat: 'named',
+		componentMode: 'standard',
+		headerFormat: 'none',
+		headerTextHasVariable: false,
+		bodyVariables: [],
+		buttonSlots: [],
+		carouselCards: [],
+	})),
+}));
+
+vi.mock('../../nodes/KapsoApi/loadOptions/broadcastCreateTemplate', () => ({
+	resolveBroadcastCreateTemplateId: vi.fn(async () => '784203120908608'),
+}));
+
+vi.mock('../../nodes/KapsoApi/actions/broadcastPreflight', () => ({
+	assertBroadcastDraftForRecipients: vi.fn(async () => undefined),
+	assertBroadcastReadyToSend: vi.fn(async () => undefined),
+	assertBroadcastScheduledForCancel: vi.fn(async () => undefined),
+	fetchBroadcastPreflight: vi.fn(async () => ({ status: 'draft', totalRecipients: 1 })),
 }));
 
 const PHONE = TEST_PHONE_NUMBER_ID;
@@ -123,7 +170,7 @@ describe('routing integration bodies', () => {
 			});
 		});
 
-		it('builds sendTemplate with header and body components', async () => {
+		it('builds sendTemplate with body components only for static text headers', async () => {
 			const request = await buildSendTemplateRequest(
 				createMockExecuteFunctions({
 					resource: 'message',
@@ -132,7 +179,6 @@ describe('routing integration bodies', () => {
 					languageCode: 'en_US',
 					templateDetectedHeaderFormat: 'text',
 					templateDetectedComponentMode: 'standard',
-					templateHeaderText: 'Order shipped',
 					templateBodyParametersMapper: {
 						mappingMode: 'defineBelow',
 						value: { first_name: 'Jessica' },
@@ -147,10 +193,6 @@ describe('routing integration bodies', () => {
 					name: 'order_update',
 					language: { code: 'en_US' },
 					components: [
-						{
-							type: 'header',
-							parameters: [{ type: 'text', text: 'Order shipped' }],
-						},
 						{
 							type: 'body',
 							parameters: [
@@ -183,7 +225,7 @@ describe('routing integration bodies', () => {
 		});
 
 		for (const operation of messageSendOperations) {
-			if (operation === 'sendReaction' || operation === 'sendTemplate') {
+			if (operation === 'sendReaction' || operation === 'sendTemplate' || operation === 'sendAndWait' || operation === 'sendFlow') {
 				continue;
 			}
 
@@ -234,18 +276,25 @@ describe('routing integration bodies', () => {
 			});
 		});
 
-		it('builds broadcast:create body', () => {
-			expect(
-				build('broadcast', 'create', {
-					broadcastName: 'Weekend Sale',
-					broadcastPhoneNumberId: PHONE,
-					broadcastTemplateId: '784203120908608',
-				}).body,
-			).toEqual({
-				whatsapp_broadcast: {
-					name: 'Weekend Sale',
-					phone_number_id: PHONE,
-					whatsapp_template_id: '784203120908608',
+		it('builds broadcast:create body', async () => {
+			await expect(
+				buildBroadcastCreateRequest(
+					createMockExecuteFunctions({
+						resource: 'broadcast',
+						operation: 'create',
+						broadcastName: 'Weekend Sale',
+						phoneNumberId: PHONE,
+						broadcastTemplateId: '784203120908608',
+					}),
+					0,
+				),
+			).resolves.toMatchObject({
+				body: {
+					whatsapp_broadcast: {
+						name: 'Weekend Sale',
+						phone_number_id: PHONE,
+						whatsapp_template_id: '784203120908608',
+					},
 				},
 			});
 		});
@@ -253,27 +302,32 @@ describe('routing integration bodies', () => {
 		it('builds broadcast:schedule body', () => {
 			expect(
 				build('broadcast', 'schedule', {
-					scheduledAt: '2026-06-01T12:00:00.000Z',
+					scheduledAt: '2099-06-01T12:00:00.000Z',
 				}).body,
 			).toEqual({
-				whatsapp_broadcast: {
-					scheduled_at: '2026-06-01T12:00:00.000Z',
-				},
+				scheduled_at: '2099-06-01T12:00:00.000Z',
 			});
 		});
 
-		it('builds broadcast:addRecipients body', () => {
-			expect(
-				build('broadcast', 'addRecipients', {
-					broadcastRecipients: {
-						recipientValues: [
-							{ phoneNumber: { mode: 'phone', value: '+14155550123', __rl: true } },
-						],
+		it('builds broadcast:addRecipients body', async () => {
+			await expect(
+				buildBroadcastAddRecipientsRequest(
+					createMockExecuteFunctions({
+						resource: 'broadcast',
+						operation: 'addRecipients',
+						broadcastRecipients: {
+							recipientValues: [
+								{ phoneNumber: { mode: 'phone', value: '+14155550123', __rl: true } },
+							],
+						},
+					}),
+					0,
+				),
+			).resolves.toMatchObject({
+				body: {
+					whatsapp_broadcast: {
+						recipients: [{ phone_number: '+14155550123' }],
 					},
-				}).body,
-			).toEqual({
-				whatsapp_broadcast: {
-					recipients: [{ phone_number: '+14155550123' }],
 				},
 			});
 		});

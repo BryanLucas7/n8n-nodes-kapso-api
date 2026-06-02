@@ -61,7 +61,7 @@ describe('nodeHelpers', () => {
 			contactWaId: { mode: 'phone', value: '+15551234567', __rl: true },
 		});
 
-		expect(getE164PhoneResourceLocatorValue(ef, 'contactWaId', 0, 'WhatsApp ID')).toBe(
+		expect(getE164PhoneResourceLocatorValue(ef, 'contactWaId', 0, 'Contact Phone Number')).toBe(
 			'+15551234567',
 		);
 		expect(readE164PhoneResourceLocatorValue({ mode: 'phone', value: '+15551234567', __rl: true }, 'Phone Number'),
@@ -79,11 +79,11 @@ describe('nodeHelpers', () => {
 	});
 
 	it('rejects invalid E.164 phone resource locator values', () => {
-		expect(() => readE164PhoneResourceLocatorValue('+15551234567', 'WhatsApp ID')).toThrow(
+		expect(() => readE164PhoneResourceLocatorValue('+15551234567', 'Contact Phone Number')).toThrow(
 			ApplicationError,
 		);
-		expect(() => readE164PhoneResourceLocatorValue({ invalid: true }, 'WhatsApp ID')).toThrow(
-			'WhatsApp ID is required.',
+		expect(() => readE164PhoneResourceLocatorValue({ invalid: true }, 'Contact Phone Number')).toThrow(
+			'Contact Phone Number is required.',
 		);
 		expect(() => tryReadE164PhoneResourceLocatorValue('+15551234567', 'Phone Number')).toThrow(
 			ApplicationError,
@@ -165,10 +165,14 @@ describe('nodeHelpers', () => {
 
 	it('parses advanced option helpers', () => {
 		const ef = createMockExecuteFunctions({
-			advancedOptions: {
+			messageSendOptions: {
 				replyToMessageId: 'wamid.parent',
 				linkPreview: true,
+			},
+			templateAdvancedOptions: {
 				advancedComponentsJson: ' {"type":"body"} ',
+			},
+			advancedOptions: {
 				customHeaders: {
 					headerValues: [{ name: 'X-Test', value: '1' }],
 				},
@@ -181,7 +185,7 @@ describe('nodeHelpers', () => {
 
 		expect(getReplyToMessageId(ef, 0)).toBe('wamid.parent');
 		expect(getLinkPreview(ef, 0, false)).toBe(true);
-		expect(advancedComponentsJson(ef, 0)).toBe(' {"type":"body"} ');
+		expect(advancedComponentsJson(ef, 0)).toBe('{"type":"body"}');
 		expect(getAdvancedOptionString(ef, 0, 'missing')).toBe('');
 		expect(getAdvancedOptionBoolean(ef, 0, 'missing', true)).toBe(true);
 		expect(getAdvancedOptionBoolean(ef, 0, 'linkPreview', false)).toBe(true);

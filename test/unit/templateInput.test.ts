@@ -17,6 +17,10 @@ import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
 vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
 	fetchSelectedTemplateDefinition: vi.fn(),
+	resolveSelectedTemplateIdentity: vi.fn(async () => ({
+		name: 'order_update',
+		language: 'en_US',
+	})),
 }));
 
 function mapperValue(entries: Record<string, string>) {
@@ -37,7 +41,6 @@ describe('buildSendTemplateComponentsInput', () => {
 		const ef = createMockExecuteFunctions({
 			templateDetectedHeaderFormat: 'text',
 			templateDetectedComponentMode: 'standard',
-			templateHeaderText: 'Order shipped',
 			templateBodyParametersMapper: mapperValue({
 				first_name: 'Jessica',
 				order_id: '12345',
@@ -47,7 +50,7 @@ describe('buildSendTemplateComponentsInput', () => {
 		await expect(buildSendTemplateComponentsInput(ef, 0)).resolves.toMatchObject({
 			componentMode: 'standard',
 			headerType: 'text',
-			headerText: 'Order shipped',
+			headerText: undefined,
 			bodyParameters: [
 				{ parameterName: 'first_name', parameterText: 'Jessica' },
 				{ parameterName: 'order_id', parameterText: '12345' },
@@ -84,23 +87,24 @@ describe('buildSendTemplateComponentsInput', () => {
 		const ef = createMockExecuteFunctions({
 			templateDetectedHeaderFormat: 'none',
 			templateDetectedComponentMode: 'carousel',
+			templateCarouselBodyParametersMapper: {
+				mappingMode: 'defineBelow',
+				value: {
+					card_0_param_1: 'Summer deal',
+					card_1_param_1: 'Video deal',
+				},
+			},
 			templateCarouselCards: {
 				cardValues: [
 					{
 						cardIndex: 0,
 						cardHeaderMediaSource: 'link',
 						cardHeaderMediaUrl: 'https://cdn.example.com/card-0.jpg',
-						cardBodyParameters: {
-							parameterValues: [{ parameterText: 'Summer deal' }],
-						},
 					},
 					{
 						cardIndex: 1,
 						cardHeaderMediaSource: 'id',
 						cardHeaderMediaId: 'video-media-id',
-						cardBodyParameters: {
-							parameterValues: [{ parameterText: 'Video deal' }],
-						},
 					},
 				],
 			},
@@ -113,11 +117,13 @@ describe('buildSendTemplateComponentsInput', () => {
 				cardIndex: 0,
 				headerType: 'image',
 				headerMediaUrl: 'https://cdn.example.com/card-0.jpg',
+				bodyParameters: [{ valueType: 'text', parameterText: 'Summer deal' }],
 			}),
 			expect.objectContaining({
 				cardIndex: 1,
 				headerType: 'video',
 				headerMediaId: 'video-media-id',
+				bodyParameters: [{ valueType: 'text', parameterText: 'Video deal' }],
 			}),
 		]);
 	});
@@ -128,6 +134,10 @@ describe('buildSendTemplateComponentsInput', () => {
 		const ef = createMockExecuteFunctions({
 			templateDetectedHeaderFormat: 'none',
 			templateDetectedComponentMode: 'carousel',
+			templateCarouselBodyParametersMapper: {
+				mappingMode: 'defineBelow',
+				value: {},
+			},
 			templateCarouselCards: {
 				cardValues: [{ cardIndex: 0 }],
 			},
@@ -144,6 +154,10 @@ describe('buildSendTemplateComponentsInput', () => {
 		const ef = createMockExecuteFunctions({
 			templateDetectedHeaderFormat: 'none',
 			templateDetectedComponentMode: 'carousel',
+			templateCarouselBodyParametersMapper: {
+				mappingMode: 'defineBelow',
+				value: {},
+			},
 			templateCarouselCards: {
 				cardValues: [
 					{ cardIndex: 0 },

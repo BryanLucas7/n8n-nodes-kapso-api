@@ -1,4 +1,5 @@
 import { INodeProperties } from 'n8n-workflow';
+import { optionalLabel } from './displayNames';
 
 export const broadcastListOptionsField: INodeProperties = {
 	displayName: 'Additional Options',
@@ -6,6 +7,7 @@ export const broadcastListOptionsField: INodeProperties = {
 	type: 'collection',
 	placeholder: 'Add Option',
 	default: {},
+	description: 'Optional filters and pagination when listing broadcasts',
 	displayOptions: {
 		show: {
 			resource: ['broadcast'],
@@ -14,25 +16,28 @@ export const broadcastListOptionsField: INodeProperties = {
 	},
 	options: [
 		{
-			displayName: 'Created After',
+			displayName: optionalLabel('Created After'),
 			name: 'broadcastCreatedAfter',
 			type: 'dateTime',
 			default: '',
+			description: 'Include broadcasts created on or after this time (ISO 8601)',
 		},
 		{
-			displayName: 'Created Before',
+			displayName: optionalLabel('Created Before'),
 			name: 'broadcastCreatedBefore',
 			type: 'dateTime',
 			default: '',
+			description: 'Include broadcasts created on or before this time (ISO 8601)',
 		},
 		{
-			displayName: 'Filter Phone Number ID',
+			displayName: optionalLabel('Filter Phone Number ID'),
 			name: 'broadcastListPhoneNumberId',
 			type: 'string',
 			default: '',
+			description: 'Filter by Kapso phone number UUID',
 		},
 		{
-			displayName: 'Status',
+			displayName: optionalLabel('Status'),
 			name: 'broadcastStatusFilter',
 			type: 'options',
 			options: [

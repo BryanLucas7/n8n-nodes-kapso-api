@@ -1,57 +1,213 @@
 import { ApplicationError, IExecuteFunctions, ResourceMapperValue } from 'n8n-workflow';
 import { parseJsonValue } from '../transport/json';
 import {
+	bodyParameterFieldIds,
+	carouselBodyFieldPrefix,
+	carouselBodyParameterFieldIds,
+	CURRENCY_AMOUNT_SUFFIX,
+	CURRENCY_CODE_SUFFIX,
+	CURRENCY_FALLBACK_SUFFIX,
+	DATE_TIME_FALLBACK_SUFFIX,
+	DATE_TIME_VALUE_SUFFIX,
+	readBodyParameterType,
+} from '../resourceMapping/templateParameters';
+import { fetchSelectedTemplateDefinition } from '../loadOptions/templateFetch';
+import { TemplateDefinition, TemplateCarouselCardDefinition } from '../loadOptions/templateDefinition';
+import type { TemplateBodyParameterInput, TemplateButtonParameterInput } from './templateComponents';
+import { getString } from './nodeHelpers';
+import { mergeTemplateButtonParameterGroups, type TemplateButtonParameterCollection } from './templateButtonInput';
+import {
 	buttonDynamicKindFromFieldId,
 	buttonIndexFromFieldId,
 } from '../resourceMapping/templateParameters';
-import { fetchSelectedTemplateDefinition } from '../loadOptions/templateFetch';
-import { TemplateDefinition } from '../loadOptions/templateDefinition';
-import type { TemplateBodyParameterInput, TemplateButtonParameterInput } from './templateComponents';
-import { getString } from './nodeHelpers';
 
 type ResourceMapperRecord = Record<string, unknown>;
+
+export function readResourceMapperRecord(value: unknown): ResourceMapperRecord {
+	if (value && typeof value === 'object' && 'value' in value) {
+		return ((value as ResourceMapperValue).value ?? {}) as ResourceMapperRecord;
+	}
+
+	return (value ?? {}) as ResourceMapperRecord;
+}
 
 function readResourceMapperValue(
 	ef: IExecuteFunctions,
 	parameterName: string,
 	itemIndex: number,
 ): ResourceMapperRecord {
-	const mapper = ef.getNodeParameter(parameterName, itemIndex, {
-		mappingMode: 'defineBelow',
-		value: null,
-	}) as ResourceMapperValue;
-
-	return (mapper.value ?? {}) as ResourceMapperRecord;
+	return readResourceMapperRecord(
+		ef.getNodeParameter(parameterName, itemIndex, {
+			mappingMode: 'defineBelow',
+			value: null,
+		}),
+	);
 }
 
-function bodyParametersFromMapper(
+function readMapperString(mapperValue: ResourceMapperRecord, fieldId: string): string {
+	const rawValue = mapperValue?.[fieldId];
+	return rawValue === null || rawValue === undefined ? '' : String(rawValue).trim();
+}
+
+function prefixedFieldId(idPrefix: string, fieldId: string): string {
+	return `${idPrefix}${fieldId}`;
+}
+
+function bodyParameterFromVariable(
+	mapperValue: ResourceMapperRecord,
+	variable: TemplateDefinition['bodyVariables'][number],
+	options?: {
+		idPrefix?: string;
+		displayName?: string;
+	},
+): TemplateBodyParameterInput {
+	const idPrefix = options?.idPrefix ?? '';
+	const displayName = options?.displayName ?? variable.displayName;
+	const valueType = readBodyParameterType(mapperValue, variable, idPrefix);
+
+	if (valueType === 'currency') {
+		const code = readMapperString(
+			mapperValue,
+			prefixedFieldId(idPrefix, `${variable.id}${CURRENCY_CODE_SUFFIX}`),
+		);
+		const amountRaw = mapperValue?.[prefixedFieldId(idPrefix, `${variable.id}${CURRENCY_AMOUNT_SUFFIX}`)];
+		const fallback = readMapperString(
+			mapperValue,
+			prefixedFieldId(idPrefix, `${variable.id}${CURRENCY_FALLBACK_SUFFIX}`),
+		);
+
+		if (!code || amountRaw === null || amountRaw === undefined || amountRaw === '' || !fallback) {
+			throw new ApplicationError(`Body parameter "${displayName}" is required for this template.`);
+		}
+
+		const amount = Number(amountRaw);
+		if (!Number.isFinite(amount)) {
+			throw new ApplicationError(`Body parameter "${displayName}" amount must be a number.`);
+		}
+
+		return {
+			parameterName: variable.parameterName,
+			valueType: 'currency',
+			currency: {
+				code,
+				fallback_value: fallback,
+				amount_1000: Math.round(amount * 1000),
+			},
+		};
+	}
+
+	if (valueType === 'date_time') {
+		const dateTimeRaw = mapperValue?.[prefixedFieldId(idPrefix, `${variable.id}${DATE_TIME_VALUE_SUFFIX}`)];
+		const fallback = readMapperString(
+			mapperValue,
+			prefixedFieldId(idPrefix, `${variable.id}${DATE_TIME_FALLBACK_SUFFIX}`),
+		);
+
+		if (!dateTimeRaw || !fallback) {
+			throw new ApplicationError(`Body parameter "${displayName}" is required for this template.`);
+		}
+
+		const parsedDate = new Date(String(dateTimeRaw));
+		if (Number.isNaN(parsedDate.getTime())) {
+			throw new ApplicationError(`Body parameter "${displayName}" date/time is invalid.`);
+		}
+
+		return {
+			parameterName: variable.parameterName,
+			valueType: 'date_time',
+			dateTime: {
+				fallback_value: fallback,
+				timestamp: Math.floor(parsedDate.getTime() / 1000),
+			},
+		};
+	}
+
+	const text = readMapperString(mapperValue, prefixedFieldId(idPrefix, variable.id));
+	if (!text) {
+		throw new ApplicationError(`Body parameter "${displayName}" is required for this template.`);
+	}
+
+	return {
+		parameterName: variable.parameterName,
+		valueType: 'text',
+		parameterText: text,
+	};
+}
+
+export function bodyParametersFromMapper(
 	mapperValue: ResourceMapperRecord,
 	definition: TemplateDefinition,
 ): TemplateBodyParameterInput[] {
-	const allowedIds = new Set(definition.bodyVariables.map((variable) => variable.id));
+	const allowedIds = new Set(bodyParameterFieldIds(definition.bodyVariables, mapperValue));
 	const parameters: TemplateBodyParameterInput[] = [];
 
 	for (const variable of definition.bodyVariables) {
-		const rawValue = mapperValue?.[variable.id];
-		const text = rawValue === null || rawValue === undefined ? '' : String(rawValue).trim();
-
-		if (!text) {
-			throw new ApplicationError(`Body parameter "${variable.displayName}" is required for this template.`);
-		}
-
-		parameters.push({
-			parameterName: variable.parameterName,
-			parameterText: text,
-		});
+		parameters.push(bodyParameterFromVariable(mapperValue, variable));
 	}
 
+	assertMapperFieldIds(mapperValue, allowedIds);
+
+	return parameters;
+}
+
+function assertMapperFieldIds(mapperValue: ResourceMapperRecord, allowedIds: Set<string>): void {
 	for (const fieldId of Object.keys(mapperValue)) {
 		if (!allowedIds.has(fieldId)) {
 			throw new ApplicationError(`Unexpected body parameter "${fieldId}" for the selected template.`);
 		}
 	}
+}
 
-	return parameters;
+export function bodyParametersForCarouselCard(
+	mapperValue: ResourceMapperRecord,
+	cardDefinition: TemplateCarouselCardDefinition,
+): TemplateBodyParameterInput[] {
+	const idPrefix = carouselBodyFieldPrefix(cardDefinition.cardIndex);
+
+	return cardDefinition.bodyVariables.map((variable) =>
+		bodyParameterFromVariable(mapperValue, variable, {
+			idPrefix,
+			displayName: `Card ${cardDefinition.cardIndex} · ${variable.displayName}`,
+		}),
+	);
+}
+
+function validateCarouselBodyMapperKeys(
+	mapperValue: ResourceMapperRecord,
+	definition: TemplateDefinition,
+): void {
+	if (definition.componentMode !== 'carousel') {
+		return;
+	}
+
+	const allowedIds = new Set(carouselBodyParameterFieldIds(definition.carouselCards, mapperValue));
+
+	for (const fieldId of Object.keys(mapperValue)) {
+		if (!allowedIds.has(fieldId)) {
+			throw new ApplicationError(
+				`Unexpected carousel body parameter "${fieldId}" for the selected template.`,
+			);
+		}
+	}
+}
+
+export function resolveCarouselBodyParametersForTemplate(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	definition: TemplateDefinition,
+): ResourceMapperRecord {
+	const mapperValue = readResourceMapperValue(ef, 'templateCarouselBodyParametersMapper', itemIndex);
+	validateCarouselBodyMapperKeys(mapperValue, definition);
+	return mapperValue;
+}
+
+export function resolveRecipientCarouselBodyMapper(
+	entry: { recipientCarouselBodyParametersMapper?: ResourceMapperValue },
+	definition: TemplateDefinition,
+): ResourceMapperRecord {
+	const mapperValue = readResourceMapperRecord(entry.recipientCarouselBodyParametersMapper);
+	validateCarouselBodyMapperKeys(mapperValue, definition);
+	return mapperValue;
 }
 
 function mpmSectionsFromJson(value: unknown, buttonIndex: number) {
@@ -99,7 +255,7 @@ function mpmSectionsFromJson(value: unknown, buttonIndex: number) {
 	});
 }
 
-function buttonParametersFromMapper(
+export function buttonParametersFromMapper(
 	mapperValue: ResourceMapperRecord,
 	definition: TemplateDefinition,
 ): TemplateButtonParameterInput[] {
@@ -254,6 +410,18 @@ export function resolveBodyParametersForTemplate(
 	);
 }
 
+export function resolveButtonParametersFromSources(
+	structuredButtons: TemplateButtonParameterInput[],
+	mapperButtons: TemplateButtonParameterInput[],
+	definition: TemplateDefinition,
+): TemplateButtonParameterInput[] {
+	if (structuredButtons.length === 0) {
+		return mapperButtons;
+	}
+
+	return mergeButtonParameterSources(mapperButtons, structuredButtons, definition);
+}
+
 export function resolveButtonParametersForTemplate(
 	ef: IExecuteFunctions,
 	itemIndex: number,
@@ -263,10 +431,59 @@ export function resolveButtonParametersForTemplate(
 		return [];
 	}
 
-	return buttonParametersFromMapper(
+	const structuredButtons = mergeTemplateButtonParameterGroups(
+		ef.getNodeParameter('templateButtonParameters', itemIndex, {}) as TemplateButtonParameterCollection,
+	);
+	const mapperButtons = buttonParametersFromMapper(
 		readResourceMapperValue(ef, 'templateButtonParametersMapper', itemIndex),
 		definition,
 	);
+
+	return resolveButtonParametersFromSources(structuredButtons, mapperButtons, definition);
+}
+
+function mergeButtonParameterSources(
+	mapperButtons: TemplateButtonParameterInput[],
+	structuredButtons: TemplateButtonParameterInput[],
+	definition: TemplateDefinition,
+): TemplateButtonParameterInput[] {
+	const byIndex = new Map<number, TemplateButtonParameterInput>();
+
+	for (const button of mapperButtons) {
+		byIndex.set(button.buttonIndex ?? 0, button);
+	}
+
+	for (const button of structuredButtons) {
+		byIndex.set(button.buttonIndex ?? 0, button);
+	}
+
+	for (const slot of definition.buttonSlots) {
+		if (!slot.dynamicKind) {
+			continue;
+		}
+
+		const button = byIndex.get(slot.index);
+		const isMissing =
+			!button ||
+			(slot.dynamicKind === 'mpm'
+				? !button.mpmSections?.length
+				: slot.dynamicKind !== 'catalog_thumbnail' &&
+					!button.buttonText?.trim() &&
+					!button.buttonPayload?.trim() &&
+					!button.flowToken?.trim());
+
+		if (isMissing && slot.dynamicKind !== 'catalog_thumbnail') {
+			if (slot.dynamicKind === 'mpm') {
+				throw new ApplicationError(
+					`Button ${slot.index} (MPM) requires structured sections under Button Parameters.`,
+				);
+			}
+
+			throw new ApplicationError(`Button ${slot.index} (${slot.subType}) is missing required send parameters.`);
+		}
+	}
+
+	return [...byIndex.values()].sort((left, right) => (left.buttonIndex ?? 0) - (right.buttonIndex ?? 0));
 }
 
 export function assertTemplateStructureSelection(
@@ -307,6 +524,12 @@ export function assertHeaderValuesForTemplate(
 	}
 
 	if (definition.headerFormat === 'text') {
+		if (!definition.headerTextHasVariable && values.headerText?.trim()) {
+			throw new ApplicationError(
+				'This template has a static text header and does not accept a header parameter.',
+			);
+		}
+
 		if (definition.headerTextHasVariable && !values.headerText?.trim()) {
 			throw new ApplicationError('Header text is required for this template.');
 		}
@@ -337,19 +560,44 @@ export async function loadSendTemplateDefinition(
 
 	if (!definition) {
 		throw new ApplicationError(
-			'Could not load the selected template definition. Check phone number, template name, and language.',
+			'Could not load the selected template definition. Check phone number and template selection.',
 		);
 	}
 
 	return definition;
 }
 
+export function resolveTemplateHeaderMediaSource(
+	explicitSource?: string,
+	mediaUrl?: string,
+	mediaId?: string,
+): 'link' | 'id' {
+	const source = explicitSource?.trim();
+	if (source === 'id' || source === 'link') {
+		return source;
+	}
+
+	if (mediaId?.trim() && !mediaUrl?.trim()) {
+		return 'id';
+	}
+
+	return 'link';
+}
+
 export function readTemplateHeaderValues(ef: IExecuteFunctions, itemIndex: number) {
+	const headerMediaUrl = getString(ef, 'templateHeaderMediaUrl', itemIndex);
+	const headerMediaId = getString(ef, 'templateHeaderMediaId', itemIndex);
+
 	return {
 		headerText: getString(ef, 'templateHeaderText', itemIndex),
-		headerMediaSource: getString(ef, 'templateHeaderMediaSource', itemIndex) || 'link',
-		headerMediaUrl: getString(ef, 'templateHeaderMediaUrl', itemIndex),
-		headerMediaId: getString(ef, 'templateHeaderMediaId', itemIndex),
+		headerMediaSource: resolveTemplateHeaderMediaSource(
+			getString(ef, 'templateHeaderMediaSource', itemIndex),
+			headerMediaUrl,
+			headerMediaId,
+		),
+		headerMediaUrl,
+		headerMediaId,
+		headerDocumentFilename: getString(ef, 'templateHeaderDocumentFilename', itemIndex),
 		headerLatitude: getString(ef, 'templateHeaderLatitude', itemIndex),
 		headerLongitude: getString(ef, 'templateHeaderLongitude', itemIndex),
 		headerLocationName: getString(ef, 'templateHeaderLocationName', itemIndex),

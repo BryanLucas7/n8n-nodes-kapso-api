@@ -2,17 +2,23 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	getTemplateDetectedComponentMode,
 	getTemplateDetectedHeaderFormat,
+	getTemplateHeaderTextHasVariable,
 } from '../../nodes/KapsoApi/loadOptions/templateStructureOptions';
 import { fetchSelectedTemplateDefinition } from '../../nodes/KapsoApi/loadOptions/templateFetch';
 import {
 	carouselPromoDefinition,
 	imageHeaderDefinition,
+	namedHeaderVariableDefinition,
 	namedOrderUpdateDefinition,
 } from '../fixtures/metaTemplates';
 import { createLoadOptionsContext } from '../fixtures/loadOptionsContext';
 
 vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
 	fetchSelectedTemplateDefinition: vi.fn(),
+	resolveSelectedTemplateIdentity: vi.fn(async () => ({
+		name: 'order_update',
+		language: 'en_US',
+	})),
 }));
 
 describe('template structure loadOptions', () => {
@@ -53,6 +59,18 @@ describe('template structure loadOptions', () => {
 
 		await expect(getTemplateDetectedComponentMode.call(createLoadOptionsContext())).resolves.toEqual([
 			{ name: 'Standard', value: 'standard' },
+		]);
+	});
+
+	it('auto-detects whether the text header has a variable', async () => {
+		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValueOnce(namedOrderUpdateDefinition);
+		await expect(getTemplateHeaderTextHasVariable.call(createLoadOptionsContext())).resolves.toEqual([
+			{ name: 'Static header', value: 'no' },
+		]);
+
+		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValueOnce(namedHeaderVariableDefinition);
+		await expect(getTemplateHeaderTextHasVariable.call(createLoadOptionsContext())).resolves.toEqual([
+			{ name: 'Header has variable', value: 'yes' },
 		]);
 	});
 

@@ -36,6 +36,27 @@ describe('buildMetaTemplateComponents', () => {
 		]);
 	});
 
+	it('builds named text header parameters with parameter_name', () => {
+		expect(
+			buildMetaTemplateComponents({
+				headerType: 'text',
+				headerText: 'Summer Sale',
+				parameterFormat: 'named',
+				headerVariable: {
+					id: 'sale_name',
+					displayName: 'sale_name',
+					parameterName: 'sale_name',
+					valueType: 'text',
+				},
+			}),
+		).toEqual([
+			{
+				type: 'header',
+				parameters: [{ type: 'text', text: 'Summer Sale', parameter_name: 'sale_name' }],
+			},
+		]);
+	});
+
 	it('builds image header from media id', () => {
 		expect(
 			buildMetaTemplateComponents({
@@ -47,6 +68,30 @@ describe('buildMetaTemplateComponents', () => {
 			{
 				type: 'header',
 				parameters: [{ type: 'image', image: { id: 'media-123' } }],
+			},
+		]);
+	});
+
+	it('builds document header with optional filename', () => {
+		expect(
+			buildMetaTemplateComponents({
+				headerType: 'document',
+				headerMediaSource: 'link',
+				headerMediaUrl: 'https://cdn.example.com/invoice.pdf',
+				headerDocumentFilename: 'invoice.pdf',
+			}),
+		).toEqual([
+			{
+				type: 'header',
+				parameters: [
+					{
+						type: 'document',
+						document: {
+							link: 'https://cdn.example.com/invoice.pdf',
+							filename: 'invoice.pdf',
+						},
+					},
+				],
 			},
 		]);
 	});
@@ -290,12 +335,12 @@ describe('buildMetaTemplateComponents', () => {
 			).toThrow(/must be a JSON array/);
 		});
 
-		it('rejects empty advanced components JSON array', () => {
-			expect(() =>
+		it('treats empty advanced components JSON array as absent', () => {
+			expect(
 				buildMetaTemplateComponents({
 					advancedComponentsJson: '[]',
 				}),
-			).toThrow(/non-empty JSON array/);
+			).toBeUndefined();
 		});
 
 		it('rejects carousel mode without cards', () => {

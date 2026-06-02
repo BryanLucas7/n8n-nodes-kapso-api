@@ -14,6 +14,7 @@ import {
 	validateButtonTitle,
 	validateCatalogId,
 	validateCtaButtonLabel,
+	validateCtaPhoneNumber,
 	validateDocumentFilename,
 	validateFlowCta,
 	validateFlowId,
@@ -387,13 +388,18 @@ export function buildListMessage(
 	);
 }
 
-export function buildContactMessage(to: string, contacts: KapsoContactInput[]): IDataObject {
-	return {
-		messaging_product: 'whatsapp',
-		recipient_type: 'individual',
-		to,
-		type: 'contacts',
-		contacts: contacts.map((contact) => {
+export function buildContactMessage(
+	to: string,
+	contacts: KapsoContactInput[],
+	replyToMessageId?: string,
+): IDataObject {
+	return withReplyContext(
+		{
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to,
+			type: 'contacts',
+			contacts: contacts.map((contact) => {
 			const phones: IDataObject[] = [];
 
 			for (const phone of contact.phones?.phoneValues ?? []) {
@@ -499,7 +505,9 @@ export function buildContactMessage(to: string, contacts: KapsoContactInput[]): 
 
 			return entry;
 		}),
-	};
+		},
+		replyToMessageId,
+	);
 }
 
 export function buildTemplateMessageFromParams(
@@ -636,24 +644,31 @@ export function buildStickerMessage(
 	);
 }
 
-export function buildRequestLocationMessage(to: string, bodyText: string): IDataObject {
+export function buildRequestLocationMessage(
+	to: string,
+	bodyText: string,
+	replyToMessageId?: string,
+): IDataObject {
 	const validatedBody = validateInteractiveBodyText(bodyText);
 
-	return {
-		messaging_product: 'whatsapp',
-		recipient_type: 'individual',
-		to,
-		type: 'interactive',
-		interactive: {
-			type: 'location_request_message',
-			body: {
-				text: validatedBody,
-			},
-			action: {
-				name: 'send_location',
+	return withReplyContext(
+		{
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to,
+			type: 'interactive',
+			interactive: {
+				type: 'location_request_message',
+				body: {
+					text: validatedBody,
+				},
+				action: {
+					name: 'send_location',
+				},
 			},
 		},
-	};
+		replyToMessageId,
+	);
 }
 
 export function buildCtaUrlMessage(
@@ -685,6 +700,69 @@ export function buildCtaUrlMessage(
 			parameters: {
 				display_text: validatedLabel,
 				url: validatedUrl,
+			},
+		},
+	};
+
+	const header = resolveInteractiveHeader(
+		headerType,
+		headerText,
+		headerMediaSource,
+		headerMediaUrl,
+		headerMediaId,
+		headerDocumentFilename,
+	);
+	if (header) {
+		interactive.header = header;
+	}
+
+	if (validatedFooter) {
+		interactive.footer = {
+			text: validatedFooter,
+		};
+	}
+
+	return withReplyContext(
+		{
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to,
+			type: 'interactive',
+			interactive,
+		},
+		replyToMessageId,
+	);
+}
+
+export function buildCtaCallMessage(
+	to: string,
+	bodyText: string,
+	buttonLabel: string,
+	buttonPhoneNumber: string,
+	headerType: CtaHeaderType,
+	headerText?: string,
+	headerMediaSource: 'link' | 'id' = 'link',
+	headerMediaUrl?: string,
+	headerMediaId?: string,
+	headerDocumentFilename?: string,
+	footer?: string,
+	replyToMessageId?: string,
+): IDataObject {
+	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedLabel = validateCtaButtonLabel(buttonLabel);
+	const validatedPhone = validateCtaPhoneNumber(buttonPhoneNumber);
+	const validatedFooter = validateInteractiveFooterText(footer);
+
+	const interactive: IDataObject = {
+		type: 'cta_call',
+		body: {
+			text: validatedBody,
+		},
+		action: {
+			name: 'cta_call',
+			parameters: {
+				display_text: validatedLabel,
+				phone_number: validatedPhone,
 			},
 		},
 	};
@@ -848,14 +926,19 @@ export function buildProductListMessage(
 export function buildCatalogMessage(
 	to: string,
 	bodyText: string,
-	thumbnailProductRetailerId: string,
+	thumbnailProductRetailerId?: string,
 	replyToMessageId?: string,
 ): IDataObject {
 	const validatedBody = validateInteractiveBodyText(bodyText);
-	const validatedThumbnailId = validateProductRetailerId(
-		thumbnailProductRetailerId,
-		'Thumbnail Product Retailer ID',
-	);
+	const trimmedThumbnail = thumbnailProductRetailerId?.trim() ?? '';
+	const parameters: IDataObject = {};
+
+	if (trimmedThumbnail) {
+		parameters.thumbnail_product_retailer_id = validateProductRetailerId(
+			trimmedThumbnail,
+			'Thumbnail Product Retailer ID',
+		);
+	}
 
 	return withReplyContext(
 		{
@@ -870,9 +953,7 @@ export function buildCatalogMessage(
 				},
 				action: {
 					name: 'catalog_message',
-					parameters: {
-						thumbnail_product_retailer_id: validatedThumbnailId,
-					},
+					...(Object.keys(parameters).length > 0 ? { parameters } : {}),
 				},
 			},
 		},
@@ -979,22 +1060,29 @@ export function buildFlowMessage(
 	);
 }
 
-export function buildCallPermissionMessage(to: string, bodyText: string): IDataObject {
+export function buildCallPermissionMessage(
+	to: string,
+	bodyText: string,
+	replyToMessageId?: string,
+): IDataObject {
 	const validatedBody = validateInteractiveBodyText(bodyText);
 
-	return {
-		messaging_product: 'whatsapp',
-		recipient_type: 'individual',
-		to,
-		type: 'interactive',
-		interactive: {
-			type: 'call_permission_request',
-			body: {
-				text: validatedBody,
-			},
-			action: {
-				name: 'call_permission_request',
+	return withReplyContext(
+		{
+			messaging_product: 'whatsapp',
+			recipient_type: 'individual',
+			to,
+			type: 'interactive',
+			interactive: {
+				type: 'call_permission_request',
+				body: {
+					text: validatedBody,
+				},
+				action: {
+					name: 'call_permission_request',
+				},
 			},
 		},
-	};
+		replyToMessageId,
+	);
 }

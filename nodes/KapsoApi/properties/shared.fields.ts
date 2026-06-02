@@ -1,11 +1,10 @@
 import { INodeProperties } from 'n8n-workflow';
 import {
+	CUSTOM_API_CALL,
 	messageSendOperations,
 	operationOptionsByResource,
 	resourcesWithPagination,
-	CUSTOM_API_CALL,
 } from '../actions/operations';
-import { filterStringField, uuidStringField } from './fieldConstraints';
 
 function operationKeysToOperations(keys: string[]): string[] {
 	return [...new Set(keys.map((key) => key.split(':')[1]))];
@@ -13,30 +12,28 @@ function operationKeysToOperations(keys: string[]): string[] {
 
 const paginatedOperations = operationKeysToOperations(resourcesWithPagination);
 
-const phoneNumberIdOperations = [
+const messagePhoneNumberIdOperations = [
 	...messageSendOperations,
+	'getCatalog',
 	'markRead',
 	'list',
 	'get',
+];
+
+const phoneNumberIdOperations = [
+	...messagePhoneNumberIdOperations,
 	'uploadBinary',
 	'getUrl',
 	'delete',
 	'block',
 	'unblock',
+	'create',
 ];
-
-const messageOperationsWithoutAdvancedOptions = [
-	'sendContact',
-	'sendReaction',
-	'markRead',
-	'requestLocation',
-	'sendCallPermission',
-] as const;
 
 const phoneNumberIdShowRules: Array<NonNullable<INodeProperties['displayOptions']>> = [
 	{
 		show: {
-			resource: ['message', 'media', 'blockUser'],
+			resource: ['message', 'media', 'blockUser', 'broadcast'],
 			operation: phoneNumberIdOperations,
 		},
 	},
@@ -65,7 +62,7 @@ export const phoneNumberIdFields: INodeProperties[] = phoneNumberIdShowRules.map
 	},
 	displayOptions,
 	description:
-		'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+		'Connected Kapso WhatsApp number for this operation. Loaded from your Kapso project and used for sends, templates, flows, catalogs, and media. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 }));
 
 export const paginationFields: INodeProperties[] = [
@@ -119,140 +116,6 @@ export const paginationFields: INodeProperties[] = [
 			'Results per request. Maps to Kapso `limit` for cursor-paginated lists (max 100) or `per_page` for broadcast lists.',
 	},
 ];
-
-export const advancedOptionsField: INodeProperties = {
-	displayName: 'Additional Options',
-	name: 'advancedOptions',
-	type: 'collection',
-	placeholder: 'Add Option',
-	default: {},
-	displayOptions: {
-		show: {
-			resource: ['message', CUSTOM_API_CALL],
-		},
-		hide: {
-			resource: ['message'],
-			operation: [...messageOperationsWithoutAdvancedOptions],
-		},
-	},
-	options: [
-		{
-			displayName: 'Advanced Components JSON',
-			name: 'advancedComponentsJson',
-			type: 'json',
-			default: '[]',
-			description: 'Optional raw Meta template components array for sendTemplate',
-		},
-		{
-			displayName: 'After Cursor',
-			name: 'messageListAfter',
-			type: 'string',
-			default: '',
-			description: 'Cursor for the next page when listing messages (paging.cursors.after)',
-		},
-		{
-			displayName: 'Before Cursor',
-			name: 'messageListBefore',
-			type: 'string',
-			default: '',
-			description: 'Cursor for the previous page when listing messages (paging.cursors.before)',
-		},
-		uuidStringField('messageListConversationId', 'Conversation ID', {
-			description: 'Filter messages by Kapso conversation UUID when listing messages',
-		}),
-		filterStringField('messageResponseFields', 'Custom Response Fields', 'Optional Meta fields query override for list/get. Replaces the default Kapso extensions field set.'),
-		{
-			displayName: 'Direction',
-			name: 'messageListDirection',
-			type: 'options',
-			options: [
-				{ name: 'All', value: '' },
-				{ name: 'Inbound', value: 'inbound' },
-				{ name: 'Outbound', value: 'outbound' },
-			],
-			default: '',
-			description: 'Filter listed messages by direction',
-		},
-		{
-			displayName: 'Link Preview',
-			name: 'linkPreview',
-			type: 'boolean',
-			default: false,
-			description: 'Whether to enable URL link preview when sending text messages',
-		},
-		{
-			displayName: 'Query Parameters',
-			name: 'customQueryParameters',
-			type: 'fixedCollection',
-			typeOptions: {
-				multipleValues: true,
-				sortable: true,
-			},
-			default: {},
-			description: 'Optional query string parameters for custom API requests',
-			options: [
-				{
-					displayName: 'Parameter',
-					name: 'parameterValues',
-					values: [
-						{
-							displayName: 'Name',
-							name: 'name',
-							type: 'string',
-							default: '',
-							required: true,
-							placeholder: 'page',
-						},
-						{
-							displayName: 'Value',
-							name: 'value',
-							type: 'string',
-							default: '',
-							required: true,
-							placeholder: '1',
-						},
-					],
-				},
-			],
-		},
-		{
-			displayName: 'Reply To Message ID',
-			name: 'replyToMessageId',
-			type: 'string',
-			default: '',
-			description: 'WhatsApp message ID to reply to',
-		},
-		{
-			displayName: 'Since',
-			name: 'messageListSince',
-			type: 'dateTime',
-			default: '',
-			description: 'Include listed messages created on or after this time (ISO 8601)',
-		},
-		{
-			displayName: 'Status',
-			name: 'messageListStatus',
-			type: 'options',
-			options: [
-				{ name: 'All', value: '' },
-				{ name: 'Pending', value: 'pending' },
-				{ name: 'Sent', value: 'sent' },
-				{ name: 'Delivered', value: 'delivered' },
-				{ name: 'Read', value: 'read' },
-				{ name: 'Failed', value: 'failed' },
-			],
-			default: '',
-			description: 'Filter listed messages by delivery status',
-		},
-		{
-			displayName: 'Until',
-			name: 'messageListUntil',
-			type: 'dateTime',
-			default: '',
-			description: 'Include listed messages created on or before this time (ISO 8601)',
-		},
-	],
-};
 
 export function operationProperties(): INodeProperties[] {
 	// eslint-disable-next-line n8n-nodes-base/node-param-default-missing

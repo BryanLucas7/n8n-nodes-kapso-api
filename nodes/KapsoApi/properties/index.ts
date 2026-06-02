@@ -1,9 +1,23 @@
 import { INodeProperties } from 'n8n-workflow';
 import { resourceOptions } from '../actions/operations';
-import { messageFields } from './message.fields';
-import { messageExtendedFields } from './messageExtended.fields';
 import {
-	advancedOptionsField,
+	messageInteractiveContentFields,
+	messagePrimaryFields,
+	messageTemplateAndAdminFields,
+} from './message.fields';
+import { messageBodyFields } from './messageBody.fields';
+import {
+	messageInteractiveActionFields,
+	messageInteractiveHeaderFields,
+	messageMediaAndLocationFields,
+} from './messageExtended.fields';
+import { messageInteractiveFooterFields } from './messageInteractiveFooter.fields';
+import { messageSendOptionsField } from './messageSendOptions.fields';
+import { messageLinkPreviewField } from './messageLinkPreview.fields';
+import { messageListOptionsField } from './messageListOptions.fields';
+import { templateAdvancedOptionsField } from './templateAdvancedOptions.fields';
+import { customApiOptionsField } from './customApiOptions.fields';
+import {
 	operationProperties,
 	paginationFields,
 	phoneNumberIdFields,
@@ -21,16 +35,29 @@ export const kapsoNodeProperties: INodeProperties[] = [
 		noDataExpression: true,
 		options: resourceOptions,
 		default: 'message',
+		description:
+			'Kapso API area to work in. Message covers customer sends and templates; Platform Message is cross-conversation inbox history; Broadcast manages template campaigns.',
 	},
 	...operationProperties(),
 	...phoneNumberIdFields,
-	...messageFields,
-	...messageExtendedFields,
+	// Message: recipient → headers/setup → body → action content → footer → optional send options
+	...messagePrimaryFields,
+	...messageInteractiveHeaderFields,
+	...messageMediaAndLocationFields,
+	...messageBodyFields,
+	...messageInteractiveContentFields,
+	...messageInteractiveActionFields,
+	...messageInteractiveFooterFields,
+	...messageTemplateAndAdminFields,
 	...resourceFields,
 	...platformMessageFields,
 	...paginationFields,
+	messageLinkPreviewField,
+	messageSendOptionsField,
+	messageListOptionsField,
+	templateAdvancedOptionsField,
 	contactListOptionsField,
 	conversationListOptionsField,
 	broadcastListOptionsField,
-	advancedOptionsField,
+	customApiOptionsField,
 ];

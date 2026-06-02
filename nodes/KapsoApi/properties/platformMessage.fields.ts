@@ -1,4 +1,5 @@
 import { INodeProperties } from 'n8n-workflow';
+import { optionalLabel } from './displayNames';
 
 export const platformMessageFields: INodeProperties[] = [
 	{
@@ -13,7 +14,8 @@ export const platformMessageFields: INodeProperties[] = [
 				operation: ['get'],
 			},
 		},
-		description: 'WhatsApp message ID (WAMID)',
+		description:
+			'WhatsApp message ID (WAMID) from Kapso Trigger, Message List, or Platform Message List',
 	},
 	{
 		displayName: 'Additional Options',
@@ -21,6 +23,7 @@ export const platformMessageFields: INodeProperties[] = [
 		type: 'collection',
 		placeholder: 'Add Option',
 		default: {},
+		description: 'Optional filters and pagination when listing platform messages',
 		displayOptions: {
 			show: {
 				resource: ['platformMessage'],
@@ -29,41 +32,43 @@ export const platformMessageFields: INodeProperties[] = [
 		},
 		options: [
 			{
-				displayName: 'After Cursor',
+				displayName: optionalLabel('After Cursor'),
 				name: 'listAfter',
 				type: 'string',
 				default: '',
 				description: 'Cursor for the next page (from response paging.cursors.after)',
 			},
 			{
-				displayName: 'Before Cursor',
+				displayName: optionalLabel('Before Cursor'),
 				name: 'listBefore',
 				type: 'string',
 				default: '',
 				description: 'Cursor for the previous page (from response paging.cursors.before)',
 			},
 			{
-				displayName: 'Business Scoped User ID',
+				displayName: optionalLabel('Business Scoped User ID'),
 				name: 'platformMessageBusinessScopedUserId',
 				type: 'string',
 				default: '',
+				description:
+					'Filter by Meta business-scoped user ID (business_scoped_user_id on the Kapso contact record)',
 			},
 			{
-				displayName: 'Contact Phone Number',
+				displayName: optionalLabel('Contact Phone Number'),
 				name: 'platformMessagePhoneNumber',
 				type: 'string',
 				default: '',
 				description: 'Partial match on contact phone number',
 			},
 			{
-				displayName: 'Conversation ID',
+				displayName: optionalLabel('Conversation ID'),
 				name: 'platformMessageConversationId',
 				type: 'string',
 				default: '',
 				description: 'Filter by Kapso conversation UUID',
 			},
 			{
-				displayName: 'Direction',
+				displayName: optionalLabel('Direction'),
 				name: 'platformMessageDirection',
 				type: 'options',
 				options: [
@@ -74,7 +79,7 @@ export const platformMessageFields: INodeProperties[] = [
 				default: '',
 			},
 			{
-				displayName: 'Has Media',
+				displayName: optionalLabel('Has Media'),
 				name: 'platformMessageHasMedia',
 				type: 'options',
 				options: [
@@ -85,7 +90,7 @@ export const platformMessageFields: INodeProperties[] = [
 				default: '',
 			},
 			{
-				displayName: 'Message Type',
+				displayName: optionalLabel('Message Type'),
 				name: 'platformMessageType',
 				type: 'string',
 				default: '',
@@ -93,7 +98,7 @@ export const platformMessageFields: INodeProperties[] = [
 				description: 'Filter by WhatsApp message type (for example text, image, template)',
 			},
 			{
-				displayName: 'Status',
+				displayName: optionalLabel('Status'),
 				name: 'platformMessageStatus',
 				type: 'options',
 				options: [

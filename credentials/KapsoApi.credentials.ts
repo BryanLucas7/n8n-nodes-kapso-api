@@ -18,17 +18,19 @@ export class KapsoApi implements ICredentialType {
 			default: 'https://api.kapso.ai',
 			placeholder: 'https://api.kapso.ai',
 			description:
-				'Root URL for Kapso APIs. Keep the default unless you are using a Kapso-provided dedicated endpoint.',
+				'Root URL for Kapso APIs. Keep the default unless Kapso gave you a dedicated endpoint. Find your project in the Kapso dashboard under Settings or API.',
 		},
 		{
 			displayName: 'API Key',
 			name: 'apiKey',
 			type: 'string',
 			default: '',
+			placeholder: 'kapso_live_xxxxxxxx',
 			typeOptions: {
 				password: true,
 			},
-			description: 'Kapso project API key from your Kapso dashboard.',
+			description:
+				'Project API key from Kapso: dashboard → your project → Settings → API (or API Keys). Sent as the X-API-Key header.',
 			required: true,
 		},
 		{
@@ -36,11 +38,12 @@ export class KapsoApi implements ICredentialType {
 			name: 'webhookSecret',
 			type: 'string',
 			default: '',
+			placeholder: 'whsec_xxxxxxxx',
 			typeOptions: {
 				password: true,
 			},
 			description:
-				'Webhook signing secret from Kapso (required by Kapso Trigger for X-Webhook-Signature verification).',
+				'Signing secret for Kapso Trigger (Integrate → API & Webhooks in the Kapso dashboard). Used to verify X-Webhook-Signature with HMAC SHA256.',
 		},
 	];
 

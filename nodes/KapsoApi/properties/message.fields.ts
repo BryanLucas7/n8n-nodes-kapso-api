@@ -5,8 +5,7 @@ import {
 	buttonTitleField,
 	documentFilenameField,
 	emojiStringField,
-	interactiveBodyField,
-	interactiveFooterTextField,
+	FILTER_STRING_MAX,
 	interactiveHeaderTextField,
 	listButtonTextField,
 	listRowDescriptionField,
@@ -21,15 +20,25 @@ import {
 	wamidStringField,
 } from './fieldConstraints';
 import {
+	KAPSO_DOCS,
+	kapsoDocLink,
+	withKapsoDoc,
+} from './expressionHints';
+import {
 	templateButtonParameterCollectionOptions,
+	templateButtonParametersField,
 } from './templateShared.fields';
+import { INodePropertyModeTypeOptions } from 'n8n-workflow';
+import { contactCardEssentialFieldValues, defaultContactEntryValue } from './contactCard.fields';
+import { optionalLabel } from './displayNames';
 
 const messageRecipientOperations = [...messageSendOperations];
 
 const messageMediaOps = [...messageMediaOperations];
 const messageCaptionOperations = ['sendImage', 'sendVideo', 'sendDocument'];
 
-export const messageFields: INodeProperties[] = [
+/** Recipient, plain text, and media fields shown first for each message operation. */
+export const messagePrimaryFields: INodeProperties[] = [
 	metaPhoneResourceLocatorField('recipient', 'Recipient Phone', {
 		show: {
 			resource: ['message'],
@@ -51,6 +60,7 @@ export const messageFields: INodeProperties[] = [
 			{ name: 'Public Link', value: 'link' },
 		],
 		default: 'id',
+		description: 'Whether the message uses a Meta media ID or a public HTTPS URL',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -84,22 +94,10 @@ export const messageFields: INodeProperties[] = [
 			operation: ['sendDocument'],
 		},
 	}),
-	interactiveBodyField('bodyText', 'Body Text', {
-		show: {
-			resource: ['message'],
-			operation: [
-				'sendButtons',
-				'sendList',
-				'sendCtaUrl',
-				'sendProduct',
-				'sendProductList',
-				'sendCatalog',
-				'sendFlow',
-				'requestLocation',
-				'sendCallPermission',
-			],
-		},
-	}),
+];
+
+/** Buttons and list rows shown after body text. */
+export const messageInteractiveContentFields: INodeProperties[] = [
 	{
 		displayName: 'Buttons',
 		name: 'buttons',
@@ -110,6 +108,7 @@ export const messageFields: INodeProperties[] = [
 		},
 		default: {},
 		required: true,
+		description: 'Reply buttons shown below the message body (1-3 buttons)',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -120,23 +119,11 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Button',
 				name: 'buttonValues',
+				description: 'One quick-reply button on the message',
 				values: [buttonIdField(), buttonTitleField()],
 			},
 		],
 	},
-	interactiveHeaderTextField('headerText', 'Header Text', {
-		show: {
-			resource: ['message'],
-			operation: ['sendButtons'],
-			buttonHeaderType: ['text'],
-		},
-	}),
-	interactiveFooterTextField('footerText', 'Footer Text', {
-		show: {
-			resource: ['message'],
-			operation: ['sendButtons', 'sendList', 'sendCtaUrl', 'sendProductList'],
-		},
-	}),
 	listButtonTextField({
 		show: {
 			resource: ['message'],
@@ -152,6 +139,7 @@ export const messageFields: INodeProperties[] = [
 		},
 		default: {},
 		required: true,
+		description: 'List menu sections and rows (at least one section with one row)',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -162,6 +150,7 @@ export const messageFields: INodeProperties[] = [
 			{
 				displayName: 'Section',
 				name: 'sectionValues',
+				description: 'One section in the list menu',
 				values: [
 					listSectionTitleField(),
 					{
@@ -173,10 +162,12 @@ export const messageFields: INodeProperties[] = [
 							multipleValues: true,
 						},
 						default: {},
+						description: 'Selectable rows inside this section',
 						options: [
 							{
 								displayName: 'Row',
 								name: 'row',
+								description: 'One selectable row in the list menu',
 								values: [listRowIdField(), listRowTitleField(), listRowDescriptionField()],
 							},
 						],
@@ -185,6 +176,10 @@ export const messageFields: INodeProperties[] = [
 			},
 		],
 	},
+];
+
+/** Template, contact, reaction, and read-state fields. */
+export const messageTemplateAndAdminFields: INodeProperties[] = [
 	{
 		displayName: 'Contacts',
 		name: 'contacts',
@@ -192,7 +187,7 @@ export const messageFields: INodeProperties[] = [
 		typeOptions: {
 			multipleValues: true,
 		},
-		default: {},
+		default: { contactValues: [defaultContactEntryValue] },
 		required: true,
 		displayOptions: {
 			show: {
@@ -200,258 +195,47 @@ export const messageFields: INodeProperties[] = [
 				operation: ['sendContact'],
 			},
 		},
+		description: withKapsoDoc(
+			'Add one or more vCard contacts to send',
+			KAPSO_DOCS.sendContact,
+			'Contact',
+		),
 		options: [
 			{
 				displayName: 'Contact',
 				name: 'contactValues',
-				values: [
-					{
-						displayName: 'Formatted Name',
-						name: 'formattedName',
-						type: 'string',
-						default: '',
-						required: true,
-					},
-					{
-						displayName: 'First Name',
-						name: 'firstName',
-						type: 'string',
-						default: '',
-					},
-					{
-						displayName: 'Last Name',
-						name: 'lastName',
-						type: 'string',
-						default: '',
-					},
-					{
-						displayName: 'Middle Name',
-						name: 'middleName',
-						type: 'string',
-						default: '',
-					},
-					{
-						displayName: 'Name Prefix',
-						name: 'namePrefix',
-						type: 'string',
-						default: '',
-						placeholder: 'Dr.',
-					},
-					{
-						displayName: 'Name Suffix',
-						name: 'nameSuffix',
-						type: 'string',
-						default: '',
-						placeholder: 'Jr.',
-					},
-					{
-						displayName: 'Birthday',
-						name: 'birthday',
-						type: 'string',
-						default: '',
-						placeholder: '1990-01-01',
-						description: 'ISO 8601 date (YYYY-MM-DD)',
-					},
-					{
-						displayName: 'Phones',
-						name: 'phones',
-						type: 'fixedCollection',
-						typeOptions: { multipleValues: true },
-						default: {},
-						required: true,
-						options: [
-							{
-								displayName: 'Phone',
-								name: 'phoneValues',
-								values: [
-									{
-										displayName: 'Phone Number',
-										name: 'phoneNumber',
-										type: 'string',
-										default: '',
-										required: true,
-									},
-									{
-										displayName: 'Phone Type',
-										name: 'phoneType',
-										type: 'options',
-										options: [
-											{ name: 'Mobile', value: 'MOBILE' },
-											{ name: 'Work', value: 'WORK' },
-											{ name: 'Home', value: 'HOME' },
-											{ name: 'Main', value: 'MAIN' },
-										],
-										default: 'MOBILE',
-									},
-									{
-										displayName: 'WhatsApp ID',
-										name: 'waId',
-										type: 'string',
-										default: '',
-										description: 'Optional WhatsApp user ID for this phone entry',
-									},
-								],
-							},
-						],
-					},
-					{
-						displayName: 'Emails',
-						name: 'emails',
-						type: 'fixedCollection',
-						typeOptions: { multipleValues: true },
-						default: {},
-						options: [
-							{
-								displayName: 'Email',
-								name: 'emailValues',
-								values: [
-									{
-										displayName: 'Email',
-										name: 'email',
-										type: 'string',
-										placeholder: 'name@email.com',
-										default: '',
-										required: true,
-									},
-									{
-										displayName: 'Email Type',
-										name: 'emailType',
-										type: 'options',
-										options: [
-											{ name: 'Work', value: 'WORK' },
-											{ name: 'Home', value: 'HOME' },
-										],
-										default: 'WORK',
-									},
-								],
-							},
-						],
-					},
-					{
-						displayName: 'Organization',
-						name: 'organization',
-						type: 'string',
-						default: '',
-					},
-					{
-						displayName: 'Organization Department',
-						name: 'orgDepartment',
-						type: 'string',
-						default: '',
-					},
-					{
-						displayName: 'Organization Title',
-						name: 'orgTitle',
-						type: 'string',
-						default: '',
-					},
-					{
-						displayName: 'URLs',
-						name: 'urls',
-						type: 'fixedCollection',
-						typeOptions: { multipleValues: true },
-						default: {},
-						options: [
-							{
-								displayName: 'URL',
-								name: 'urlValues',
-								values: [
-									{
-										displayName: 'URL',
-										name: 'url',
-										type: 'string',
-										default: '',
-										required: true,
-									},
-									{
-										displayName: 'URL Type',
-										name: 'urlType',
-										type: 'options',
-										options: [
-											{ name: 'Work', value: 'WORK' },
-											{ name: 'Home', value: 'HOME' },
-										],
-										default: 'WORK',
-									},
-								],
-							},
-						],
-					},
-					{
-						displayName: 'Addresses',
-						name: 'addresses',
-						type: 'fixedCollection',
-						typeOptions: { multipleValues: true },
-						default: {},
-						options: [
-							{
-								displayName: 'Address',
-								name: 'addressValues',
-								values: [
-									{
-										displayName: 'Street',
-										name: 'street',
-										type: 'string',
-										default: '',
-									},
-									{
-										displayName: 'City',
-										name: 'city',
-										type: 'string',
-										default: '',
-									},
-									{
-										displayName: 'State',
-										name: 'state',
-										type: 'string',
-										default: '',
-									},
-									{
-										displayName: 'ZIP',
-										name: 'zip',
-										type: 'string',
-										default: '',
-									},
-									{
-										displayName: 'Country',
-										name: 'country',
-										type: 'string',
-										default: '',
-									},
-									{
-										displayName: 'Country Code',
-										name: 'countryCode',
-										type: 'string',
-										default: '',
-									},
-									{
-										displayName: 'Address Type',
-										name: 'addressType',
-										type: 'options',
-										options: [
-											{ name: 'Work', value: 'WORK' },
-											{ name: 'Home', value: 'HOME' },
-										],
-										default: 'WORK',
-									},
-								],
-							},
-						],
-					},
-				],
+				description: 'One vCard contact to send',
+				values: contactCardEssentialFieldValues,
 			},
 		],
 	},
 	{
-		displayName: 'Template Name or ID',
+		displayName: 'Template',
 		name: 'templateName',
-		type: 'options',
-		default: '',
+		type: 'resourceLocator',
+		default: { mode: 'list', value: '' },
 		required: true,
-		typeOptions: {
-			loadOptionsMethod: 'getMessageTemplates',
-			loadOptionsDependsOn: ['phoneNumberId'],
-		},
+		modes: [
+			{
+				displayName: 'From List',
+				name: 'list',
+				type: 'list',
+				typeOptions: {
+					searchListMethod: 'searchMessageTemplates',
+					searchable: true,
+					searchFilterRequired: false,
+				},
+			},
+			{
+				displayName: 'By Template Name and Language',
+				name: 'id',
+				type: 'string',
+				placeholder: 'order_update|en_US',
+				typeOptions: {
+					maxLength: FILTER_STRING_MAX,
+				} as unknown as INodePropertyModeTypeOptions,
+			},
+		],
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -459,35 +243,30 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+			'Approved WhatsApp template for this send. Create and approve it in Kapso Dashboard > WhatsApp > Templates, then sync/refresh before selecting it here. Search by name or language, or paste template_name|language_code from the template details. ' +
+			kapsoDocLink(KAPSO_DOCS.templateSimple, 'Templates'),
 	},
 	{
-		displayName: 'Language Name or ID',
-		name: 'languageCode',
-		type: 'options',
+		displayName:
+			'Header format and layout below are detected from the selected template. They drive which fields appear — reselect the template after syncing changes in Kapso if values look stale.',
+		name: 'templateDetectedStructureNotice',
+		type: 'notice',
 		default: '',
-		required: true,
-		typeOptions: {
-			loadOptionsMethod: 'getTemplateLanguages',
-			loadOptionsDependsOn: ['templateName', 'phoneNumberId'],
-		},
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},
 		},
-		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 	},
 	{
-		displayName: 'Template Header Format Name or ID',
+		displayName: 'Detected Template Header Format',
 		name: 'templateDetectedHeaderFormat',
 		type: 'options',
 		default: '',
 		typeOptions: {
 			loadOptionsMethod: 'getTemplateDetectedHeaderFormat',
-			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'languageCode'],
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
 		},
 		displayOptions: {
 			show: {
@@ -496,16 +275,16 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+			'Read-only header type from the approved template (do not change unless troubleshooting). Drives header media and location fields below',
 	},
 	{
-		displayName: 'Template Component Mode Name or ID',
+		displayName: 'Detected Template Layout',
 		name: 'templateDetectedComponentMode',
 		type: 'options',
 		default: '',
 		typeOptions: {
 			loadOptionsMethod: 'getTemplateDetectedComponentMode',
-			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'languageCode'],
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
 		},
 		displayOptions: {
 			show: {
@@ -514,7 +293,22 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 		description:
-			'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+			'Read-only layout from the approved template: Standard or Carousel (do not change unless troubleshooting)',
+	},
+	{
+		displayName:
+			'Fill body placeholders at send time. If no mapper fields appear, the template has no body variables or uses carousel layout. Pick Text, Currency, or Date & Time per variable. ' +
+			kapsoDocLink(KAPSO_DOCS.templateSimple, 'Templates'),
+		name: 'templateBodyParametersNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['standard'],
+			},
+		},
 	},
 	{
 		displayName: 'Body Text Parameters',
@@ -533,7 +327,7 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 		typeOptions: {
-			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'languageCode'],
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'templateBodyParametersMapper'],
 			resourceMapper: {
 				resourceMapperMethod: 'getTemplateBodyParameterFields',
 				mode: 'add',
@@ -546,7 +340,13 @@ export const messageFields: INodeProperties[] = [
 				noFieldsError: 'Select a template with body variables before mapping body parameters.',
 			},
 		},
-		description: 'Fill the body variables defined by the selected template',
+		description:
+			'Map one value for each template body variable. The fields come from the approved template. For a simple inbound reply workflow, map the single variable to {{$json.kapso.content}} from Kapso Trigger. ' +
+			withKapsoDoc(
+				'Pick the parameter type first; only the fields for that type are shown',
+				KAPSO_DOCS.templateSimple,
+				'Templates',
+			),
 	},
 	interactiveHeaderTextField('templateHeaderText', 'Header Text', {
 		show: {
@@ -554,9 +354,27 @@ export const messageFields: INodeProperties[] = [
 			operation: ['sendTemplate'],
 			templateDetectedComponentMode: ['standard'],
 			templateDetectedHeaderFormat: ['text'],
+			templateHeaderTextHasVariable: ['yes'],
 		},
 	}),
 	{
+		displayName: 'Template Header Text Hint',
+		name: 'templateHeaderTextHasVariable',
+		type: 'options',
+		default: 'no',
+		typeOptions: {
+			loadOptionsMethod: 'getTemplateHeaderTextHasVariable',
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
+		},
+		displayOptions: {
+			hide: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+			},
+		},
+		description: 'Loaded automatically from the selected template to show header text only when required',
+	},
+	{
 		displayName: 'Header Media Source',
 		name: 'templateHeaderMediaSource',
 		type: 'options',
@@ -565,6 +383,8 @@ export const messageFields: INodeProperties[] = [
 			{ name: 'Media ID', value: 'id' },
 		],
 		default: 'link',
+		description:
+			'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -583,6 +403,8 @@ export const messageFields: INodeProperties[] = [
 			{ name: 'Media ID', value: 'id' },
 		],
 		default: 'link',
+		description:
+			'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -601,6 +423,8 @@ export const messageFields: INodeProperties[] = [
 			{ name: 'Media ID', value: 'id' },
 		],
 		default: 'link',
+		description:
+			'Public Link: HTTPS URL Meta can fetch (must match the approved template header type). Media ID: from Upload Media or Kapso Trigger; media type must match the template',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -610,54 +434,33 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 	},
-	{
-		displayName: 'Header Media URL',
-		name: 'templateHeaderMediaUrl',
-		type: 'string',
-		default: '',
-		validateType: 'url',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendTemplate'],
-				templateDetectedComponentMode: ['standard'],
-				templateDetectedHeaderFormat: ['image'],
-				templateHeaderMediaSource: ['link'],
-			},
+	publicUrlStringField('templateHeaderMediaUrl', 'Header Media URL', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+			templateDetectedHeaderFormat: ['image'],
+			templateHeaderMediaSource: ['link'],
 		},
-	},
-	{
-		displayName: 'Header Media URL',
-		name: 'templateHeaderMediaUrl',
-		type: 'string',
-		default: '',
-		validateType: 'url',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendTemplate'],
-				templateDetectedComponentMode: ['standard'],
-				templateDetectedHeaderFormat: ['video'],
-				templateHeaderMediaSource: ['link'],
-			},
+	}, 'Public HTTPS URL Meta can fetch when Header Media Source is Public Link; must match the approved template header type'),
+	publicUrlStringField('templateHeaderMediaUrl', 'Header Media URL', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+			templateDetectedHeaderFormat: ['video'],
+			templateHeaderMediaSource: ['link'],
 		},
-	},
-	{
-		displayName: 'Header Media URL',
-		name: 'templateHeaderMediaUrl',
-		type: 'string',
-		default: '',
-		validateType: 'url',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendTemplate'],
-				templateDetectedComponentMode: ['standard'],
-				templateDetectedHeaderFormat: ['document'],
-				templateHeaderMediaSource: ['link'],
-			},
+	}, 'Public HTTPS URL Meta can fetch when Header Media Source is Public Link; must match the approved template header type'),
+	publicUrlStringField('templateHeaderMediaUrl', 'Header Media URL', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+			templateDetectedHeaderFormat: ['document'],
+			templateHeaderMediaSource: ['link'],
 		},
-	},
+	}, 'Public HTTPS URL Meta can fetch when Header Media Source is Public Link; must match the approved template header type'),
 	mediaIdStringField('templateHeaderMediaId', 'Header Media ID', {
 		show: {
 			resource: ['message'],
@@ -685,6 +488,14 @@ export const messageFields: INodeProperties[] = [
 			templateHeaderMediaSource: ['id'],
 		},
 	}, false),
+	documentFilenameField('templateHeaderDocumentFilename', 'Header Document Filename', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+			templateDetectedHeaderFormat: ['document'],
+		},
+	}),
 	{
 		displayName: 'Header Latitude',
 		name: 'templateHeaderLatitude',
@@ -699,6 +510,11 @@ export const messageFields: INodeProperties[] = [
 				templateDetectedHeaderFormat: ['location'],
 			},
 		},
+		description: withKapsoDoc(
+			'Latitude in decimal degrees (-90 to 90)',
+			KAPSO_DOCS.templateLocationHeader,
+			'Location header',
+		),
 	},
 	{
 		displayName: 'Header Longitude',
@@ -714,9 +530,10 @@ export const messageFields: INodeProperties[] = [
 				templateDetectedHeaderFormat: ['location'],
 			},
 		},
+		description: 'Longitude in decimal degrees (-180 to 180)',
 	},
 	{
-		displayName: 'Header Location Name',
+		displayName: optionalLabel('Header Location Name'),
 		name: 'templateHeaderLocationName',
 		type: 'string',
 		default: '',
@@ -728,9 +545,10 @@ export const messageFields: INodeProperties[] = [
 				templateDetectedHeaderFormat: ['location'],
 			},
 		},
+		description: 'Optional location title shown in the map pin',
 	},
 	{
-		displayName: 'Header Location Address',
+		displayName: optionalLabel('Header Location Address'),
 		name: 'templateHeaderLocationAddress',
 		type: 'string',
 		default: '',
@@ -742,6 +560,83 @@ export const messageFields: INodeProperties[] = [
 				templateDetectedHeaderFormat: ['location'],
 			},
 		},
+		description: 'Optional street address shown under the location name',
+	},
+	{
+		displayName:
+			'Fill carousel card body placeholders at send time. Pick Text, Currency, or Date & Time per variable. ' +
+			kapsoDocLink(KAPSO_DOCS.templateCarousel, 'Carousel templates'),
+		name: 'templateCarouselBodyNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['carousel'],
+			},
+		},
+	},
+	{
+		displayName: 'Carousel Body Parameters',
+		name: 'templateCarouselBodyParametersMapper',
+		type: 'resourceMapper',
+		noDataExpression: true,
+		default: {
+			mappingMode: 'defineBelow',
+			value: null,
+		},
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['carousel'],
+			},
+		},
+		typeOptions: {
+			loadOptionsDependsOn: [
+				'phoneNumberId',
+				'templateName',
+				'templateCarouselBodyParametersMapper',
+			],
+			resourceMapper: {
+				resourceMapperMethod: 'getTemplateCarouselBodyParameterFields',
+				mode: 'add',
+				addAllFields: true,
+				supportAutoMap: false,
+				fieldWords: {
+					singular: 'parameter',
+					plural: 'parameters',
+				},
+				noFieldsError:
+					'Select a carousel template with card body placeholders before mapping body parameters.',
+			},
+		},
+		description:
+			'Map one value for each carousel card body placeholder. Fields are grouped by card index from the approved template. ' +
+			withKapsoDoc(
+				'Pick the parameter type first; only the fields for that type are shown',
+				KAPSO_DOCS.templateCarousel,
+				'Carousel',
+			),
+	},
+	{
+		displayName: 'Carousel Template Guidance',
+		name: 'templateCarouselGuidance',
+		type: 'options',
+		default: '',
+		typeOptions: {
+			loadOptionsMethod: 'getTemplateCarouselGuidanceNotice',
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
+		},
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['carousel'],
+			},
+		},
+		description: 'Read-only summary of each carousel card from the selected template',
 	},
 	{
 		displayName: 'Carousel Cards',
@@ -758,20 +653,29 @@ export const messageFields: INodeProperties[] = [
 				templateDetectedComponentMode: ['carousel'],
 			},
 		},
-		description:
-			'Each card must match the approved template carousel card count and card_index order. Header type is inferred from the template.',
+		description: withKapsoDoc(
+			'Add one card per approved template carousel card, in zero-based card_index order (0 = first card). Header type is inferred from the template',
+			KAPSO_DOCS.templateCarousel,
+			'Carousel',
+		),
 		options: [
 			{
 				displayName: 'Card',
 				name: 'cardValues',
+				description: 'One carousel card matching one approved template card at the chosen zero-based index',
 				values: [
 					{
 						displayName: 'Card Index',
 						name: 'cardIndex',
-						type: 'number',
+						type: 'options',
 						default: 0,
 						required: true,
-						typeOptions: { minValue: 0 },
+						typeOptions: {
+							loadOptionsMethod: 'getTemplateCarouselCardIndices',
+							loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
+						},
+						description:
+							'Zero-based index for one approved template card (0 = first card). Options load from the template definition',
 					},
 					{
 						displayName: 'Header Media Source',
@@ -782,6 +686,8 @@ export const messageFields: INodeProperties[] = [
 							{ name: 'Media ID', value: 'id' },
 						],
 						default: 'link',
+						description:
+							'Public Link: HTTPS URL Meta can fetch. Media ID: from Upload Media or Kapso Trigger; must match the approved card header type',
 					},
 					{
 						displayName: 'Header Media URL',
@@ -792,34 +698,6 @@ export const messageFields: INodeProperties[] = [
 					},
 					mediaIdStringField('cardHeaderMediaId', 'Header Media ID', undefined, false),
 					{
-						displayName: 'Body Parameters',
-						name: 'cardBodyParameters',
-						type: 'fixedCollection',
-						typeOptions: { multipleValues: true },
-						default: {},
-						options: [
-							{
-								displayName: 'Parameter',
-								name: 'parameterValues',
-								values: [
-									{
-										displayName: 'Parameter Name',
-										name: 'parameterName',
-										type: 'string',
-										default: '',
-									},
-									{
-										displayName: 'Text',
-										name: 'parameterText',
-										type: 'string',
-										default: '',
-										required: true,
-									},
-								],
-							},
-						],
-					},
-					{
 						displayName: 'Button Parameters',
 						name: 'cardButtonParameters',
 						type: 'fixedCollection',
@@ -828,12 +706,52 @@ export const messageFields: INodeProperties[] = [
 							multipleValueButtonText: 'Add Button',
 						},
 						default: {},
+						description: 'Dynamic button values for this carousel card',
 						options: templateButtonParameterCollectionOptions,
 					},
 				],
 			},
 		],
 	},
+	{
+		displayName:
+			'Templates with MPM (multi-product) buttons require the structured Button Parameters collection below. The resource mapper does not support MPM sections.',
+		name: 'templateMpmButtonsNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+				templateDetectedComponentMode: ['standard'],
+				templateMpmButtonHint: ['yes'],
+			},
+		},
+	},
+	{
+		displayName: 'Template MPM Hint',
+		name: 'templateMpmButtonHint',
+		type: 'options',
+		default: 'no',
+		typeOptions: {
+			loadOptionsMethod: 'getTemplateMpmButtonHint',
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
+		},
+		displayOptions: {
+			hide: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+			},
+		},
+		description: 'Loaded automatically from the selected template to show the MPM button notice when needed',
+	},
+	templateButtonParametersField('templateButtonParameters', {
+		show: {
+			resource: ['message'],
+			operation: ['sendTemplate'],
+			templateDetectedComponentMode: ['standard'],
+		},
+	}),
 	{
 		displayName: 'Button Parameters',
 		name: 'templateButtonParametersMapper',
@@ -851,7 +769,7 @@ export const messageFields: INodeProperties[] = [
 			},
 		},
 		typeOptions: {
-			loadOptionsDependsOn: ['phoneNumberId', 'templateName', 'languageCode'],
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
 			resourceMapper: {
 				resourceMapperMethod: 'getTemplateButtonParameterFields',
 				mode: 'add',
@@ -864,15 +782,29 @@ export const messageFields: INodeProperties[] = [
 				noFieldsError: 'Select a template with dynamic button parameters before mapping button values.',
 			},
 		},
-		description:
-			'Fill dynamic button values for the selected template. MPM sections JSON expects an array of `{ "title": "...", "product_items": [{ "product_retailer_id": "..." }] }`.',
+		description: withKapsoDoc(
+			'Map dynamic button values from the selected template. Use URL Suffix for dynamic URL buttons, Payload for quick replies, Coupon Code for copy-code buttons, and Flow Token for Flow buttons. Use the structured Button Parameters collection when you need MPM sections',
+			KAPSO_DOCS.templateButtons,
+			'Buttons',
+		),
 	},
-	wamidStringField('reactionMessageId', 'React To Message ID', {
-		show: {
-			resource: ['message'],
-			operation: ['sendReaction'],
+	wamidStringField(
+		'reactionMessageId',
+		'React To Message ID',
+		{
+			show: {
+				resource: ['message'],
+				operation: ['sendReaction'],
+			},
 		},
-	}),
+		{
+			description: withKapsoDoc(
+				'WAMID of the message to react to. For inbound reactions, use message.reaction.message_id from the Kapso Trigger payload',
+				KAPSO_DOCS.sendReaction,
+				'Reaction',
+			),
+		},
+	),
 	{
 		displayName: 'Reaction Action',
 		name: 'reactionMode',
@@ -898,6 +830,7 @@ export const messageFields: INodeProperties[] = [
 				operation: ['sendReaction'],
 			},
 		},
+		description: 'Add or change an emoji reaction, or remove your business reaction from the message',
 	},
 	emojiStringField({
 		show: {
@@ -913,7 +846,7 @@ export const messageFields: INodeProperties[] = [
 		},
 	}),
 	{
-		displayName: 'Typing Indicator',
+		displayName: optionalLabel('Typing Indicator'),
 		name: 'typingIndicator',
 		type: 'boolean',
 		default: false,
@@ -923,5 +856,13 @@ export const messageFields: INodeProperties[] = [
 				operation: ['markRead'],
 			},
 		},
+		description: 'Whether to show a typing indicator while marking the message as read',
 	},
+];
+
+/** @deprecated Use split exports from index.ts for field order. */
+export const messageFields: INodeProperties[] = [
+	...messagePrimaryFields,
+	...messageInteractiveContentFields,
+	...messageTemplateAndAdminFields,
 ];

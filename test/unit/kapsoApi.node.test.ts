@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KapsoApi } from '../../nodes/KapsoApi/KapsoApi.node';
-import { fetchSelectedTemplateDefinition } from '../../nodes/KapsoApi/loadOptions/templateFetch';
 import { namedOrderUpdateDefinition } from '../fixtures/metaTemplates';
 import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
@@ -8,10 +7,26 @@ import { TEST_PHONE_NUMBER_ID } from '../helpers/kapsoCredentials';
 const kapsoApiRequestMock = vi.fn();
 const requestPaginatedMock = vi.fn();
 const requestCursorListAllMock = vi.fn();
+const fetchSelectedTemplateDefinitionMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', () => ({
-	fetchSelectedTemplateDefinition: vi.fn(),
-}));
+vi.mock('../../nodes/KapsoApi/loadOptions/templateFetch', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../../nodes/KapsoApi/loadOptions/templateFetch')>();
+	return {
+		...actual,
+		fetchSelectedTemplateDefinition: fetchSelectedTemplateDefinitionMock,
+		resolveSendTemplateContext: vi.fn(async (_ef, _itemIndex) => {
+			const definition = await fetchSelectedTemplateDefinitionMock();
+			if (!definition) {
+				throw new Error('Could not resolve the selected template name and language.');
+			}
+
+			return {
+				identity: { name: definition.name, language: definition.language },
+				definition,
+			};
+		}),
+	};
+});
 
 vi.mock('../../nodes/KapsoApi/transport/request', () => ({
 	kapsoApiRequest: (...args: unknown[]) => kapsoApiRequestMock(...args),
@@ -26,11 +41,15 @@ vi.mock('../../nodes/KapsoApi/transport/pagination', () => ({
 describe('KapsoApi node execute', () => {
 	const node = new KapsoApi();
 
+	it('is usable as an AI tool', () => {
+		expect(node.description.usableAsTool).toBe(true);
+	});
+
 	beforeEach(() => {
 		kapsoApiRequestMock.mockReset();
 		requestPaginatedMock.mockReset();
 		requestCursorListAllMock.mockReset();
-		vi.mocked(fetchSelectedTemplateDefinition).mockResolvedValue(namedOrderUpdateDefinition);
+		fetchSelectedTemplateDefinitionMock.mockResolvedValue(namedOrderUpdateDefinition);
 	});
 
 	it('returns JSON items for a standard platform request', async () => {
@@ -237,7 +256,6 @@ describe('KapsoApi node execute', () => {
 			languageCode: 'en_US',
 			templateDetectedHeaderFormat: 'text',
 			templateDetectedComponentMode: 'standard',
-			templateHeaderText: 'Order shipped',
 			templateBodyParametersMapper: {
 				mappingMode: 'defineBelow',
 				value: { first_name: 'Jessica', order_id: '12345' },
@@ -276,11 +294,15 @@ describe('KapsoApi node execute', () => {
 		expect(node.methods?.resourceMapping).toMatchObject({
 			getTemplateBodyParameterFields: expect.any(Function),
 			getTemplateButtonParameterFields: expect.any(Function),
+			getFlowInitialDataFields: expect.any(Function),
 		});
 		expect(node.methods?.listSearch).toMatchObject({
 			searchConversations: expect.any(Function),
 			searchContacts: expect.any(Function),
 			searchBroadcasts: expect.any(Function),
+			searchCatalogs: expect.any(Function),
+			searchCatalogProducts: expect.any(Function),
+			searchWhatsappFlows: expect.any(Function),
 		});
 	});
 });

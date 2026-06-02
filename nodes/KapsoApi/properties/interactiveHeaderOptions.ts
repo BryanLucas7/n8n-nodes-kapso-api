@@ -18,6 +18,27 @@ export const productListHeaderTypeOptions = [
 
 export const interactiveHeaderMediaTypes = ['image', 'video', 'document'] as const;
 
+export function interactiveHeaderTypeField(
+	name: string,
+	displayName: string,
+	operation: string[],
+): INodeProperties {
+	return {
+		displayName,
+		name,
+		type: 'options',
+		options: interactiveHeaderTypeOptions,
+		default: 'none',
+		description: 'Optional header shown above the message body',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation,
+			},
+		},
+	};
+}
+
 export function interactiveHeaderMediaFields(
 	prefix: string,
 	operation: string[],
@@ -32,6 +53,7 @@ export function interactiveHeaderMediaFields(
 				{ name: 'Media ID', value: 'id' },
 			],
 			default: 'link',
+			description: 'Whether the header uses a Meta media ID or a public HTTPS URL',
 			displayOptions: {
 				show: {
 					resource: ['message'],

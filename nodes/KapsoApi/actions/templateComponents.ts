@@ -1,10 +1,24 @@
 import { ApplicationError, IDataObject } from 'n8n-workflow';
 import { parseJsonValue } from '../transport/json';
-import { assertProductListShape, parseCoordinate, validateFlowToken, validateProductRetailerId } from './validation';
+import type {
+	TemplateBodyVariable,
+	TemplateParameterFormat,
+} from '../loadOptions/templateDefinition';
+import { assertProductListShape, parseCoordinate, validateDocumentFilename, validateFlowToken, validateProductRetailerId } from './validation';
 
 export type TemplateBodyParameterInput = {
 	parameterName?: string;
-	parameterText: string;
+	parameterText?: string;
+	valueType?: 'text' | 'currency' | 'date_time';
+	currency?: {
+		code: string;
+		amount_1000: number;
+		fallback_value: string;
+	};
+	dateTime?: {
+		fallback_value: string;
+		timestamp?: number;
+	};
 };
 
 export type TemplateButtonParameterInput = {
@@ -42,11 +56,14 @@ export type TemplateCarouselCardInput = {
 export type TemplateComponentsInput = {
 	advancedComponentsJson?: string;
 	componentMode?: string;
+	parameterFormat?: TemplateParameterFormat;
 	headerType?: string;
 	headerText?: string;
+	headerVariable?: TemplateBodyVariable;
 	headerMediaSource?: string;
 	headerMediaUrl?: string;
 	headerMediaId?: string;
+	headerDocumentFilename?: string;
 	headerLatitude?: string;
 	headerLongitude?: string;
 	headerLocationName?: string;
@@ -60,28 +77,44 @@ function buildTemplateMediaParameter(
 	mediaType: 'image' | 'video' | 'document',
 	source: string,
 	value: string,
+	documentFilename?: string,
 ): IDataObject {
+	const mediaObject: IDataObject = {
+		[source === 'id' ? 'id' : 'link']: value,
+	};
+
+	if (mediaType === 'document' && documentFilename?.trim()) {
+		mediaObject.filename = validateDocumentFilename(documentFilename, 'Header Document Filename');
+	}
+
 	return {
 		type: mediaType,
-		[mediaType]: {
-			[source === 'id' ? 'id' : 'link']: value,
-		},
+		[mediaType]: mediaObject,
 	};
 }
 
 function buildTemplateHeaderParameters(input: {
 	headerType?: string;
 	headerText?: string;
+	headerVariable?: TemplateBodyVariable;
+	parameterFormat?: TemplateParameterFormat;
 	headerMediaSource?: string;
 	headerMediaUrl?: string;
 	headerMediaId?: string;
+	headerDocumentFilename?: string;
 	headerLatitude?: string;
 	headerLongitude?: string;
 	headerLocationName?: string;
 	headerLocationAddress?: string;
 }): IDataObject[] | undefined {
 	if (input.headerType === 'text' && input.headerText) {
-		return [{ type: 'text', text: input.headerText }];
+		const parameter: IDataObject = { type: 'text', text: input.headerText };
+
+		if (input.parameterFormat === 'named' && input.headerVariable?.parameterName) {
+			parameter.parameter_name = input.headerVariable.parameterName;
+		}
+
+		return [parameter];
 	}
 
 	if (input.headerType === 'image') {
@@ -104,7 +137,14 @@ function buildTemplateHeaderParameters(input: {
 		const value =
 			input.headerMediaSource === 'id' ? input.headerMediaId : input.headerMediaUrl;
 		if (value) {
-			return [buildTemplateMediaParameter('document', input.headerMediaSource || 'link', value)];
+			return [
+				buildTemplateMediaParameter(
+					'document',
+					input.headerMediaSource || 'link',
+					value,
+					input.headerDocumentFilename,
+				),
+			];
 		}
 	}
 
@@ -142,9 +182,47 @@ function buildTemplateBodyParameters(
 	return {
 		type: 'body',
 		parameters: bodyParameters.map((parameter) => {
+			if (parameter.valueType === 'currency' && parameter.currency) {
+				const value: IDataObject = {
+					type: 'currency',
+					currency: {
+						code: parameter.currency.code,
+						fallback_value: parameter.currency.fallback_value,
+						amount_1000: parameter.currency.amount_1000,
+					},
+				};
+
+				if (parameter.parameterName) {
+					value.parameter_name = parameter.parameterName;
+				}
+
+				return value;
+			}
+
+			if (parameter.valueType === 'date_time' && parameter.dateTime) {
+				const dateTime: IDataObject = {
+					fallback_value: parameter.dateTime.fallback_value,
+				};
+
+				if (parameter.dateTime.timestamp !== undefined) {
+					dateTime.timestamp = parameter.dateTime.timestamp;
+				}
+
+				const value: IDataObject = {
+					type: 'date_time',
+					date_time: dateTime,
+				};
+
+				if (parameter.parameterName) {
+					value.parameter_name = parameter.parameterName;
+				}
+
+				return value;
+			}
+
 			const value: IDataObject = {
 				type: 'text',
-				text: parameter.parameterText,
+				text: parameter.parameterText ?? '',
 			};
 
 			if (parameter.parameterName) {
@@ -360,15 +438,20 @@ function buildTemplateCardComponents(card: TemplateCarouselCardInput): IDataObje
 function parseTemplateComponentsArray(
 	json: string,
 	label: string,
-): IDataObject[] {
-	const parsed = parseJsonValue(json, label);
+): IDataObject[] | undefined {
+	const trimmed = json.trim();
+	if (!trimmed || trimmed === '[]') {
+		return undefined;
+	}
+
+	const parsed = parseJsonValue(trimmed, label);
 
 	if (!Array.isArray(parsed)) {
 		throw new ApplicationError(`${label} must be a JSON array.`);
 	}
 
 	if (parsed.length === 0) {
-		throw new ApplicationError(`${label} must be a non-empty JSON array.`);
+		return undefined;
 	}
 
 	return parsed as IDataObject[];
@@ -379,7 +462,10 @@ export function buildMetaTemplateComponents(
 ): IDataObject[] | undefined {
 	const advancedJson = input.advancedComponentsJson?.trim();
 	if (advancedJson) {
-		return parseTemplateComponentsArray(advancedJson, 'Advanced Components JSON');
+		const parsedAdvanced = parseTemplateComponentsArray(advancedJson, 'Advanced Components JSON');
+		if (parsedAdvanced) {
+			return parsedAdvanced;
+		}
 	}
 
 	if (input.componentMode === 'carousel') {
