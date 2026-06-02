@@ -366,11 +366,8 @@ export function flowScreenOptionsField(
 			loadOptionsDependsOn: ['phoneNumberId', 'flowId', 'flowMode'],
 		},
 		displayOptions,
-		description: withKapsoDoc(
+		description:
 			'First screen the recipient sees when Flow action is Navigate. Loaded from the Flow builder for the selected Flow. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
-			KAPSO_DOCS.sendFlow,
-			'Send Flow',
-		),
 	};
 }
 
