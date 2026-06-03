@@ -64,6 +64,42 @@ describe('routing message edge cases', () => {
 		);
 	});
 
+	it('list operation does not require recipient parameter', () => {
+		const request = buildMessageRequest(
+			createMockExecuteFunctions({
+				resource: 'message',
+				operation: 'list',
+				phoneNumberId: '767542569782382',
+				returnAll: true,
+				messageListOptions: {
+					messageListConversationId: '426aba07-a91d-44b7-9763-997e7074b30a',
+				},
+			}),
+			'list',
+			0,
+		);
+
+		expect(request.method).toBe('GET');
+		expect(request.api).toBe('whatsapp');
+	});
+
+	it('markRead operation does not require recipient parameter', () => {
+		const request = buildMessageRequest(
+			createMockExecuteFunctions({
+				resource: 'message',
+				operation: 'markRead',
+				phoneNumberId: '767542569782382',
+				messageId: 'wamid.test',
+				typingIndicator: false,
+			}),
+			'markRead',
+			0,
+		);
+
+		expect(request.method).toBe('POST');
+		expect(request.body).toBeDefined();
+	});
+
 	describe('sendList row extraction', () => {
 		it('returns no rows when rowValues are absent before validation', () => {
 			expect(() =>

@@ -231,6 +231,41 @@ export function buildMessageRequest(
 	itemIndex: number,
 ): KapsoRequestArgs {
 	const phonePath = messagePath(ef, itemIndex);
+
+	if (operation === 'list') {
+		return {
+			api: 'whatsapp',
+			method: 'GET' as IHttpRequestMethods,
+			path: phonePath,
+			query: buildMessageQuery(ef, itemIndex, 'list'),
+		};
+	}
+
+	if (operation === 'get') {
+		return {
+			api: 'whatsapp',
+			method: 'GET' as IHttpRequestMethods,
+			path: messagePath(
+				ef,
+				itemIndex,
+				`/${pathId(getString(ef, 'messageId', itemIndex), 'Message ID')}`,
+			),
+			query: buildMessageQuery(ef, itemIndex, 'get'),
+		};
+	}
+
+	if (operation === 'markRead') {
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: buildMarkReadMessage(
+				assertWamid(getString(ef, 'messageId', itemIndex), 'Message ID'),
+				getBoolean(ef, 'typingIndicator', itemIndex),
+			),
+		};
+	}
+
 	const to = assertMetaRecipientPhone(
 		getMetaPhoneResourceLocatorValue(ef, 'recipient', itemIndex, 'Recipient Phone'),
 	);
@@ -556,40 +591,6 @@ export function buildMessageRequest(
 				reactionMessageId,
 				emoji,
 			),
-		};
-	}
-
-	if (operation === 'markRead') {
-		return {
-			api: 'whatsapp',
-			method: 'POST' as IHttpRequestMethods,
-			path: phonePath,
-			body: buildMarkReadMessage(
-				assertWamid(getString(ef, 'messageId', itemIndex), 'Message ID'),
-				getBoolean(ef, 'typingIndicator', itemIndex),
-			),
-		};
-	}
-
-	if (operation === 'list') {
-		return {
-			api: 'whatsapp',
-			method: 'GET' as IHttpRequestMethods,
-			path: phonePath,
-			query: buildMessageQuery(ef, itemIndex, 'list'),
-		};
-	}
-
-	if (operation === 'get') {
-		return {
-			api: 'whatsapp',
-			method: 'GET' as IHttpRequestMethods,
-			path: messagePath(
-				ef,
-				itemIndex,
-				`/${pathId(getString(ef, 'messageId', itemIndex), 'Message ID')}`,
-			),
-			query: buildMessageQuery(ef, itemIndex, 'get'),
 		};
 	}
 

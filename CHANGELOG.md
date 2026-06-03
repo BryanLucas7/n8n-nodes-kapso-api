@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.8.1 - 2026-06-03
+
+- **Fix List Messages / Get / Mark Read**: `buildMessageRequest` no longer reads **Recipient Phone** for `list`, `get`, or `markRead` operations. Previously these admin operations failed with `Could not get parameter` (`recipient`) when the node had no recipient field configured.
+- **Tests**: added coverage ensuring `list` and `markRead` build requests without a recipient parameter.
+- **Docs**: added `review/N8N-WORKFLOW-SENDLIST-FORMAT.md` for migration tooling (Send List `rowValues.row[]` shape in workflow JSON).
+
 - **Send Template / Broadcast carousel body parameters**: carousel card body placeholders now use typed resource mappers (Text, Currency, Date & Time) with `card_{index}_`-prefixed field IDs, matching standard body parameter mapping. Removed manual Parameter Name + Text collections from carousel card UI; Advanced JSON remains the override escape hatch.
 - **Pre-publish P1 fixes**: Phone Number field covers all message send/read ops; Send Catalog omits optional thumbnail when empty; Send Flow blocks data-exchange without dashboard encryption and shows guided fields for manual Meta Flow ID; broadcast input-items infer media ID source; template `parameter_format` inferred from named placeholders; document template headers support filename; broadcast recipients get structured Button Parameters for MPM.
 - **UX/API audit fixes**: Add Recipients From Input Items maps only the current item (not all items); Recipients Builder runs once on item 0; draft preflight before add recipients; scheduled preflight before cancel; `recipientsBodyJson` enforces 1,000 recipient max; template fetch paginates all approved templates at execute time; template/broadcast search warns when WABA cannot be resolved; broadcast template summary and send preflight loadOptions notices; flow fields hidden until Flow selected; execute-time flow ID lookup paginates; removed unused `flowSendOptions` field file; Flow Token no longer masked as password.
