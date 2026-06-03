@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.11.1 - 2026-06-03
+
+- **Fix**: removed the `Meta Field Limit Preflight` options field that blocked workflow publish with `The value "" is not supported!` on every message send node.
+- **Fix**: list/button row fields inside fixed collections use string validation again so legacy row titles show native Issues for Meta max lengths (execute preflight unchanged).
+
 ## 0.11.0 - 2026-06-03
 
 - **Meta/Kapso field limits**: migrated the remaining fixed message, list, button, WAMID, media ID, UUID, filter, location, contact, and Send-and-Wait fields to Resource Locator-backed inputs where native n8n Issues can enforce max-length/regex rules. Legacy plain-string workflow JSON remains supported at execution through `readStringParameterValue()`.

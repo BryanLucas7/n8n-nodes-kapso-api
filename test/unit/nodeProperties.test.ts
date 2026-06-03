@@ -210,6 +210,7 @@ describe('kapsoNodeProperties', () => {
 		expect(hiddenOnSendImage).not.toHaveProperty('broadcastMpmButtonHint');
 		expect(hiddenOnSendImage).not.toHaveProperty('templateMpmButtonHint');
 		expect(hiddenOnSendImage).not.toHaveProperty('templateHeaderTextHasVariable');
+		expect(hiddenOnSendImage).not.toHaveProperty('metaFieldLimitPreflightNotice');
 
 		const hiddenOnSendText = getNodeParameters(
 			kapsoNodeProperties,

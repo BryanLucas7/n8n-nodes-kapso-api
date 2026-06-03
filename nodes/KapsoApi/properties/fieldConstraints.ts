@@ -686,13 +686,13 @@ export const interactiveFooterTextField = (
 	});
 
 export const buttonIdField = (): INodeProperties =>
-	limitedTextResourceLocatorField('buttonId', 'Button ID', BUTTON_ID_MAX, {
+	limitedStringField('buttonId', 'Button ID', BUTTON_ID_MAX, {
 		required: true,
 		description: 'Developer-defined ID returned in the webhook when this button is tapped',
 	});
 
 export const buttonTitleField = (): INodeProperties =>
-	limitedTextResourceLocatorField('buttonTitle', 'Button Title', BUTTON_TITLE_MAX, {
+	limitedStringField('buttonTitle', 'Button Title', BUTTON_TITLE_MAX, {
 		required: true,
 		description: `Label shown on the button (max ${BUTTON_TITLE_MAX} characters)`,
 	});
@@ -705,25 +705,25 @@ export const listButtonTextField = (displayOptions: INodeProperties['displayOpti
 	});
 
 export const listSectionTitleField = (): INodeProperties =>
-	limitedTextResourceLocatorField('sectionTitle', 'Section Title', LIST_SECTION_TITLE_MAX, {
+	limitedStringField('sectionTitle', 'Section Title', LIST_SECTION_TITLE_MAX, {
 		required: true,
 		description: `Section heading shown in the list menu (max ${LIST_SECTION_TITLE_MAX} characters)`,
 	});
 
 export const listRowIdField = (): INodeProperties =>
-	limitedTextResourceLocatorField('rowId', 'Row ID', LIST_ROW_ID_MAX, {
+	limitedStringField('rowId', 'Row ID', LIST_ROW_ID_MAX, {
 		required: true,
 		description: 'Developer-defined ID returned when this list row is selected',
 	});
 
 export const listRowTitleField = (): INodeProperties =>
-	limitedTextResourceLocatorField('rowTitle', 'Row Title', LIST_ROW_TITLE_MAX, {
+	limitedStringField('rowTitle', 'Row Title', LIST_ROW_TITLE_MAX, {
 		required: true,
 		description: `Row title shown in the list menu (max ${LIST_ROW_TITLE_MAX} characters)`,
 	});
 
 export const listRowDescriptionField = (): INodeProperties =>
-	limitedTextResourceLocatorField('rowDescription', 'Row Description', LIST_ROW_DESCRIPTION_MAX, {
+	limitedStringField('rowDescription', 'Row Description', LIST_ROW_DESCRIPTION_MAX, {
 		optional: true,
 		description: `Row subtitle (max ${LIST_ROW_DESCRIPTION_MAX} characters)`,
 	});

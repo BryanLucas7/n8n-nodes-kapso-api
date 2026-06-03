@@ -15,7 +15,6 @@ import { messageInteractiveFooterFields } from './messageInteractiveFooter.field
 import { messageSendOptionsField } from './messageSendOptions.fields';
 import { messageLinkPreviewField } from './messageLinkPreview.fields';
 import { messageListOptionsField } from './messageListOptions.fields';
-import { messageMetaLimitPreflightField } from './messageMetaLimitPreflight.fields';
 import { templateAdvancedOptionsField } from './templateAdvancedOptions.fields';
 import { customApiOptionsField } from './customApiOptions.fields';
 import {
@@ -41,7 +40,6 @@ export const kapsoNodeProperties: INodeProperties[] = [
 	},
 	...operationProperties(),
 	...phoneNumberIdFields,
-	messageMetaLimitPreflightField,
 	// Message: recipient → headers/setup → body → action content → footer → optional send options
 	...messagePrimaryFields,
 	...messageInteractiveHeaderFields,
