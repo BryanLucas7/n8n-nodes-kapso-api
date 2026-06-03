@@ -603,6 +603,25 @@ export function wamidStringField(
 	return wamidResourceLocatorField(name, displayName, displayOptions, options);
 }
 
+/** WAMID fields that usually come from trigger expressions — plain string, validated at execute. */
+export function wamidExpressionStringField(
+	name: string,
+	displayName: string,
+	displayOptions: INodeProperties['displayOptions'],
+	options: { description?: string } = {},
+): INodeProperties {
+	return {
+		displayName,
+		name,
+		type: 'string',
+		default: '',
+		required: true,
+		displayOptions,
+		placeholder: 'wamid.HBg...',
+		description: options.description ?? WAMID_HINT,
+	};
+}
+
 export function emojiStringField(displayOptions: INodeProperties['displayOptions']): INodeProperties {
 	return limitedTextResourceLocatorField('emoji', 'Emoji', EMOJI_MAX_LENGTH, {
 		displayOptions,

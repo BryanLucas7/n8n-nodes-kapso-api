@@ -226,6 +226,11 @@ describe('kapsoNodeProperties', () => {
 		expect(hiddenOnSendText).not.toHaveProperty('templateHeaderTextHasVariable');
 	});
 
+	it('uses expression-friendly string fields for markRead message IDs', () => {
+		const messageIdField = kapsoNodeProperties.find((property) => property.name === 'messageId');
+		expect(messageIdField?.type).toBe('string');
+	});
+
 	it('does not use hide-only displayOptions on top-level helper fields', () => {
 		const violations: string[] = [];
 

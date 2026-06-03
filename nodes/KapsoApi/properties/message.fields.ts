@@ -18,7 +18,7 @@ import {
 	metaPhoneResourceLocatorField,
 	publicUrlStringField,
 	textMessageField,
-	wamidStringField,
+	wamidExpressionStringField,
 } from './fieldConstraints';
 import {
 	KAPSO_DOCS,
@@ -794,7 +794,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			'Buttons',
 		),
 	},
-	wamidStringField(
+	wamidExpressionStringField(
 		'reactionMessageId',
 		'React To Message ID',
 		{
@@ -845,11 +845,17 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			reactionMode: ['react'],
 		},
 	}),
-	wamidStringField('messageId', 'Message ID', {
+	wamidExpressionStringField('messageId', 'Message ID', {
 		show: {
 			resource: ['message'],
 			operation: ['get', 'markRead'],
 		},
+	}, {
+		description: withKapsoDoc(
+			'WhatsApp message ID (WAMID). For inbound messages use message.id from the Kapso Trigger payload',
+			KAPSO_DOCS.markRead,
+			'Message ID',
+		),
 	}),
 	{
 		displayName: optionalLabel('Typing Indicator'),

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.11.2 - 2026-06-03
+
+- **Fix**: `messageId` on **Get** / **Mark as Read** (and `reactionMessageId`) back to plain string fields so trigger expressions like `={{ $('Kapso Trigger1').item.json.message.id }}` no longer fail NDV validation after the Resource Locator migration. WAMID format is still enforced at execute time.
+
 ## 0.11.1 - 2026-06-03
 
 - **Fix**: removed the `Meta Field Limit Preflight` options field that blocked workflow publish with `The value "" is not supported!` on every message send node.
