@@ -22,6 +22,7 @@ import {
 	assertBroadcastReadyToSend,
 	assertBroadcastScheduledForCancel,
 } from './actions/broadcastPreflight';
+import { assertKapsoMetaFieldLimits } from './actions/parameterPreflight';
 import { assertMetaRecipientPhone } from './actions/validation';
 import {
 	buildSendAndWaitMessagePayload,
@@ -45,6 +46,7 @@ import {
 	getBroadcastMpmButtonHint,
 	getBroadcastSendPreflightNotice,
 	getBroadcastTemplateSummaryNotice,
+	getMetaFieldLimitPreflightNotice,
 	getTemplateDetectedComponentMode,
 	getTemplateDetectedHeaderFormat,
 	getTemplateHeaderTextHasVariable,
@@ -93,7 +95,8 @@ export class KapsoApi implements INodeType {
 			getBroadcastMpmButtonHint,
 			getBroadcastTemplateSummaryNotice,
 			getBroadcastSendPreflightNotice,
-	getTemplateDetectedHeaderFormat,
+			getMetaFieldLimitPreflightNotice,
+			getTemplateDetectedHeaderFormat,
 	getTemplateDetectedComponentMode,
 	getTemplateHeaderTextHasVariable,
 	getTemplateMpmButtonHint,
@@ -205,6 +208,10 @@ export class KapsoApi implements INodeType {
 			try {
 				const resource = this.getNodeParameter('resource', itemIndex) as string;
 				const operation = this.getNodeParameter('operation', itemIndex) as string;
+
+				if (resource === 'message') {
+					assertKapsoMetaFieldLimits(this, itemIndex);
+				}
 
 				if (resource === 'media' && operation === 'uploadBinary') {
 					const binaryPropertyName = getString(this, 'binaryPropertyName', itemIndex);

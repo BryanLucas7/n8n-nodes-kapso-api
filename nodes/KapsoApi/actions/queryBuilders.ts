@@ -154,7 +154,7 @@ export function buildContactListQuery(ef: IExecuteFunctions, itemIndex: number):
 export function buildConversationListQuery(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	const query: IDataObject = {};
 
-	appendFilterQuery(
+	appendOptionalUuidQuery(
 		query,
 		'phone_number_id',
 		getConversationListOptionString(ef, itemIndex, 'conversationPhoneNumberId'),
@@ -172,7 +172,7 @@ export function buildConversationListQuery(ef: IExecuteFunctions, itemIndex: num
 		getConversationListOptionString(ef, itemIndex, 'conversationStatusFilter'),
 		'Status',
 	);
-	appendFilterQuery(
+	appendOptionalUuidQuery(
 		query,
 		'assigned_user_id',
 		getConversationListOptionString(ef, itemIndex, 'conversationAssignedUserId'),
@@ -278,7 +278,7 @@ export function buildPlatformMessageListQuery(ef: IExecuteFunctions, itemIndex: 
 export function buildBroadcastListQuery(ef: IExecuteFunctions, itemIndex: number): IDataObject {
 	const query: IDataObject = {};
 
-	appendFilterQuery(
+	appendOptionalUuidQuery(
 		query,
 		'phone_number_id',
 		getBroadcastListOptionString(ef, itemIndex, 'broadcastListPhoneNumberId'),

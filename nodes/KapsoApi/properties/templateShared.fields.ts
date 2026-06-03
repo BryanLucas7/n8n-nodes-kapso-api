@@ -1,5 +1,14 @@
 import { INodeProperties } from 'n8n-workflow';
-import { listSectionTitleField, mediaIdStringField, productRetailerIdField, flowTokenField, publicUrlStringField } from './fieldConstraints';
+import {
+	flowTokenField,
+	limitedTextResourceLocatorField,
+	listSectionTitleField,
+	LOCATION_TEXT_MAX,
+	mediaIdStringField,
+	PRODUCT_RETAILER_ID_MAX,
+	productRetailerIdField,
+	publicUrlStringField,
+} from './fieldConstraints';
 import { optionalLabel } from './displayNames';
 import { KAPSO_DOCS, withKapsoDoc } from './expressionHints';
 
@@ -186,13 +195,15 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 		values: [
 			templateButtonKindField('catalog'),
 			buttonIndexField,
-			{
-				displayName: optionalLabel('Thumbnail SKU'),
-				name: 'catalogThumbnailProductRetailerId',
-				type: 'string',
-				default: '',
-				description: 'Optional product_retailer_id used as the catalog thumbnail',
-			},
+			limitedTextResourceLocatorField(
+				'catalogThumbnailProductRetailerId',
+				'Thumbnail SKU',
+				PRODUCT_RETAILER_ID_MAX,
+				{
+					optional: true,
+					description: 'Optional product_retailer_id used as the catalog thumbnail',
+				},
+			),
 		],
 	},
 	{
@@ -202,13 +213,15 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 		values: [
 			templateButtonKindField('mpm'),
 			buttonIndexField,
-			{
-				displayName: optionalLabel('Thumbnail SKU'),
-				name: 'mpmThumbnailProductRetailerId',
-				type: 'string',
-				default: '',
-				description: 'Optional product_retailer_id shown before the customer opens the product list',
-			},
+			limitedTextResourceLocatorField(
+				'mpmThumbnailProductRetailerId',
+				'Thumbnail SKU',
+				PRODUCT_RETAILER_ID_MAX,
+				{
+					optional: true,
+					description: 'Optional product_retailer_id shown before the customer opens the product list',
+				},
+			),
 			mpmSectionFields,
 		],
 	},
@@ -316,32 +329,36 @@ export const templateLocationHeaderFields = (
 		},
 		description: 'Longitude in decimal degrees (-180 to 180)',
 	},
-	{
-		displayName: optionalLabel('Header Location Name'),
-		name: `${prefix}HeaderLocationName`,
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource,
-				operation,
-				[`${prefix}HeaderType`]: ['location'],
+	limitedTextResourceLocatorField(
+		`${prefix}HeaderLocationName`,
+		'Header Location Name',
+		LOCATION_TEXT_MAX,
+		{
+			optional: true,
+			displayOptions: {
+				show: {
+					resource,
+					operation,
+					[`${prefix}HeaderType`]: ['location'],
+				},
 			},
+			description: `Optional location title shown in the map pin (max ${LOCATION_TEXT_MAX} characters)`,
 		},
-		description: 'Optional location title shown in the map pin',
-	},
-	{
-		displayName: optionalLabel('Header Location Address'),
-		name: `${prefix}HeaderLocationAddress`,
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource,
-				operation,
-				[`${prefix}HeaderType`]: ['location'],
+	),
+	limitedTextResourceLocatorField(
+		`${prefix}HeaderLocationAddress`,
+		'Header Location Address',
+		LOCATION_TEXT_MAX,
+		{
+			optional: true,
+			displayOptions: {
+				show: {
+					resource,
+					operation,
+					[`${prefix}HeaderType`]: ['location'],
+				},
 			},
+			description: `Optional street address shown under the location name (max ${LOCATION_TEXT_MAX} characters)`,
 		},
-		description: 'Optional street address shown under the location name',
-	},
+	),
 ];

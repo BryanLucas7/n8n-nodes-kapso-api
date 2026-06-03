@@ -1,5 +1,10 @@
 import { INodeProperties } from 'n8n-workflow';
 import { optionalLabel } from './displayNames';
+import {
+	CONTACT_FORMATTED_NAME_MAX,
+	e164PhoneResourceLocatorField,
+	limitedTextResourceLocatorField,
+} from './fieldConstraints';
 
 /** One empty phone row — phone is required, so Send Contact starts with a slot ready to fill. */
 export const defaultContactPhonesValue = {
@@ -13,14 +18,12 @@ export const defaultContactEntryValue = {
 };
 
 const phoneEntryFields: INodeProperties[] = [
-	{
-		displayName: 'Phone Number',
-		name: 'phoneNumber',
-		type: 'string',
-		default: '',
-		required: true,
-		description: 'Phone number in international format',
-	},
+	e164PhoneResourceLocatorField(
+		'phoneNumber',
+		'Phone Number',
+		undefined,
+		'Phone number in E.164 format with leading + for the contact card',
+	),
 	{
 		displayName: optionalLabel('Phone Type'),
 		name: 'phoneType',
@@ -146,14 +149,10 @@ const addressEntryFields: INodeProperties[] = [
 
 /** Essential contact card fields shown by default in Send Contact. */
 export const contactCardEssentialFieldValues: INodeProperties[] = [
-	{
-		displayName: 'Formatted Name',
-		name: 'formattedName',
-		type: 'string',
-		default: '',
+	limitedTextResourceLocatorField('formattedName', 'Formatted Name', CONTACT_FORMATTED_NAME_MAX, {
 		required: true,
-		description: 'Full display name shown on the contact card',
-	},
+		description: `Full display name shown on the contact card (max ${CONTACT_FORMATTED_NAME_MAX} characters)`,
+	}),
 	{
 		displayName: optionalLabel('First Name'),
 		name: 'firstName',

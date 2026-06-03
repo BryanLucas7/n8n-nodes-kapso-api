@@ -12,6 +12,7 @@ import {
 	listRowIdField,
 	listRowTitleField,
 	listSectionTitleField,
+	maxLengthRegexValidation,
 	mediaCaptionField,
 	mediaIdStringField,
 	metaPhoneResourceLocatorField,
@@ -234,6 +235,16 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				typeOptions: {
 					maxLength: FILTER_STRING_MAX,
 				} as unknown as INodePropertyModeTypeOptions,
+				validation: [
+					{
+						type: 'regex',
+						properties: {
+							regex: String.raw`[^|\s][^|]*\|[A-Za-z_-]{2,10}`,
+							errorMessage: 'Use template_name|language_code (for example order_update|en_US)',
+						},
+					},
+					maxLengthRegexValidation(FILTER_STRING_MAX, { label: 'Template' }),
+				],
 			},
 		],
 		displayOptions: {
@@ -365,7 +376,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
 		},
 		displayOptions: {
-			hide: {
+			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},
@@ -682,14 +693,16 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 						default: 'link',
 						description: 'Public Link: HTTPS URL Meta can fetch. Media ID: from Upload Media or Kapso Trigger; must match the approved card header type.',
 					},
-					{
-						displayName: 'Header Media URL',
-						name: 'cardHeaderMediaUrl',
-						type: 'string',
-						default: '',
-						description: 'Public media URL when Header Media Source is Public Link',
-					},
-					mediaIdStringField('cardHeaderMediaId', 'Header Media ID', undefined, false),
+					publicUrlStringField('cardHeaderMediaUrl', 'Header Media URL', {
+						show: {
+							cardHeaderMediaSource: ['link'],
+						},
+					}, 'Public media URL when Header Media Source is Public Link'),
+					mediaIdStringField('cardHeaderMediaId', 'Header Media ID', {
+						show: {
+							cardHeaderMediaSource: ['id'],
+						},
+					}, false),
 					{
 						displayName: 'Button Parameters',
 						name: 'cardButtonParameters',
@@ -731,7 +744,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
 		},
 		displayOptions: {
-			hide: {
+			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},

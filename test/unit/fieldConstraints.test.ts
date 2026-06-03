@@ -13,6 +13,8 @@ import {
 	LIST_ROW_TITLE_MAX,
 	LIST_SECTION_TITLE_MAX,
 	MEDIA_ID_MAX_LENGTH,
+	maxLengthRegexPattern,
+	maxLengthRegexValidation,
 	PRODUCT_RETAILER_ID_MAX,
 	TEXT_MESSAGE_MAX,
 	URL_FIELD_MAX,
@@ -38,8 +40,33 @@ import {
 	uuidStringField,
 } from '../../nodes/KapsoApi/properties/fieldConstraints';
 
-function maxLengthOf(field: { typeOptions?: { maxLength?: number } }): number | undefined {
-	return field.typeOptions?.maxLength;
+type ConstrainedField = {
+	type?: string;
+	typeOptions?: { maxLength?: number; rows?: number };
+	placeholder?: string;
+	validation?: Array<{ type?: string; properties?: { regex?: string } }>;
+	modes?: Array<{
+		typeOptions?: { maxLength?: number; rows?: number };
+		placeholder?: string;
+		validation?: Array<{ type?: string; properties?: { regex?: string } }>;
+	}>;
+};
+
+function maxLengthOf(field: ConstrainedField): number | undefined {
+	return field.typeOptions?.maxLength ?? field.modes?.[0]?.typeOptions?.maxLength;
+}
+
+function rowsOf(field: ConstrainedField): number | undefined {
+	return field.typeOptions?.rows ?? field.modes?.[0]?.typeOptions?.rows;
+}
+
+function placeholderOf(field: ConstrainedField): string | undefined {
+	return field.placeholder ?? field.modes?.[0]?.placeholder;
+}
+
+function regexValidationOf(field: ConstrainedField): { type?: string; regex?: string } | undefined {
+	const entry = field.validation?.[0] ?? field.modes?.[0]?.validation?.[0];
+	return entry ? { type: entry.type, regex: entry.properties?.regex } : undefined;
 }
 
 describe('fieldConstraints', () => {
@@ -52,10 +79,30 @@ describe('fieldConstraints', () => {
 		expect(maxLengthOf(listRowIdField())).toBe(LIST_ROW_ID_MAX);
 		expect(maxLengthOf(listRowTitleField())).toBe(LIST_ROW_TITLE_MAX);
 		expect(maxLengthOf(listRowDescriptionField())).toBe(LIST_ROW_DESCRIPTION_MAX);
+		expect(textMessageField({ show: {} }).type).toBe('resourceLocator');
 	});
 
 	it('applies media ID max length to header media fields', () => {
 		expect(maxLengthOf(mediaIdStringField('mediaId', 'Media ID'))).toBe(MEDIA_ID_MAX_LENGTH);
+	});
+
+	it('adds max-length regex validation to limited string fields', () => {
+		expect(maxLengthRegexPattern(LIST_ROW_TITLE_MAX, false)).toBe(`.{1,${LIST_ROW_TITLE_MAX}}`);
+		expect(maxLengthRegexPattern(LIST_ROW_DESCRIPTION_MAX, true)).toBe(
+			`.{0,${LIST_ROW_DESCRIPTION_MAX}}`,
+		);
+
+		const requiredRow = regexValidationOf(listRowTitleField());
+		expect(requiredRow?.type).toBe('regex');
+		expect(requiredRow?.regex).toBe(maxLengthRegexPattern(LIST_ROW_TITLE_MAX, false));
+
+		const optionalRow = regexValidationOf(listRowDescriptionField());
+		expect(optionalRow?.regex).toBe(maxLengthRegexPattern(LIST_ROW_DESCRIPTION_MAX, true));
+
+		const flowToken = regexValidationOf(flowTokenField());
+		expect(flowToken?.type).toBe('regex');
+		expect(maxLengthRegexValidation(FLOW_TOKEN_MAX, { optional: true, label: 'Flow Token' }).properties
+			.regex).toBe(maxLengthRegexPattern(FLOW_TOKEN_MAX, true));
 	});
 
 	it('configures phone resource locators with regex validation', () => {
@@ -103,7 +150,7 @@ describe('fieldConstraints', () => {
 		);
 
 		expect(locationPrompt?.displayName).toBe('Location Request Prompt');
-		expect(locationPrompt?.typeOptions?.rows).toBeUndefined();
-		expect(locationPrompt?.placeholder).toContain('share your location');
+		expect(rowsOf(locationPrompt ?? {})).toBeUndefined();
+		expect(placeholderOf(locationPrompt ?? {})).toContain('share your location');
 	});
 });

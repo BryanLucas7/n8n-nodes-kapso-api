@@ -196,4 +196,49 @@ describe('kapsoNodeProperties', () => {
 		expect(names.indexOf('mediaSource')).toBeLessThan(names.indexOf('sendAsVoiceNote'));
 		expect(names.indexOf('sendAsVoiceNote')).toBeLessThan(names.indexOf('messageSendOptions'));
 	});
+
+	it('does not expose template/broadcast hint fields outside their operations', () => {
+		const hiddenOnSendImage = getNodeParameters(
+			kapsoNodeProperties,
+			{ resource: 'message', operation: 'sendImage', mediaSource: 'link' },
+			true,
+			false,
+			null,
+			{ properties: kapsoNodeProperties },
+		) as Record<string, unknown>;
+
+		expect(hiddenOnSendImage).not.toHaveProperty('broadcastMpmButtonHint');
+		expect(hiddenOnSendImage).not.toHaveProperty('templateMpmButtonHint');
+		expect(hiddenOnSendImage).not.toHaveProperty('templateHeaderTextHasVariable');
+
+		const hiddenOnSendText = getNodeParameters(
+			kapsoNodeProperties,
+			{ resource: 'message', operation: 'sendText' },
+			true,
+			false,
+			null,
+			{ properties: kapsoNodeProperties },
+		) as Record<string, unknown>;
+
+		expect(hiddenOnSendText).not.toHaveProperty('broadcastMpmButtonHint');
+		expect(hiddenOnSendText).not.toHaveProperty('templateMpmButtonHint');
+		expect(hiddenOnSendText).not.toHaveProperty('templateHeaderTextHasVariable');
+	});
+
+	it('does not use hide-only displayOptions on top-level helper fields', () => {
+		const violations: string[] = [];
+
+		for (const property of kapsoNodeProperties) {
+			const { displayOptions } = property;
+			if (!displayOptions?.hide || displayOptions.show) {
+				continue;
+			}
+
+			violations.push(
+				`${property.name} uses displayOptions.hide without show (field appears on every other operation)`,
+			);
+		}
+
+		expect(violations).toEqual([]);
+	});
 });

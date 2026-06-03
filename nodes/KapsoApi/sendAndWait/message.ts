@@ -1,5 +1,9 @@
 import { IDataObject } from 'n8n-workflow';
-import { buildCtaUrlMessage, buildTextMessage } from '../actions/messagePayloads';
+import {
+	applyBizOpaqueCallbackData,
+	buildCtaUrlMessage,
+	buildTextMessage,
+} from '../actions/messagePayloads';
 import { createUtmCampaignLink, KAPSO_SEND_AND_WAIT_NODE_TYPE } from './attribution';
 import type { SendAndWaitConfig } from './utils';
 
@@ -43,26 +47,32 @@ export function buildSendAndWaitMessagePayload(
 			bodyText = `${config.message}\n\nThis message was sent automatically with ${link}`;
 		}
 
-		return buildCtaUrlMessage(
-			to,
-			bodyText,
-			option.label,
-			option.url,
-			'none',
-			undefined,
-			'link',
-			undefined,
-			undefined,
-			undefined,
-			undefined,
-			config.replyToMessageId,
+		return applyBizOpaqueCallbackData(
+			buildCtaUrlMessage(
+				to,
+				bodyText,
+				option.label,
+				option.url,
+				'none',
+				undefined,
+				'link',
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				config.replyToMessageId,
+			),
+			config.bizOpaqueCallbackData,
 		);
 	}
 
-	return buildTextMessage(
-		to,
-		buildKapsoSendAndWaitTextBody(config, instanceId),
-		false,
-		config.replyToMessageId,
+	return applyBizOpaqueCallbackData(
+		buildTextMessage(
+			to,
+			buildKapsoSendAndWaitTextBody(config, instanceId),
+			false,
+			config.replyToMessageId,
+		),
+		config.bizOpaqueCallbackData,
 	);
 }

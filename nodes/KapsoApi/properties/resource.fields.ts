@@ -4,7 +4,8 @@ import {
 	e164PhoneResourceLocatorField,
 	FILTER_STRING_MAX,
 	httpUrlStringField,
-	limitedStringField,
+	limitedTextResourceLocatorField,
+	maxLengthRegexValidation,
 	mediaIdStringField,
 	metaPhoneResourceLocatorField,
 	uuidResourceLocatorIdMode,
@@ -38,6 +39,7 @@ const idMode = (placeholder: string) => ({
 	typeOptions: {
 		maxLength: FILTER_STRING_MAX,
 	} as unknown as INodePropertyModeTypeOptions,
+	validation: [maxLengthRegexValidation(FILTER_STRING_MAX, { label: 'ID' })],
 });
 
 export const resourceFields: INodeProperties[] = [
@@ -53,6 +55,7 @@ export const resourceFields: INodeProperties[] = [
 		type: 'string',
 		default: 'data',
 		required: true,
+		requiresDataPath: 'single',
 		displayOptions: {
 			show: {
 				resource: ['media'],
@@ -61,16 +64,11 @@ export const resourceFields: INodeProperties[] = [
 		},
 		description: 'Input binary property that contains the file to upload to WhatsApp',
 	},
-	{
-		displayName: 'Download Token',
-		name: 'downloadToken',
-		type: 'string',
-		typeOptions: {
-			maxLength: DOWNLOAD_TOKEN_MAX,
-			password: true,
-		},
-		default: '',
+	limitedTextResourceLocatorField('downloadToken', 'Download Token', DOWNLOAD_TOKEN_MAX, {
 		required: true,
+		password: true,
+		modeName: 'token',
+		modeDisplayName: 'Download Token',
 		displayOptions: {
 			show: {
 				resource: ['media'],
@@ -79,13 +77,14 @@ export const resourceFields: INodeProperties[] = [
 		},
 		description:
 			'Short-lived download_url token returned by Get Media URL (not the media ID itself)',
-	},
+	}),
 	{
 		displayName: 'Output Binary Property',
 		name: 'outputBinaryProperty',
 		type: 'string',
 		default: 'data',
 		required: true,
+		requiresDataPath: 'single',
 		displayOptions: {
 			show: {
 				resource: ['media'],
@@ -166,7 +165,7 @@ export const resourceFields: INodeProperties[] = [
 		],
 		description: 'HTTP method for the custom Kapso API request',
 	},
-	limitedStringField('customPath', 'Custom Relative Path', CUSTOM_RELATIVE_PATH_MAX, {
+	limitedTextResourceLocatorField('customPath', 'Custom Relative Path', CUSTOM_RELATIVE_PATH_MAX, {
 		displayOptions: {
 			show: {
 				operation: [CUSTOM_API_CALL],

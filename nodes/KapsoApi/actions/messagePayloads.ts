@@ -4,15 +4,19 @@ import {
 	buildMetaTemplateComponents,
 	type TemplateComponentsInput,
 } from './templateComponents';
+import { readStringParameterValue } from './nodeHelpers';
 import {
+	assertContactMessageCount,
 	assertInteractiveButtonCount,
 	assertInteractiveListShape,
 	assertProductListShape,
+	assertE164Phone,
 	assertWhatsAppMediaId,
-	parseCoordinate,
 	validateButtonId,
 	validateButtonTitle,
+	validateBizOpaqueCallbackData,
 	validateCatalogId,
+	validateContactFormattedName,
 	validateCtaButtonLabel,
 	validateCtaPhoneNumber,
 	validateDocumentFilename,
@@ -24,11 +28,14 @@ import {
 	validateInteractiveBodyText,
 	validateInteractiveFooterText,
 	validateInteractiveHeaderText,
+	validateLatitude,
 	validateListButtonText,
 	validateListRowDescription,
 	validateListRowId,
 	validateListRowTitle,
 	validateListSectionTitle,
+	validateLocationText,
+	validateLongitude,
 	validateMediaCaption,
 	validateProductRetailerId,
 	validateTextMessageBody,
@@ -129,11 +136,14 @@ function resolveInteractiveHeader(
 	headerMediaId?: string,
 	headerDocumentFilename?: string,
 ): IDataObject | undefined {
-	if (headerType === 'text' && headerText) {
-		return buildInteractiveTextHeader(validateInteractiveHeaderText(headerText));
+	const text = readStringParameterValue(headerText);
+	if (headerType === 'text' && text) {
+		return buildInteractiveTextHeader(validateInteractiveHeaderText(text));
 	}
 
-	const mediaValue = headerMediaSource === 'id' ? headerMediaId : headerMediaUrl;
+	const mediaValue = readStringParameterValue(
+		headerMediaSource === 'id' ? headerMediaId : headerMediaUrl,
+	);
 
 	if (headerMediaSource === 'id' && mediaValue) {
 		assertWhatsAppMediaId(mediaValue, 'Header Media ID');
@@ -152,7 +162,10 @@ function resolveInteractiveHeader(
 			[headerMediaSource === 'id' ? 'id' : 'link']: mediaValue,
 		};
 
-		const validatedFilename = validateDocumentFilename(headerDocumentFilename, 'Header Document Filename');
+		const validatedFilename = validateDocumentFilename(
+			readStringParameterValue(headerDocumentFilename) || undefined,
+			'Header Document Filename',
+		);
 		if (validatedFilename) {
 			document.filename = validatedFilename;
 		}
@@ -167,15 +180,33 @@ function resolveInteractiveHeader(
 }
 
 function withReplyContext(message: IDataObject, replyToMessageId?: string): IDataObject {
-	if (!replyToMessageId) {
+	const replyMessageId = readStringParameterValue(replyToMessageId);
+	if (!replyMessageId) {
 		return message;
 	}
 
 	return {
 		...message,
 		context: {
-			message_id: replyToMessageId,
+			message_id: replyMessageId,
 		},
+	};
+}
+
+export function applyBizOpaqueCallbackData(
+	message: IDataObject,
+	callbackData?: string,
+): IDataObject {
+	const validatedCallbackData = validateBizOpaqueCallbackData(
+		readStringParameterValue(callbackData) || undefined,
+	);
+	if (!validatedCallbackData) {
+		return message;
+	}
+
+	return {
+		...message,
+		biz_opaque_callback_data: validatedCallbackData,
 	};
 }
 
@@ -185,7 +216,7 @@ export function buildTextMessage(
 	previewUrl: boolean,
 	replyToMessageId?: string,
 ): IDataObject {
-	const validatedBody = validateTextMessageBody(body);
+	const validatedBody = validateTextMessageBody(readStringParameterValue(body));
 
 	return withReplyContext(
 		{
@@ -213,11 +244,14 @@ export function buildMediaMessage(
 	voice?: boolean,
 ): IDataObject {
 	const media: IDataObject = {
-		[mediaSource]: mediaValue,
+		[mediaSource]: readStringParameterValue(mediaValue),
 	};
 
-	const validatedCaption = validateMediaCaption(caption);
-	const validatedFilename = validateDocumentFilename(filename, 'Filename');
+	const validatedCaption = validateMediaCaption(readStringParameterValue(caption) || undefined);
+	const validatedFilename = validateDocumentFilename(
+		readStringParameterValue(filename) || undefined,
+		'Filename',
+	);
 
 	if (validatedCaption && mediaType !== 'audio') {
 		media.caption = validatedCaption;
@@ -258,12 +292,12 @@ export function buildButtonsMessage(
 ): IDataObject {
 	assertInteractiveButtonCount(buttons.length);
 
-	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
 	const validatedButtons = buttons.map((button) => ({
-		buttonId: validateButtonId(button.buttonId),
-		buttonTitle: validateButtonTitle(button.buttonTitle),
+		buttonId: validateButtonId(readStringParameterValue(button.buttonId)),
+		buttonTitle: validateButtonTitle(readStringParameterValue(button.buttonTitle)),
 	}));
-	const validatedFooter = validateInteractiveFooterText(footer);
+	const validatedFooter = validateInteractiveFooterText(readStringParameterValue(footer) || undefined);
 
 	const interactive: IDataObject = {
 		type: 'button',
@@ -328,15 +362,17 @@ export function buildListMessage(
 	const totalRows = sections.reduce((count, section) => count + section.rows.length, 0);
 	assertInteractiveListShape(sections.length, totalRows);
 
-	const validatedBody = validateInteractiveBodyText(bodyText);
-	const validatedButtonText = validateListButtonText(buttonText);
-	const validatedFooter = validateInteractiveFooterText(footer);
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
+	const validatedButtonText = validateListButtonText(readStringParameterValue(buttonText));
+	const validatedFooter = validateInteractiveFooterText(readStringParameterValue(footer) || undefined);
 	const validatedSections = sections.map((section) => ({
-		sectionTitle: validateListSectionTitle(section.sectionTitle),
+		sectionTitle: validateListSectionTitle(readStringParameterValue(section.sectionTitle)),
 		rows: section.rows.map((row) => ({
-			rowId: validateListRowId(row.rowId),
-			rowTitle: validateListRowTitle(row.rowTitle),
-			rowDescription: validateListRowDescription(row.rowDescription),
+			rowId: validateListRowId(readStringParameterValue(row.rowId)),
+			rowTitle: validateListRowTitle(readStringParameterValue(row.rowTitle)),
+			rowDescription: validateListRowDescription(
+				readStringParameterValue(row.rowDescription) || undefined,
+			),
 		})),
 	}));
 
@@ -393,6 +429,8 @@ export function buildContactMessage(
 	contacts: KapsoContactInput[],
 	replyToMessageId?: string,
 ): IDataObject {
+	assertContactMessageCount(contacts.length);
+
 	return withReplyContext(
 		{
 			messaging_product: 'whatsapp',
@@ -400,20 +438,25 @@ export function buildContactMessage(
 			to,
 			type: 'contacts',
 			contacts: contacts.map((contact) => {
+			const formattedName = validateContactFormattedName(
+				readStringParameterValue(contact.formattedName),
+			);
 			const phones: IDataObject[] = [];
 
 			for (const phone of contact.phones?.phoneValues ?? []) {
-				if (!phone.phoneNumber) {
+				const phoneNumber = readStringParameterValue(phone.phoneNumber);
+				if (!phoneNumber) {
 					continue;
 				}
 
 				const entry: IDataObject = {
-					phone: phone.phoneNumber,
-					type: phone.phoneType || 'MOBILE',
+					phone: assertE164Phone(phoneNumber, 'Contact Phone Number'),
+					type: readStringParameterValue(phone.phoneType) || 'MOBILE',
 				};
 
-				if (phone.waId) {
-					entry.wa_id = phone.waId;
+				const waId = readStringParameterValue(phone.waId);
+				if (waId) {
+					entry.wa_id = waId;
 				}
 
 				phones.push(entry);
@@ -421,17 +464,18 @@ export function buildContactMessage(
 
 			if (phones.length === 0) {
 				throw new ApplicationError(
-					`Contact "${contact.formattedName}" requires at least one phone number.`,
+					`Contact "${formattedName}" requires at least one phone number.`,
 				);
 			}
 
 			const emails: IDataObject[] = [];
 
 			for (const email of contact.emails?.emailValues ?? []) {
-				if (email.email) {
+				const emailAddress = readStringParameterValue(email.email);
+				if (emailAddress) {
 					emails.push({
-						email: email.email,
-						type: email.emailType || 'WORK',
+						email: emailAddress,
+						type: readStringParameterValue(email.emailType) || 'WORK',
 					});
 				}
 			}
@@ -439,27 +483,29 @@ export function buildContactMessage(
 			const urls: IDataObject[] = [];
 
 			for (const urlEntry of contact.urls?.urlValues ?? []) {
-				if (urlEntry.url) {
+				const url = readStringParameterValue(urlEntry.url);
+				if (url) {
 					urls.push({
-						url: urlEntry.url,
-						type: urlEntry.urlType || 'WORK',
+						url,
+						type: readStringParameterValue(urlEntry.urlType) || 'WORK',
 					});
 				}
 			}
 
 			const entry: IDataObject = {
 				name: {
-					formatted_name: contact.formattedName,
-					...(contact.firstName ? { first_name: contact.firstName } : {}),
-					...(contact.middleName ? { middle_name: contact.middleName } : {}),
-					...(contact.lastName ? { last_name: contact.lastName } : {}),
-					...(contact.namePrefix ? { prefix: contact.namePrefix } : {}),
-					...(contact.nameSuffix ? { suffix: contact.nameSuffix } : {}),
+					formatted_name: formattedName,
+					...(readStringParameterValue(contact.firstName) ? { first_name: readStringParameterValue(contact.firstName) } : {}),
+					...(readStringParameterValue(contact.middleName) ? { middle_name: readStringParameterValue(contact.middleName) } : {}),
+					...(readStringParameterValue(contact.lastName) ? { last_name: readStringParameterValue(contact.lastName) } : {}),
+					...(readStringParameterValue(contact.namePrefix) ? { prefix: readStringParameterValue(contact.namePrefix) } : {}),
+					...(readStringParameterValue(contact.nameSuffix) ? { suffix: readStringParameterValue(contact.nameSuffix) } : {}),
 				},
 			};
 
-			if (contact.birthday) {
-				entry.birthday = contact.birthday;
+			const birthday = readStringParameterValue(contact.birthday);
+			if (birthday) {
+				entry.birthday = birthday;
 			}
 
 			if (phones.length > 0) {
@@ -474,26 +520,36 @@ export function buildContactMessage(
 				entry.urls = urls;
 			}
 
-			if (contact.organization || contact.orgDepartment || contact.orgTitle) {
+			const organization = readStringParameterValue(contact.organization);
+			const orgDepartment = readStringParameterValue(contact.orgDepartment);
+			const orgTitle = readStringParameterValue(contact.orgTitle);
+			if (organization || orgDepartment || orgTitle) {
 				entry.org = {
-					...(contact.organization ? { company: contact.organization } : {}),
-					...(contact.orgDepartment ? { department: contact.orgDepartment } : {}),
-					...(contact.orgTitle ? { title: contact.orgTitle } : {}),
+					...(organization ? { company: organization } : {}),
+					...(orgDepartment ? { department: orgDepartment } : {}),
+					...(orgTitle ? { title: orgTitle } : {}),
 				};
 			}
 
 			const addresses = (contact.addresses?.addressValues ?? [])
 				.map((address) => {
 					const value: IDataObject = {
-						type: address.addressType || 'WORK',
+						type: readStringParameterValue(address.addressType) || 'WORK',
 					};
 
-					if (address.street) value.street = address.street;
-					if (address.city) value.city = address.city;
-					if (address.state) value.state = address.state;
-					if (address.zip) value.zip = address.zip;
-					if (address.country) value.country = address.country;
-					if (address.countryCode) value.country_code = address.countryCode;
+					const street = readStringParameterValue(address.street);
+					const city = readStringParameterValue(address.city);
+					const state = readStringParameterValue(address.state);
+					const zip = readStringParameterValue(address.zip);
+					const country = readStringParameterValue(address.country);
+					const countryCode = readStringParameterValue(address.countryCode);
+
+					if (street) value.street = street;
+					if (city) value.city = city;
+					if (state) value.state = state;
+					if (zip) value.zip = zip;
+					if (country) value.country = country;
+					if (countryCode) value.country_code = countryCode;
 
 					return Object.keys(value).length > 1 ? value : undefined;
 				})
@@ -576,8 +632,8 @@ export function buildReactionMessage(to: string, messageId: string, emoji: strin
 		to,
 		type: 'reaction',
 		reaction: {
-			message_id: messageId,
-			emoji,
+			message_id: readStringParameterValue(messageId),
+			emoji: readStringParameterValue(emoji),
 		},
 	};
 }
@@ -600,16 +656,20 @@ export function buildLocationMessage(
 	replyToMessageId?: string,
 ): IDataObject {
 	const location: IDataObject = {
-		latitude: parseCoordinate(latitude, 'Latitude'),
-		longitude: parseCoordinate(longitude, 'Longitude'),
+		latitude: validateLatitude(latitude),
+		longitude: validateLongitude(longitude),
 	};
 
-	if (name) {
-		location.name = name;
+	const locationName = readStringParameterValue(name);
+	const validatedName = validateLocationText(locationName, 'Location Name');
+	if (validatedName) {
+		location.name = validatedName;
 	}
 
-	if (address) {
-		location.address = address;
+	const locationAddress = readStringParameterValue(address);
+	const validatedAddress = validateLocationText(locationAddress, 'Location Address');
+	if (validatedAddress) {
+		location.address = validatedAddress;
 	}
 
 	return withReplyContext(
@@ -637,7 +697,7 @@ export function buildStickerMessage(
 			to,
 			type: 'sticker',
 			sticker: {
-				[mediaSource]: mediaValue,
+				[mediaSource]: readStringParameterValue(mediaValue),
 			},
 		},
 		replyToMessageId,
@@ -649,7 +709,7 @@ export function buildRequestLocationMessage(
 	bodyText: string,
 	replyToMessageId?: string,
 ): IDataObject {
-	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
 
 	return withReplyContext(
 		{
@@ -685,10 +745,10 @@ export function buildCtaUrlMessage(
 	footer?: string,
 	replyToMessageId?: string,
 ): IDataObject {
-	const validatedBody = validateInteractiveBodyText(bodyText);
-	const validatedLabel = validateCtaButtonLabel(buttonLabel);
-	const validatedUrl = validateHttpUrl(buttonUrl, 'Button URL');
-	const validatedFooter = validateInteractiveFooterText(footer);
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
+	const validatedLabel = validateCtaButtonLabel(readStringParameterValue(buttonLabel));
+	const validatedUrl = validateHttpUrl(readStringParameterValue(buttonUrl), 'Button URL');
+	const validatedFooter = validateInteractiveFooterText(readStringParameterValue(footer) || undefined);
 
 	const interactive: IDataObject = {
 		type: 'cta_url',
@@ -748,10 +808,10 @@ export function buildCtaCallMessage(
 	footer?: string,
 	replyToMessageId?: string,
 ): IDataObject {
-	const validatedBody = validateInteractiveBodyText(bodyText);
-	const validatedLabel = validateCtaButtonLabel(buttonLabel);
-	const validatedPhone = validateCtaPhoneNumber(buttonPhoneNumber);
-	const validatedFooter = validateInteractiveFooterText(footer);
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
+	const validatedLabel = validateCtaButtonLabel(readStringParameterValue(buttonLabel));
+	const validatedPhone = validateCtaPhoneNumber(readStringParameterValue(buttonPhoneNumber));
+	const validatedFooter = validateInteractiveFooterText(readStringParameterValue(footer) || undefined);
 
 	const interactive: IDataObject = {
 		type: 'cta_call',
@@ -804,8 +864,8 @@ export function buildProductMessage(
 	bodyText?: string,
 	replyToMessageId?: string,
 ): IDataObject {
-	const validatedCatalogId = validateCatalogId(catalogId);
-	const validatedProductId = validateProductRetailerId(productRetailerId);
+	const validatedCatalogId = validateCatalogId(readStringParameterValue(catalogId));
+	const validatedProductId = validateProductRetailerId(readStringParameterValue(productRetailerId));
 
 	const interactive: IDataObject = {
 		type: 'product',
@@ -815,9 +875,10 @@ export function buildProductMessage(
 		},
 	};
 
-	if (bodyText) {
+	const body = readStringParameterValue(bodyText);
+	if (body) {
 		interactive.body = {
-			text: validateInteractiveBodyText(bodyText),
+			text: validateInteractiveBodyText(body),
 		};
 	}
 
@@ -873,12 +934,14 @@ export function buildProductListMessage(
 ): IDataObject {
 	assertProductListShape(sections);
 
-	const validatedCatalogId = validateCatalogId(catalogId);
-	const validatedBody = validateInteractiveBodyText(bodyText);
-	const validatedFooter = validateInteractiveFooterText(footer);
+	const validatedCatalogId = validateCatalogId(readStringParameterValue(catalogId));
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
+	const validatedFooter = validateInteractiveFooterText(readStringParameterValue(footer) || undefined);
 	const validatedSections = sections.map((section) => ({
-		sectionTitle: validateListSectionTitle(section.sectionTitle),
-		productRetailerIds: section.productRetailerIds.map((id) => validateProductRetailerId(id)),
+		sectionTitle: validateListSectionTitle(readStringParameterValue(section.sectionTitle)),
+		productRetailerIds: section.productRetailerIds.map((id) =>
+			validateProductRetailerId(readStringParameterValue(id)),
+		),
 	}));
 
 	const interactive: IDataObject = {
@@ -929,8 +992,8 @@ export function buildCatalogMessage(
 	thumbnailProductRetailerId?: string,
 	replyToMessageId?: string,
 ): IDataObject {
-	const validatedBody = validateInteractiveBodyText(bodyText);
-	const trimmedThumbnail = thumbnailProductRetailerId?.trim() ?? '';
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
+	const trimmedThumbnail = readStringParameterValue(thumbnailProductRetailerId).trim();
 	const parameters: IDataObject = {};
 
 	if (trimmedThumbnail) {
@@ -982,12 +1045,12 @@ export function buildFlowMessage(
 	flowId?: string,
 	flowName?: string,
 ): IDataObject {
-	const validatedBody = validateInteractiveBodyText(bodyText);
-	const validatedCta = validateFlowCta(flowCta);
-	const validatedFooter = validateInteractiveFooterText(footer);
-	const flowTokenValue = validateFlowToken(flowToken);
-	const validatedScreen = validateFlowScreen(flowScreen);
-	const validatedFlowId = validateFlowId(flowId);
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
+	const validatedCta = validateFlowCta(readStringParameterValue(flowCta));
+	const validatedFooter = validateInteractiveFooterText(readStringParameterValue(footer) || undefined);
+	const flowTokenValue = validateFlowToken(readStringParameterValue(flowToken));
+	const validatedScreen = validateFlowScreen(readStringParameterValue(flowScreen) || undefined);
+	const validatedFlowId = validateFlowId(readStringParameterValue(flowId) || undefined);
 
 	const parameters: IDataObject = {
 		flow_message_version: flowMessageVersion,
@@ -1000,8 +1063,9 @@ export function buildFlowMessage(
 		parameters.flow_id = validatedFlowId;
 	}
 
-	if (flowName) {
-		parameters.flow_name = flowName;
+	const name = readStringParameterValue(flowName);
+	if (name) {
+		parameters.flow_name = name;
 	}
 
 	if (flowMode) {
@@ -1065,7 +1129,7 @@ export function buildCallPermissionMessage(
 	bodyText: string,
 	replyToMessageId?: string,
 ): IDataObject {
-	const validatedBody = validateInteractiveBodyText(bodyText);
+	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
 
 	return withReplyContext(
 		{

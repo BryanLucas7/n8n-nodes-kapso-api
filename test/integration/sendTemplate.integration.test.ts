@@ -251,7 +251,7 @@ describe('sendTemplate integration', () => {
 						{
 							cardIndex: 1,
 							cardHeaderMediaSource: 'id',
-							cardHeaderMediaId: 'video-media-id',
+							cardHeaderMediaId: '2233445566',
 						},
 					],
 				},

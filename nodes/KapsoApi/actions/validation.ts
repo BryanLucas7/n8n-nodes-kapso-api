@@ -2,7 +2,10 @@ import { ApplicationError } from 'n8n-workflow';
 import {
 	BUTTON_ID_MAX,
 	BUTTON_TITLE_MAX,
+	BIZ_OPAQUE_CALLBACK_DATA_MAX,
 	CATALOG_ID_MAX,
+	CONTACT_FORMATTED_NAME_MAX,
+	CONTACT_MESSAGE_MAX_CONTACTS,
 	CTA_BUTTON_LABEL_MAX,
 	CUSTOM_RELATIVE_PATH_MAX,
 	DOCUMENT_FILENAME_MAX,
@@ -22,6 +25,7 @@ import {
 	LIST_ROW_ID_MAX,
 	LIST_ROW_TITLE_MAX,
 	LIST_SECTION_TITLE_MAX,
+	LOCATION_TEXT_MAX,
 	MEDIA_CAPTION_MAX,
 	META_PHONE_MAX,
 	META_PHONE_MIN,
@@ -38,6 +42,24 @@ export function parseCoordinate(value: string | number, label: string): number {
 
 	if (!Number.isFinite(parsed)) {
 		throw new ApplicationError(`${label} must be a valid number.`);
+	}
+
+	return parsed;
+}
+
+export function validateLatitude(value: string | number): number {
+	const parsed = parseCoordinate(value, 'Latitude');
+	if (parsed < -90 || parsed > 90) {
+		throw new ApplicationError('Latitude must be between -90 and 90.');
+	}
+
+	return parsed;
+}
+
+export function validateLongitude(value: string | number): number {
+	const parsed = parseCoordinate(value, 'Longitude');
+	if (parsed < -180 || parsed > 180) {
+		throw new ApplicationError('Longitude must be between -180 and 180.');
 	}
 
 	return parsed;
@@ -208,6 +230,34 @@ export function validateOptionalMaxLength(
 	}
 
 	return assertMaxLength(value, max, label);
+}
+
+export function validateContactFormattedName(value: string): string {
+	return assertMaxLength(
+		requireNonEmptyString(value, 'Formatted Name'),
+		CONTACT_FORMATTED_NAME_MAX,
+		'Formatted Name',
+	);
+}
+
+export function assertContactMessageCount(count: number): void {
+	if (count < 1 || count > CONTACT_MESSAGE_MAX_CONTACTS) {
+		throw new ApplicationError(
+			`Contact messages support 1 to ${CONTACT_MESSAGE_MAX_CONTACTS} contacts.`,
+		);
+	}
+}
+
+export function validateLocationText(value: string | undefined, label: string): string | undefined {
+	return validateOptionalMaxLength(value?.trim() || undefined, LOCATION_TEXT_MAX, label);
+}
+
+export function validateBizOpaqueCallbackData(value: string | undefined): string | undefined {
+	return validateOptionalMaxLength(
+		value?.trim() || undefined,
+		BIZ_OPAQUE_CALLBACK_DATA_MAX,
+		'Callback Data',
+	);
 }
 
 export function validateTextMessageBody(body: string): string {

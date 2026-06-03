@@ -62,12 +62,12 @@ describe('buildMetaTemplateComponents', () => {
 			buildMetaTemplateComponents({
 				headerType: 'image',
 				headerMediaSource: 'id',
-				headerMediaId: 'media-123',
+				headerMediaId: '1234567890',
 			}),
 		).toEqual([
 			{
 				type: 'header',
-				parameters: [{ type: 'image', image: { id: 'media-123' } }],
+				parameters: [{ type: 'image', image: { id: '1234567890' } }],
 			},
 		]);
 	});
@@ -186,7 +186,7 @@ describe('buildMetaTemplateComponents', () => {
 						cardIndex: 1,
 						headerType: 'video',
 						headerMediaSource: 'id',
-						headerMediaId: 'video-id',
+						headerMediaId: '2233445566',
 					},
 				],
 			}),
@@ -223,7 +223,7 @@ describe('buildMetaTemplateComponents', () => {
 						components: [
 							{
 								type: 'header',
-								parameters: [{ type: 'video', video: { id: 'video-id' } }],
+								parameters: [{ type: 'video', video: { id: '2233445566' } }],
 							},
 						],
 					},

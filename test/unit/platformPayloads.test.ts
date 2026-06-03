@@ -40,6 +40,18 @@ const imageTemplateDefinition = {
 	carouselCards: [],
 };
 
+const imageOnlyTemplateDefinition = {
+	name: 'media_only',
+	language: 'en_US',
+	parameterFormat: 'named',
+	componentMode: 'standard',
+	headerFormat: 'image',
+	headerTextHasVariable: false,
+	bodyVariables: [],
+	buttonSlots: [],
+	carouselCards: [],
+};
+
 const mpmTemplateDefinition = {
 	name: 'mpm_promo',
 	language: 'en_US',
@@ -249,6 +261,43 @@ describe('platformPayloads', () => {
 								sub_type: 'url',
 								index: '0',
 								parameters: [{ type: 'text', text: 'promo-code-12345' }],
+							},
+						],
+					},
+				],
+			},
+		});
+	});
+
+	it('normalizes Resource Locator values in broadcast recipient template headers', async () => {
+		vi.mocked(loadBroadcastTemplateDefinition).mockResolvedValue(imageOnlyTemplateDefinition);
+
+		const ef = createMockExecuteFunctions({
+			broadcastDetectedHeaderFormat: 'image',
+			broadcastDetectedComponentMode: 'standard',
+			broadcastRecipients: {
+				recipientValues: [
+					{
+						phoneNumber: broadcastPhone,
+						recipientHeaderMediaId: { mode: 'id', value: '1234567890' },
+					},
+				],
+			},
+		});
+
+		await expect(buildBroadcastAddRecipientsBody(ef, 0)).resolves.toMatchObject({
+			whatsapp_broadcast: {
+				recipients: [
+					{
+						components: [
+							{
+								type: 'header',
+								parameters: [
+									{
+										type: 'image',
+										image: { id: '1234567890' },
+									},
+								],
 							},
 						],
 					},

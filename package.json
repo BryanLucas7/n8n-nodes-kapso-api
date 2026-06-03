@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-kapso-api",
-	"version": "0.8.1",
+	"version": "0.11.0",
   "description": "n8n community node for documented Kapso Platform and Meta-compatible WhatsApp APIs",
   "keywords": [
     "n8n-community-node-package",
@@ -43,6 +43,7 @@
     "test:live:production-readonly": "RUN_KAPSO_LIVE_TESTS=1 RUN_KAPSO_LIVE_MODE=production-readonly vitest run test/live/production.readonly.live.test.ts",
     "test:live:shared": "RUN_KAPSO_LIVE_TESTS=1 RUN_KAPSO_LIVE_MODE=all vitest run test/live/shared.readonly.live.test.ts",
     "pack:local": "pnpm build && pnpm pack",
+    "scan": "npx --yes @n8n/scan-community-package@latest n8n-nodes-kapso-api",
     "prepublishOnly": "pnpm build && pnpm lint -c .eslintrc.prepublish.js nodes credentials package.json && pnpm test"
   },
   "files": [

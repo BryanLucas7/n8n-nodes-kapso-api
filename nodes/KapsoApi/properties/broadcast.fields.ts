@@ -3,6 +3,9 @@ import {
 	e164PhoneResourceLocatorField,
 	FILTER_STRING_MAX,
 	interactiveHeaderTextField,
+	limitedTextResourceLocatorField,
+	LOCATION_TEXT_MAX,
+	maxLengthRegexValidation,
 	mediaIdStringField,
 	publicUrlStringField,
 	uuidResourceLocatorIdMode,
@@ -72,6 +75,16 @@ const broadcastTemplateIdMode = {
 	typeOptions: {
 		maxLength: FILTER_STRING_MAX,
 	} as unknown as INodePropertyModeTypeOptions,
+	validation: [
+		{
+			type: 'regex' as const,
+			properties: {
+				regex: String.raw`\d{1,128}`,
+				errorMessage: 'Use the numeric Meta template ID from the template details',
+			},
+		},
+		maxLengthRegexValidation(FILTER_STRING_MAX, { label: 'Meta Template ID' }),
+	],
 };
 
 export const broadcastFields: INodeProperties[] = [
@@ -361,9 +374,10 @@ export const broadcastFields: INodeProperties[] = [
 			loadOptionsDependsOn: ['broadcastId'],
 		},
 		displayOptions: {
-			hide: {
+			show: {
 				resource: ['broadcast'],
 				operation: ['addRecipients'],
+				broadcastRecipientSource: ['builder'],
 			},
 		},
 		description: 'Loaded automatically from the broadcast template to show the MPM button notice when needed. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
@@ -551,22 +565,26 @@ export const broadcastFields: INodeProperties[] = [
 						displayOptions: broadcastRecipientLocationFieldShow(),
 						description: 'Location longitude when the broadcast template header is location',
 					},
-					{
-						displayName: 'Header Location Name',
-						name: 'recipientHeaderLocationName',
-						type: 'string',
-						default: '',
-						displayOptions: broadcastRecipientLocationFieldShow(),
-						description: 'Optional location title when the broadcast template header is location',
-					},
-					{
-						displayName: 'Header Location Address',
-						name: 'recipientHeaderLocationAddress',
-						type: 'string',
-						default: '',
-						displayOptions: broadcastRecipientLocationFieldShow(),
-						description: 'Optional street address when the broadcast template header is location',
-					},
+					limitedTextResourceLocatorField(
+						'recipientHeaderLocationName',
+						'Header Location Name',
+						LOCATION_TEXT_MAX,
+						{
+							optional: true,
+							displayOptions: broadcastRecipientLocationFieldShow(),
+							description: `Optional location title when the broadcast template header is location (max ${LOCATION_TEXT_MAX} characters)`,
+						},
+					),
+					limitedTextResourceLocatorField(
+						'recipientHeaderLocationAddress',
+						'Header Location Address',
+						LOCATION_TEXT_MAX,
+						{
+							optional: true,
+							displayOptions: broadcastRecipientLocationFieldShow(),
+							description: `Optional street address when the broadcast template header is location (max ${LOCATION_TEXT_MAX} characters)`,
+						},
+					),
 					{
 						displayName: 'Carousel Body Parameters',
 						name: 'recipientCarouselBodyParametersMapper',
@@ -638,14 +656,16 @@ export const broadcastFields: INodeProperties[] = [
 										default: 'link',
 										description: 'Whether this card header uses a Meta media ID or a public URL',
 									},
-									{
-										displayName: 'Header Media URL',
-										name: 'cardHeaderMediaUrl',
-										type: 'string',
-										default: '',
-										description: 'Public media URL when Header Media Source is Public Link',
-									},
-					mediaIdStringField('cardHeaderMediaId', 'Header Media ID', undefined, false),
+									publicUrlStringField('cardHeaderMediaUrl', 'Header Media URL', {
+										show: {
+											cardHeaderMediaSource: ['link'],
+										},
+									}, 'Public media URL when Header Media Source is Public Link'),
+									mediaIdStringField('cardHeaderMediaId', 'Header Media ID', {
+										show: {
+											cardHeaderMediaSource: ['id'],
+										},
+									}, false),
 					{
 						displayName: 'Button Parameters',
 										name: 'cardButtonParameters',

@@ -6,7 +6,7 @@ import {
 	isResourceLocatorValue,
 } from 'n8n-workflow';
 import { parseJsonObject } from '../transport/json';
-import { assertPublicMediaUrl, assertWhatsAppMediaId } from './validation';
+import { assertPublicMediaUrl, assertWamid, assertWhatsAppMediaId } from './validation';
 
 type FixedCollectionParameter = {
 	[key: string]: IDataObject[] | undefined;
@@ -17,6 +17,7 @@ type AdvancedOptionsParameter = IDataObject;
 const OPTION_FIELD_COLLECTIONS: Record<string, string> = {
 	linkPreview: 'messageSendOptions',
 	replyToMessageId: 'messageSendOptions',
+	bizOpaqueCallbackData: 'messageSendOptions',
 	messageListAfter: 'messageListOptions',
 	messageListBefore: 'messageListOptions',
 	messageListConversationId: 'messageListOptions',
@@ -32,7 +33,7 @@ function getCollectionOptionValue(
 	ef: IExecuteFunctions,
 	itemIndex: number,
 	field: string,
-): string | boolean | undefined {
+): unknown {
 	const collectionName = OPTION_FIELD_COLLECTIONS[field];
 	if (!collectionName) {
 		return undefined;
@@ -40,7 +41,7 @@ function getCollectionOptionValue(
 
 	const collection = ef.getNodeParameter(collectionName, itemIndex, {}) as IDataObject;
 	if (field in collection) {
-		return collection[field] as string | boolean | undefined;
+		return collection[field];
 	}
 
 	return undefined;
@@ -68,6 +69,10 @@ export function readStringParameterValue(value: unknown): string {
 	}
 
 	return '';
+}
+
+export function readLimitedTextResourceLocatorValue(value: unknown, _label: string): string {
+	return readStringParameterValue(value);
 }
 
 export function readMetaPhoneResourceLocatorValue(value: unknown, label: string): string {
@@ -218,7 +223,7 @@ function getAdvancedOptionValue(
 	ef: IExecuteFunctions,
 	itemIndex: number,
 	field: string,
-): string | boolean | undefined {
+): unknown {
 	const fromCollection = getCollectionOptionValue(ef, itemIndex, field);
 	if (fromCollection !== undefined) {
 		return fromCollection;
@@ -227,7 +232,7 @@ function getAdvancedOptionValue(
 	const advanced = getAdvancedOptions(ef, itemIndex);
 
 	if (field in advanced) {
-		return advanced[field] as string | boolean | undefined;
+		return advanced[field];
 	}
 
 	return undefined;
@@ -239,7 +244,7 @@ export function getAdvancedOptionString(
 	name: string,
 ): string {
 	const fromAdvanced = getAdvancedOptionValue(ef, itemIndex, name);
-	return typeof fromAdvanced === 'string' ? fromAdvanced : '';
+	return readStringParameterValue(fromAdvanced);
 }
 
 export function getAdvancedOptionBoolean(
@@ -306,7 +311,18 @@ export function getOptionalJsonObject(
 
 export function getReplyToMessageId(ef: IExecuteFunctions, itemIndex: number): string | undefined {
 	const replyToMessageId = getAdvancedOptionValue(ef, itemIndex, 'replyToMessageId');
-	return typeof replyToMessageId === 'string' && replyToMessageId ? replyToMessageId : undefined;
+	const value = readStringParameterValue(replyToMessageId).trim();
+	return value ? assertWamid(value, 'Reply To Message ID') : undefined;
+}
+
+export function getBizOpaqueCallbackData(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+): string | undefined {
+	const callbackData = readStringParameterValue(
+		getAdvancedOptionValue(ef, itemIndex, 'bizOpaqueCallbackData'),
+	).trim();
+	return callbackData || undefined;
 }
 
 export function getLinkPreview(ef: IExecuteFunctions, itemIndex: number, fallback: boolean): boolean {
@@ -325,11 +341,12 @@ export function bodyJson(ef: IExecuteFunctions, itemIndex: number): IDataObject 
 
 export function advancedComponentsJson(ef: IExecuteFunctions, itemIndex: number): string | undefined {
 	const value = getAdvancedOptionValue(ef, itemIndex, 'advancedComponentsJson');
-	if (typeof value !== 'string') {
+	const raw = readStringParameterValue(value);
+	if (!raw) {
 		return undefined;
 	}
 
-	const trimmed = value.trim();
+	const trimmed = raw.trim();
 	if (!trimmed || trimmed === '[]') {
 		return undefined;
 	}
@@ -364,7 +381,7 @@ export function getContactListOptionString(
 	name: string,
 ): string {
 	const value = getListOptionValue(ef, itemIndex, name, 'contactListOptions');
-	return typeof value === 'string' ? value : '';
+	return readStringParameterValue(value);
 }
 
 export function getContactListOptionBoolean(
@@ -383,7 +400,7 @@ export function getConversationListOptionString(
 	name: string,
 ): string {
 	const value = getListOptionValue(ef, itemIndex, name, 'conversationListOptions');
-	return typeof value === 'string' ? value : '';
+	return readStringParameterValue(value);
 }
 
 export function getConversationListOptionBoolean(
@@ -418,7 +435,7 @@ export function getPlatformMessageListOptionString(
 	name: string,
 ): string {
 	const value = getPlatformMessageListOptionValue(ef, itemIndex, name);
-	return typeof value === 'string' ? value : '';
+	return readStringParameterValue(value);
 }
 
 function getBroadcastListOptions(ef: IExecuteFunctions, itemIndex: number): AdvancedOptionsParameter {
@@ -443,7 +460,7 @@ export function getBroadcastListOptionString(
 	name: string,
 ): string {
 	const value = getBroadcastListOptionValue(ef, itemIndex, name);
-	return typeof value === 'string' ? value : '';
+	return readStringParameterValue(value);
 }
 
 export function itemPair(itemIndex: number): { item: number } {

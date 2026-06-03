@@ -1,22 +1,22 @@
 import { INodeProperties } from 'n8n-workflow';
 import { optionalLabel } from './displayNames';
+import { filterStringField, uuidStringField, wamidStringField } from './fieldConstraints';
 
 export const platformMessageFields: INodeProperties[] = [
-	{
-		displayName: 'Message ID',
-		name: 'platformMessageId',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
+	wamidStringField(
+		'platformMessageId',
+		'Message ID',
+		{
 			show: {
 				resource: ['platformMessage'],
 				operation: ['get'],
 			},
 		},
-		description:
-			'WhatsApp message ID (WAMID) from Kapso Trigger, Message List, or Platform Message List',
-	},
+		{
+			description:
+				'WhatsApp message ID (WAMID) from Kapso Trigger, Message List, or Platform Message List',
+		},
+	),
 	{
 		displayName: 'Additional Options',
 		name: 'platformMessageListOptions',
@@ -31,42 +31,17 @@ export const platformMessageFields: INodeProperties[] = [
 			},
 		},
 		options: [
-			{
-				displayName: optionalLabel('After Cursor'),
-				name: 'listAfter',
-				type: 'string',
-				default: '',
-				description: 'Cursor for the next page (from response paging.cursors.after)',
-			},
-			{
-				displayName: optionalLabel('Before Cursor'),
-				name: 'listBefore',
-				type: 'string',
-				default: '',
-				description: 'Cursor for the previous page (from response paging.cursors.before)',
-			},
-			{
-				displayName: optionalLabel('Business Scoped User ID'),
-				name: 'platformMessageBusinessScopedUserId',
-				type: 'string',
-				default: '',
-				description:
-					'Filter by Meta business-scoped user ID (business_scoped_user_id on the Kapso contact record)',
-			},
-			{
-				displayName: optionalLabel('Contact Phone Number'),
-				name: 'platformMessagePhoneNumber',
-				type: 'string',
-				default: '',
-				description: 'Partial match on contact phone number',
-			},
-			{
-				displayName: optionalLabel('Conversation ID'),
-				name: 'platformMessageConversationId',
-				type: 'string',
-				default: '',
+			filterStringField('listAfter', 'After Cursor', 'Cursor for the next page (from response paging.cursors.after)'),
+			filterStringField('listBefore', 'Before Cursor', 'Cursor for the previous page (from response paging.cursors.before)'),
+			filterStringField(
+				'platformMessageBusinessScopedUserId',
+				'Business Scoped User ID',
+				'Filter by Meta business-scoped user ID (business_scoped_user_id on the Kapso contact record)',
+			),
+			filterStringField('platformMessagePhoneNumber', 'Contact Phone Number', 'Partial match on contact phone number'),
+			uuidStringField('platformMessageConversationId', 'Conversation ID', {
 				description: 'Filter by Kapso conversation UUID',
-			},
+			}),
 			{
 				displayName: optionalLabel('Direction'),
 				name: 'platformMessageDirection',
@@ -89,14 +64,7 @@ export const platformMessageFields: INodeProperties[] = [
 				],
 				default: '',
 			},
-			{
-				displayName: optionalLabel('Message Type'),
-				name: 'platformMessageType',
-				type: 'string',
-				default: '',
-				placeholder: 'text',
-				description: 'Filter by WhatsApp message type (for example text, image, template)',
-			},
+			filterStringField('platformMessageType', 'Message Type', 'Filter by WhatsApp message type (for example text, image, template)'),
 			{
 				displayName: optionalLabel('Status'),
 				name: 'platformMessageStatus',

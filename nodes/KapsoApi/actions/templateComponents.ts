@@ -1,10 +1,21 @@
 import { ApplicationError, IDataObject } from 'n8n-workflow';
 import { parseJsonValue } from '../transport/json';
+import { readStringParameterValue } from './nodeHelpers';
 import type {
 	TemplateBodyVariable,
 	TemplateParameterFormat,
 } from '../loadOptions/templateDefinition';
-import { assertProductListShape, parseCoordinate, validateDocumentFilename, validateFlowToken, validateProductRetailerId } from './validation';
+import {
+	assertPublicMediaUrl,
+	assertWhatsAppMediaId,
+	assertProductListShape,
+	validateDocumentFilename,
+	validateFlowToken,
+	validateLatitude,
+	validateLocationText,
+	validateLongitude,
+	validateProductRetailerId,
+} from './validation';
 
 export type TemplateBodyParameterInput = {
 	parameterName?: string;
@@ -79,12 +90,17 @@ function buildTemplateMediaParameter(
 	value: string,
 	documentFilename?: string,
 ): IDataObject {
+	const normalizedValue =
+		source === 'id'
+			? assertWhatsAppMediaId(readStringParameterValue(value), 'Header Media ID')
+			: assertPublicMediaUrl(readStringParameterValue(value), 'Header Media URL');
 	const mediaObject: IDataObject = {
-		[source === 'id' ? 'id' : 'link']: value,
+		[source === 'id' ? 'id' : 'link']: normalizedValue,
 	};
 
-	if (mediaType === 'document' && documentFilename?.trim()) {
-		mediaObject.filename = validateDocumentFilename(documentFilename, 'Header Document Filename');
+	const filename = readStringParameterValue(documentFilename);
+	if (mediaType === 'document' && filename.trim()) {
+		mediaObject.filename = validateDocumentFilename(filename, 'Header Document Filename');
 	}
 
 	return {
@@ -154,16 +170,25 @@ function buildTemplateHeaderParameters(input: {
 		input.headerLongitude
 	) {
 		const location: IDataObject = {
-			latitude: parseCoordinate(input.headerLatitude, 'Header latitude'),
-			longitude: parseCoordinate(input.headerLongitude, 'Header longitude'),
+			latitude: validateLatitude(input.headerLatitude),
+			longitude: validateLongitude(input.headerLongitude),
 		};
 
-		if (input.headerLocationName) {
-			location.name = input.headerLocationName;
+		const locationName = validateLocationText(
+			readStringParameterValue(input.headerLocationName),
+			'Header Location Name',
+		);
+		const locationAddress = validateLocationText(
+			readStringParameterValue(input.headerLocationAddress),
+			'Header Location Address',
+		);
+
+		if (locationName) {
+			location.name = locationName;
 		}
 
-		if (input.headerLocationAddress) {
-			location.address = input.headerLocationAddress;
+		if (locationAddress) {
+			location.address = locationAddress;
 		}
 
 		return [{ type: 'location', location }];
@@ -244,8 +269,9 @@ function buildFlowActionData(button: TemplateButtonParameterInput): IDataObject 
 	const actionData: IDataObject = {};
 
 	for (const field of fields) {
-		if (field.key) {
-			actionData[field.key] = field.value ?? '';
+		const key = readStringParameterValue(field.key);
+		if (key) {
+			actionData[key] = readStringParameterValue(field.value);
 		}
 	}
 
@@ -255,9 +281,15 @@ function buildFlowActionData(button: TemplateButtonParameterInput): IDataObject 
 function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput): IDataObject {
 	if (button.buttonSubType === 'catalog') {
 		const action: IDataObject = {};
+		const thumbnailProductRetailerId = readStringParameterValue(
+			button.catalogThumbnailProductRetailerId,
+		);
 
-		if (button.catalogThumbnailProductRetailerId) {
-			action.thumbnail_product_retailer_id = button.catalogThumbnailProductRetailerId;
+		if (thumbnailProductRetailerId) {
+			action.thumbnail_product_retailer_id = validateProductRetailerId(
+				thumbnailProductRetailerId,
+				'Thumbnail SKU',
+			);
 		}
 
 		return { type: 'action', action };
@@ -265,9 +297,15 @@ function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput)
 
 	if (button.buttonSubType === 'mpm') {
 		const action: IDataObject = {};
+		const thumbnailProductRetailerId = readStringParameterValue(
+			button.mpmThumbnailProductRetailerId,
+		);
 
-		if (button.mpmThumbnailProductRetailerId) {
-			action.thumbnail_product_retailer_id = button.mpmThumbnailProductRetailerId;
+		if (thumbnailProductRetailerId) {
+			action.thumbnail_product_retailer_id = validateProductRetailerId(
+				thumbnailProductRetailerId,
+				'Thumbnail SKU',
+			);
 		}
 
 		if (button.mpmSections && button.mpmSections.length > 0) {
@@ -285,9 +323,10 @@ function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput)
 
 	if (button.buttonSubType === 'flow') {
 		const action: IDataObject = {};
+		const flowToken = readStringParameterValue(button.flowToken);
 
-		if (button.flowToken) {
-			action.flow_token = validateFlowToken(button.flowToken);
+		if (flowToken) {
+			action.flow_token = validateFlowToken(flowToken);
 		}
 
 		const flowActionData = buildFlowActionData(button);
@@ -299,7 +338,7 @@ function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput)
 	}
 
 	if (button.buttonSubType === 'copy_code') {
-		const code = button.buttonText?.trim();
+		const code = readStringParameterValue(button.buttonText).trim();
 
 		if (!code) {
 			throw new ApplicationError('Copy-code button requires a coupon/OTP code value.');
@@ -310,14 +349,14 @@ function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput)
 
 	if (button.buttonSubType === 'quick_reply') {
 		if (button.buttonParameterType === 'payload') {
-			const payload = button.buttonPayload?.trim();
+			const payload = readStringParameterValue(button.buttonPayload).trim();
 			if (!payload) {
 				throw new ApplicationError('Quick Reply (Payload) requires a payload value.');
 			}
 			return { type: 'payload', payload };
 		}
 
-		const text = button.buttonText?.trim();
+		const text = readStringParameterValue(button.buttonText).trim();
 		if (!text) {
 			throw new ApplicationError('Quick Reply (Text) requires a text value.');
 		}
@@ -328,7 +367,7 @@ function buildTemplateButtonParameterValue(button: TemplateButtonParameterInput)
 		return { type: 'payload', payload: button.buttonPayload };
 	}
 
-	return { type: 'text', text: button.buttonText || '' };
+	return { type: 'text', text: readStringParameterValue(button.buttonText) || '' };
 }
 
 function extractMpmProductRetailerIds(productValues: unknown): string[] {
@@ -340,7 +379,10 @@ function extractMpmProductRetailerIds(productValues: unknown): string[] {
 		.productItems;
 
 	return (items ?? [])
-		.map((item) => (item.productRetailerId ? validateProductRetailerId(item.productRetailerId) : ''))
+		.map((item) => {
+			const productRetailerId = readStringParameterValue(item.productRetailerId);
+			return productRetailerId ? validateProductRetailerId(productRetailerId) : '';
+		})
 		.filter((value): value is string => Boolean(value));
 }
 
@@ -365,7 +407,7 @@ function normalizeTemplateButtonInput(
 	}
 
 	const mpmSections = sectionValues.map((section) => ({
-		sectionTitle: section.sectionTitle,
+		sectionTitle: readStringParameterValue(section.sectionTitle),
 		productRetailerIds: extractMpmProductRetailerIds(section.productValues),
 	}));
 

@@ -8,6 +8,7 @@ node_modules/.vite
 tmp
 dist
 coverage
+docs/
 n8n-nodes-kapso-api-*.tgz
 npm-debug.log*
 yarn.lock

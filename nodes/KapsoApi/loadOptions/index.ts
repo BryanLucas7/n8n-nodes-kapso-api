@@ -15,6 +15,7 @@ export {
 	getBroadcastTemplateSummaryNotice,
 	getBroadcastSendPreflightNotice,
 } from './broadcastLoadOptionsNotices';
+export { getMetaFieldLimitPreflightNotice } from './metaLimitPreflightNotice';
 export { searchBroadcastTemplates } from './broadcastTemplateSearch';
 export { searchMessageTemplates } from './messageTemplateSearch';
 export { getTemplateCarouselCardIndices, getTemplateCarouselGuidanceNotice } from './templateCarouselOptions';

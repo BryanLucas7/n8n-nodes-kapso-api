@@ -1,5 +1,6 @@
 import { INodeProperties } from 'n8n-workflow';
 import { optionalLabel } from './displayNames';
+import { uuidStringField } from './fieldConstraints';
 
 export const broadcastListOptionsField: INodeProperties = {
 	displayName: 'Additional Options',
@@ -29,13 +30,9 @@ export const broadcastListOptionsField: INodeProperties = {
 			default: '',
 			description: 'Include broadcasts created on or before this time (ISO 8601)',
 		},
-		{
-			displayName: optionalLabel('Filter Phone Number ID'),
-			name: 'broadcastListPhoneNumberId',
-			type: 'string',
-			default: '',
+		uuidStringField('broadcastListPhoneNumberId', 'Filter Phone Number ID', {
 			description: 'Filter by Kapso phone number UUID',
-		},
+		}),
 		{
 			displayName: optionalLabel('Status'),
 			name: 'broadcastStatusFilter',

@@ -34,3 +34,6 @@ jobs:
 
       - name: Test with coverage
         run: pnpm test:coverage
+
+      - name: Scan community package (npm registry)
+        run: pnpm scan

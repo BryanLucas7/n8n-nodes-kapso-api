@@ -12,6 +12,7 @@ import { createMockExecuteFunctions } from '../helpers/mockExecuteFunctions';
 
 const CONV_UUID = '550e8400-e29b-41d4-a716-446655440000';
 const CUST_UUID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+const PHONE_UUID = '7d444840-9dc0-11d1-b245-5ffdce74fad2';
 
 describe('queryBuilders', () => {
 	it('builds message list filters from dedicated fields', () => {
@@ -110,7 +111,7 @@ describe('queryBuilders', () => {
 	it('builds conversation list filters and cursor pagination', () => {
 		const ef = createMockExecuteFunctions({
 			conversationListOptions: {
-				conversationPhoneNumberId: '1234567890',
+				conversationPhoneNumberId: PHONE_UUID,
 				conversationStatusFilter: 'active',
 				conversationUnassigned: true,
 				listBefore: 'cursor-before',
@@ -118,7 +119,7 @@ describe('queryBuilders', () => {
 		});
 
 		expect(buildConversationListQuery(ef, 0)).toEqual({
-			phone_number_id: '1234567890',
+			phone_number_id: PHONE_UUID,
 			status: 'active',
 			unassigned: true,
 			before: 'cursor-before',

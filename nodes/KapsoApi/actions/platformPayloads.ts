@@ -13,6 +13,7 @@ import {
 	getOptionalJsonObject,
 	getString,
 	readMetaPhoneResourceLocatorValue,
+	readStringParameterValue,
 	tryReadE164PhoneResourceLocatorValue,
 	getE164PhoneResourceLocatorValue,
 } from './nodeHelpers';
@@ -55,14 +56,16 @@ function mapRecipientPayload(
 ): IDataObject {
 	const phoneNumber = resolveRecipientPhone(entry, allowPlainPhone);
 
-	if (!phoneNumber && !entry.whatsappContactId?.trim()) {
+	const whatsappContactId = readStringParameterValue(entry.whatsappContactId).trim();
+
+	if (!phoneNumber && !whatsappContactId) {
 		throw new ApplicationError('Each broadcast recipient requires a phone number or contact ID.');
 	}
 
 	const recipient: IDataObject = {};
 
-	if (entry.whatsappContactId) {
-		recipient.whatsapp_contact_id = validateOptionalUuid(entry.whatsappContactId, 'Contact ID');
+	if (whatsappContactId) {
+		recipient.whatsapp_contact_id = validateOptionalUuid(whatsappContactId, 'Contact ID');
 	}
 
 	if (phoneNumber) {
@@ -100,7 +103,7 @@ export function buildContactCreateBody(ef: IExecuteFunctions, itemIndex: number)
 	if (displayName) contact.display_name = displayName;
 
 	const customerId = getString(ef, 'contactCustomerId', itemIndex);
-	if (customerId) contact.customer_id = customerId;
+	if (customerId) contact.customer_id = validateOptionalUuid(customerId, 'Customer ID');
 
 	const metadata = getOptionalJsonObject(ef, 'contactMetadataJson', itemIndex, 'Contact Metadata');
 	if (metadata) contact.metadata = metadata;
@@ -118,7 +121,7 @@ export function buildContactUpdateBody(ef: IExecuteFunctions, itemIndex: number)
 	if (displayName) contact.display_name = displayName;
 
 	const customerId = getString(ef, 'contactCustomerId', itemIndex);
-	if (customerId) contact.customer_id = customerId;
+	if (customerId) contact.customer_id = validateOptionalUuid(customerId, 'Customer ID');
 
 	const metadata = getOptionalJsonObject(ef, 'contactMetadataJson', itemIndex, 'Contact Metadata');
 	if (metadata) contact.metadata = metadata;

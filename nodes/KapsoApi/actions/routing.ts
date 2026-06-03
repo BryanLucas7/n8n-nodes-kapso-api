@@ -5,6 +5,7 @@ import {
 	IHttpRequestMethods,
 } from 'n8n-workflow';
 import {
+	applyBizOpaqueCallbackData,
 	buildButtonsMessage,
 	buildCallPermissionMessage,
 	buildCatalogMessage,
@@ -29,6 +30,7 @@ import {
 	type KapsoProductSectionInput,
 } from './messagePayloads';
 import { normalizeContactInputs } from './contactInput';
+import { extractListRows } from './listRowHelpers';
 import { validateFlowInitialDataAtExecute } from './flowMapperInput';
 import { buildSendTemplateComponentsInput } from './templateInput';
 import {
@@ -48,6 +50,7 @@ import { enrichFlowSelectionForExecute } from '../loadOptions/flowAssets';
 import {
 	getBoolean,
 	getFixedCollectionItems,
+	getBizOpaqueCallbackData,
 	getLinkPreview,
 	getMetaPhoneResourceLocatorValue,
 	getNumber,
@@ -148,48 +151,6 @@ function mediaOperationType(operation: string): string {
 	return map[operation] ?? 'image';
 }
 
-function extractListRows(
-	rowValues: unknown,
-): KapsoListSectionInput['rows'] {
-	if (!rowValues) {
-		return [];
-	}
-
-	if (Array.isArray(rowValues)) {
-		return rowValues.flatMap((entry) => {
-			if (entry && typeof entry === 'object' && 'rowId' in entry) {
-				return [
-					{
-						rowId: String(entry.rowId),
-						rowTitle: String(entry.rowTitle),
-						rowDescription: entry.rowDescription ? String(entry.rowDescription) : undefined,
-					},
-				];
-			}
-
-			if (entry && typeof entry === 'object' && Array.isArray((entry as { row?: unknown[] }).row)) {
-				return (entry as { row: KapsoListSectionInput['rows'] }).row.map((row) => ({
-					rowId: row.rowId,
-					rowTitle: row.rowTitle,
-					rowDescription: row.rowDescription,
-				}));
-			}
-
-			return [];
-		});
-	}
-
-	if (typeof rowValues === 'object' && Array.isArray((rowValues as { row?: unknown[] }).row)) {
-		return (rowValues as { row: KapsoListSectionInput['rows'] }).row.map((row) => ({
-			rowId: row.rowId,
-			rowTitle: row.rowTitle,
-			rowDescription: row.rowDescription,
-		}));
-	}
-
-	return [];
-}
-
 function readProductRetailerId(value: unknown): string {
 	return readStringParameterValue(value).trim();
 }
@@ -223,6 +184,14 @@ function extractProductRetailerIds(productItems: unknown): string[] {
 	}
 
 	return [];
+}
+
+function applyOutboundMessageOptions(
+	ef: IExecuteFunctions,
+	itemIndex: number,
+	body: IDataObject,
+): IDataObject {
+	return applyBizOpaqueCallbackData(body, getBizOpaqueCallbackData(ef, itemIndex));
 }
 
 export function buildMessageRequest(
@@ -276,11 +245,15 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildTextMessage(
-				to,
-				getString(ef, 'textBody', itemIndex),
-				getLinkPreview(ef, itemIndex, false),
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildTextMessage(
+					to,
+					getString(ef, 'textBody', itemIndex),
+					getLinkPreview(ef, itemIndex, false),
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -301,59 +274,68 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildMediaMessage(
-				to,
-				mediaOperationType(operation),
-				media.source,
-				media.value,
-				operation === 'sendAudio' ? undefined : getString(ef, 'caption', itemIndex) || undefined,
-				getString(ef, 'filename', itemIndex),
-				replyToMessageId,
-				isVoiceNote,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildMediaMessage(
+					to,
+					mediaOperationType(operation),
+					media.source,
+					media.value,
+					operation === 'sendAudio' ? undefined : getString(ef, 'caption', itemIndex) || undefined,
+					getString(ef, 'filename', itemIndex),
+					replyToMessageId,
+					isVoiceNote,
+				),
 			),
 		};
 	}
 
 	if (operation === 'sendButtons') {
-		const buttons = getFixedCollectionItems<KapsoButtonInput>(
+		const buttons = getFixedCollectionItems<IDataObject>(
 			ef,
 			'buttons',
 			'buttonValues',
 			itemIndex,
-		);
+		).map<KapsoButtonInput>((button) => ({
+			buttonId: readStringParameterValue(button.buttonId),
+			buttonTitle: readStringParameterValue(button.buttonTitle),
+		}));
 
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildButtonsMessage(
-				to,
-				getString(ef, 'bodyText', itemIndex),
-				buttons,
-				getString(ef, 'buttonHeaderType', itemIndex) || 'none',
-				getString(ef, 'headerText', itemIndex) || undefined,
-				(getString(ef, 'buttonHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
-				getString(ef, 'buttonHeaderMediaUrl', itemIndex) || undefined,
-				getString(ef, 'buttonHeaderMediaId', itemIndex) || undefined,
-				getString(ef, 'buttonHeaderDocumentFilename', itemIndex) || undefined,
-				getString(ef, 'footerText', itemIndex) || undefined,
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildButtonsMessage(
+					to,
+					getString(ef, 'bodyText', itemIndex),
+					buttons,
+					getString(ef, 'buttonHeaderType', itemIndex) || 'none',
+					getString(ef, 'headerText', itemIndex) || undefined,
+					(getString(ef, 'buttonHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+					getString(ef, 'buttonHeaderMediaUrl', itemIndex) || undefined,
+					getString(ef, 'buttonHeaderMediaId', itemIndex) || undefined,
+					getString(ef, 'buttonHeaderDocumentFilename', itemIndex) || undefined,
+					getString(ef, 'footerText', itemIndex) || undefined,
+					replyToMessageId,
+				),
 			),
 		};
 	}
 
 	if (operation === 'sendList') {
-		const sectionValues = getFixedCollectionItems<{
-			sectionTitle: string;
-			rowValues?: Array<{
-				rowId: string;
-				rowTitle: string;
-				rowDescription?: string;
-			}>;
-		}>(ef, 'sections', 'sectionValues', itemIndex);
+		const sectionValues = getFixedCollectionItems<IDataObject>(
+			ef,
+			'sections',
+			'sectionValues',
+			itemIndex,
+		);
 
 		const listSections: KapsoListSectionInput[] = sectionValues.map((section) => ({
-			sectionTitle: section.sectionTitle,
+			sectionTitle: readStringParameterValue(section.sectionTitle),
 			rows: extractListRows(section.rowValues),
 		}));
 
@@ -361,19 +343,23 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildListMessage(
-				to,
-				getString(ef, 'bodyText', itemIndex),
-				getString(ef, 'listButtonText', itemIndex),
-				listSections,
-				getString(ef, 'footerText', itemIndex) || undefined,
-				getString(ef, 'listHeaderType', itemIndex) || 'none',
-				getString(ef, 'listHeaderText', itemIndex) || undefined,
-				(getString(ef, 'listHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
-				getString(ef, 'listHeaderMediaUrl', itemIndex) || undefined,
-				getString(ef, 'listHeaderMediaId', itemIndex) || undefined,
-				getString(ef, 'listHeaderDocumentFilename', itemIndex) || undefined,
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildListMessage(
+					to,
+					getString(ef, 'bodyText', itemIndex),
+					getString(ef, 'listButtonText', itemIndex),
+					listSections,
+					getString(ef, 'footerText', itemIndex) || undefined,
+					getString(ef, 'listHeaderType', itemIndex) || 'none',
+					getString(ef, 'listHeaderText', itemIndex) || undefined,
+					(getString(ef, 'listHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+					getString(ef, 'listHeaderMediaUrl', itemIndex) || undefined,
+					getString(ef, 'listHeaderMediaId', itemIndex) || undefined,
+					getString(ef, 'listHeaderDocumentFilename', itemIndex) || undefined,
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -383,13 +369,17 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildLocationMessage(
-				to,
-				getNumber(ef, 'locationLatitude', itemIndex, 0),
-				getNumber(ef, 'locationLongitude', itemIndex, 0),
-				getString(ef, 'locationName', itemIndex) || undefined,
-				getString(ef, 'locationAddress', itemIndex) || undefined,
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildLocationMessage(
+					to,
+					getNumber(ef, 'locationLatitude', itemIndex, 0),
+					getNumber(ef, 'locationLongitude', itemIndex, 0),
+					getString(ef, 'locationName', itemIndex) || undefined,
+					getString(ef, 'locationAddress', itemIndex) || undefined,
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -408,11 +398,15 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildStickerMessage(
-				to,
-				sticker.source,
-				sticker.value,
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildStickerMessage(
+					to,
+					sticker.source,
+					sticker.value,
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -422,10 +416,14 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildRequestLocationMessage(
-				to,
-				getString(ef, 'bodyText', itemIndex),
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildRequestLocationMessage(
+					to,
+					getString(ef, 'bodyText', itemIndex),
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -438,11 +436,39 @@ export function buildMessageRequest(
 				api: 'whatsapp',
 				method: 'POST' as IHttpRequestMethods,
 				path: phonePath,
-				body: buildCtaCallMessage(
+				body: applyOutboundMessageOptions(
+					ef,
+					itemIndex,
+					buildCtaCallMessage(
+						to,
+						getString(ef, 'bodyText', itemIndex),
+						getString(ef, 'ctaButtonLabel', itemIndex),
+						getString(ef, 'ctaButtonPhone', itemIndex),
+						getString(ef, 'ctaHeaderType', itemIndex) as CtaHeaderType,
+						getString(ef, 'ctaHeaderText', itemIndex) || undefined,
+						(getString(ef, 'ctaHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+						getString(ef, 'ctaHeaderMediaUrl', itemIndex) || undefined,
+						getString(ef, 'ctaHeaderMediaId', itemIndex) || undefined,
+						getString(ef, 'ctaHeaderDocumentFilename', itemIndex) || undefined,
+						getString(ef, 'footerText', itemIndex) || undefined,
+						replyToMessageId,
+					),
+				),
+			};
+		}
+
+		return {
+			api: 'whatsapp',
+			method: 'POST' as IHttpRequestMethods,
+			path: phonePath,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildCtaUrlMessage(
 					to,
 					getString(ef, 'bodyText', itemIndex),
 					getString(ef, 'ctaButtonLabel', itemIndex),
-					getString(ef, 'ctaButtonPhone', itemIndex),
+					getString(ef, 'ctaButtonUrl', itemIndex),
 					getString(ef, 'ctaHeaderType', itemIndex) as CtaHeaderType,
 					getString(ef, 'ctaHeaderText', itemIndex) || undefined,
 					(getString(ef, 'ctaHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
@@ -452,26 +478,6 @@ export function buildMessageRequest(
 					getString(ef, 'footerText', itemIndex) || undefined,
 					replyToMessageId,
 				),
-			};
-		}
-
-		return {
-			api: 'whatsapp',
-			method: 'POST' as IHttpRequestMethods,
-			path: phonePath,
-			body: buildCtaUrlMessage(
-				to,
-				getString(ef, 'bodyText', itemIndex),
-				getString(ef, 'ctaButtonLabel', itemIndex),
-				getString(ef, 'ctaButtonUrl', itemIndex),
-				getString(ef, 'ctaHeaderType', itemIndex) as CtaHeaderType,
-				getString(ef, 'ctaHeaderText', itemIndex) || undefined,
-				(getString(ef, 'ctaHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
-				getString(ef, 'ctaHeaderMediaUrl', itemIndex) || undefined,
-				getString(ef, 'ctaHeaderMediaId', itemIndex) || undefined,
-				getString(ef, 'ctaHeaderDocumentFilename', itemIndex) || undefined,
-				getString(ef, 'footerText', itemIndex) || undefined,
-				replyToMessageId,
 			),
 		};
 	}
@@ -481,12 +487,16 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildProductMessage(
-				to,
-				getString(ef, 'catalogId', itemIndex),
-				getString(ef, 'productRetailerId', itemIndex),
-				getString(ef, 'bodyText', itemIndex) || undefined,
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildProductMessage(
+					to,
+					getString(ef, 'catalogId', itemIndex),
+					getString(ef, 'productRetailerId', itemIndex),
+					getString(ef, 'bodyText', itemIndex) || undefined,
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -498,7 +508,7 @@ export function buildMessageRequest(
 		}>(ef, 'productSections', 'sectionValues', itemIndex);
 
 		const productSections: KapsoProductSectionInput[] = sectionValues.map((section) => ({
-			sectionTitle: section.sectionTitle,
+			sectionTitle: readStringParameterValue(section.sectionTitle),
 			productRetailerIds: extractProductRetailerIds(section.productItems),
 		}));
 
@@ -506,19 +516,23 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildProductListMessage(
-				to,
-				getString(ef, 'catalogId', itemIndex),
-				getString(ef, 'bodyText', itemIndex),
-				productSections,
-				getString(ef, 'productListHeaderType', itemIndex) || 'text',
-				getString(ef, 'productListHeaderText', itemIndex) || undefined,
-				(getString(ef, 'productListHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
-				getString(ef, 'productListHeaderMediaUrl', itemIndex) || undefined,
-				getString(ef, 'productListHeaderMediaId', itemIndex) || undefined,
-				getString(ef, 'productListHeaderDocumentFilename', itemIndex) || undefined,
-				getString(ef, 'footerText', itemIndex) || undefined,
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildProductListMessage(
+					to,
+					getString(ef, 'catalogId', itemIndex),
+					getString(ef, 'bodyText', itemIndex),
+					productSections,
+					getString(ef, 'productListHeaderType', itemIndex) || 'text',
+					getString(ef, 'productListHeaderText', itemIndex) || undefined,
+					(getString(ef, 'productListHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+					getString(ef, 'productListHeaderMediaUrl', itemIndex) || undefined,
+					getString(ef, 'productListHeaderMediaId', itemIndex) || undefined,
+					getString(ef, 'productListHeaderDocumentFilename', itemIndex) || undefined,
+					getString(ef, 'footerText', itemIndex) || undefined,
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -528,11 +542,15 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildCatalogMessage(
-				to,
-				getString(ef, 'bodyText', itemIndex),
-				getString(ef, 'catalogThumbnailProductId', itemIndex),
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildCatalogMessage(
+					to,
+					getString(ef, 'bodyText', itemIndex),
+					getString(ef, 'catalogThumbnailProductId', itemIndex),
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -546,10 +564,14 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildCallPermissionMessage(
-				to,
-				getString(ef, 'bodyText', itemIndex),
-				replyToMessageId,
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildCallPermissionMessage(
+					to,
+					getString(ef, 'bodyText', itemIndex),
+					replyToMessageId,
+				),
 			),
 		};
 	}
@@ -563,7 +585,11 @@ export function buildMessageRequest(
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
 			path: phonePath,
-			body: buildContactMessage(to, contacts, getReplyToMessageId(ef, itemIndex)),
+			body: applyOutboundMessageOptions(
+				ef,
+				itemIndex,
+				buildContactMessage(to, contacts, replyToMessageId),
+			),
 		};
 	}
 
@@ -645,26 +671,30 @@ export async function buildSendFlowRequest(
 		api: 'whatsapp',
 		method: 'POST' as IHttpRequestMethods,
 		path: phonePath,
-		body: buildFlowMessage(
-			to,
-			getString(ef, 'bodyText', itemIndex),
-			flowCta,
-			flowToken,
-			resolveFlowMessageVersion('', flowSelection),
-			flowAction,
-			flowScreen,
-			await validateFlowInitialDataAtExecute(ef, itemIndex),
-			replyToMessageId,
-			flowMode,
-			getString(ef, 'flowHeaderType', itemIndex) || undefined,
-			getString(ef, 'flowHeaderText', itemIndex) || undefined,
-			(getString(ef, 'flowHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
-			getString(ef, 'flowHeaderMediaUrl', itemIndex) || undefined,
-			getString(ef, 'flowHeaderMediaId', itemIndex) || undefined,
-			getString(ef, 'flowHeaderDocumentFilename', itemIndex) || undefined,
-			getString(ef, 'flowFooterText', itemIndex) || undefined,
-			flowSelection.metaFlowId,
-			undefined,
+		body: applyOutboundMessageOptions(
+			ef,
+			itemIndex,
+			buildFlowMessage(
+				to,
+				getString(ef, 'bodyText', itemIndex),
+				flowCta,
+				flowToken,
+				resolveFlowMessageVersion('', flowSelection),
+				flowAction,
+				flowScreen,
+				await validateFlowInitialDataAtExecute(ef, itemIndex),
+				replyToMessageId,
+				flowMode,
+				getString(ef, 'flowHeaderType', itemIndex) || undefined,
+				getString(ef, 'flowHeaderText', itemIndex) || undefined,
+				(getString(ef, 'flowHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
+				getString(ef, 'flowHeaderMediaUrl', itemIndex) || undefined,
+				getString(ef, 'flowHeaderMediaId', itemIndex) || undefined,
+				getString(ef, 'flowHeaderDocumentFilename', itemIndex) || undefined,
+				getString(ef, 'flowFooterText', itemIndex) || undefined,
+				flowSelection.metaFlowId,
+				undefined,
+			),
 		),
 	};
 }

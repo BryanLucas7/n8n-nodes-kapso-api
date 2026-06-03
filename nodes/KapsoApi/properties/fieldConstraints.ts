@@ -43,6 +43,7 @@ export const FLOW_SCREEN_MAX = 64;
 export const FLOW_CTA_MAX = 20;
 export const FLOW_ID_MAX = 64;
 export const FLOW_NAME_MAX = 128;
+export const BIZ_OPAQUE_CALLBACK_DATA_MAX = 512;
 
 export const UUID_MAX = 36;
 export const UUID_REGEX = String.raw`[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}`;
@@ -51,6 +52,9 @@ export const CUSTOM_RELATIVE_PATH_MAX = 256;
 export const FILTER_STRING_MAX = 128;
 export const JSON_PAYLOAD_MAX_BYTES = 65536;
 export const CUSTOMER_ID_MAX = 36;
+export const CONTACT_FORMATTED_NAME_MAX = 200;
+export const LOCATION_TEXT_MAX = 256;
+export const CONTACT_MESSAGE_MAX_CONTACTS = 257;
 
 export const MEDIA_ID_HINT = 'Digits only (ID returned by Upload Media or Kapso Trigger media attachment)';
 export const MEDIA_ID_MAX_LENGTH = 32;
@@ -71,6 +75,9 @@ type LimitedFieldOptions = {
 	placeholder?: string;
 	description?: string;
 	hint?: string;
+	modeName?: string;
+	modeDisplayName?: string;
+	password?: boolean;
 };
 
 export const metaPhoneRegexValidation = {
@@ -97,12 +104,48 @@ export const uuidRegexValidation = {
 	},
 };
 
+export function uuidRegexValidationFor(options: { optional?: boolean } = {}) {
+	return {
+		type: 'regex' as const,
+		properties: {
+			regex: options.optional ? `(${UUID_REGEX})?` : UUID_REGEX,
+			errorMessage: 'Use a valid UUID (for example 550e8400-e29b-41d4-a716-446655440000)',
+		},
+	};
+}
+
+/** Regex body for max-length checks (anchored by n8n in `validateResourceLocatorParameter`). */
+export function maxLengthRegexPattern(max: number, optional: boolean): string {
+	return optional ? `.{0,${max}}` : `.{1,${max}}`;
+}
+
+export function maxLengthRegexValidation(
+	max: number,
+	options: { optional?: boolean; label?: string } = {},
+) {
+	const optional = options.optional ?? false;
+	const label = options.label ?? 'Value';
+	return {
+		type: 'regex' as const,
+		properties: {
+			regex: maxLengthRegexPattern(max, optional),
+			errorMessage: optional
+				? `${label} must be at most ${max} characters`
+				: `${label} must be 1–${max} characters`,
+		},
+	};
+}
+
+type StringFieldWithValidation = INodeProperties & {
+	validation?: ReturnType<typeof maxLengthRegexValidation>[];
+};
+
 export function limitedStringField(
 	name: string,
 	displayName: string,
 	maxLength: number,
 	options: LimitedFieldOptions = {},
-): INodeProperties {
+): StringFieldWithValidation {
 	const isOptional = options.optional ?? options.required === false;
 	// eslint-disable-next-line n8n-nodes-base/node-param-default-missing -- factory helper; callers inherit default: ''
 	return {
@@ -119,6 +162,46 @@ export function limitedStringField(
 			maxLength,
 			...(options.rows ? { rows: options.rows } : {}),
 		},
+		validation: [maxLengthRegexValidation(maxLength, { optional: isOptional, label: displayName })],
+	};
+}
+
+/**
+ * Text Resource Locator for fields that need native n8n regex issues.
+ * Execute code must keep accepting both legacy strings and `{ mode, value }`.
+ */
+export function limitedTextResourceLocatorField(
+	name: string,
+	displayName: string,
+	maxLength: number,
+	options: LimitedFieldOptions = {},
+): INodeProperties {
+	const isOptional = options.optional ?? options.required === false;
+	const modeName = options.modeName ?? 'text';
+
+	return {
+		displayName: isOptional ? optionalLabel(displayName) : displayName,
+		name,
+		type: 'resourceLocator',
+		default: { mode: modeName, value: options.default ?? '' },
+		...(options.required !== undefined ? { required: options.required } : {}),
+		modes: [
+			{
+				displayName: options.modeDisplayName ?? displayName,
+				name: modeName,
+				type: 'string',
+				...(options.placeholder ? { placeholder: options.placeholder } : {}),
+				typeOptions: {
+					maxLength,
+					...(options.rows ? { rows: options.rows } : {}),
+					...(options.password ? { password: options.password } : {}),
+				} as unknown as INodePropertyModeTypeOptions,
+				validation: [maxLengthRegexValidation(maxLength, { optional: isOptional, label: displayName })],
+			},
+		],
+		...(options.description ? { description: options.description } : {}),
+		...(options.hint ? { hint: options.hint } : {}),
+		...(options.displayOptions ? { displayOptions: options.displayOptions } : {}),
 	};
 }
 
@@ -187,18 +270,22 @@ export function mediaIdStringField(
 	displayOptions?: INodeProperties['displayOptions'],
 	required = true,
 ): INodeProperties {
-	return {
-		displayName,
-		name,
-		type: 'string',
-		default: '',
-		typeOptions: {
-			maxLength: MEDIA_ID_MAX_LENGTH,
-		},
-		...(displayOptions ? { displayOptions } : {}),
+	return mediaIdResourceLocatorField(name, displayName, displayOptions, required);
+}
+
+export function mediaIdResourceLocatorField(
+	name: string,
+	displayName: string,
+	displayOptions?: INodeProperties['displayOptions'],
+	required = true,
+): INodeProperties {
+	return limitedTextResourceLocatorField(name, displayName, MEDIA_ID_MAX_LENGTH, {
+		displayOptions,
+		required,
+		modeName: 'id',
+		modeDisplayName: 'Media ID',
 		description: MEDIA_ID_HINT,
-		...(required ? { required: true } : {}),
-	};
+	});
 }
 
 export function publicUrlStringField(
@@ -252,9 +339,11 @@ export function documentFilenameField(
 	displayName: string,
 	displayOptions?: INodeProperties['displayOptions'],
 ): INodeProperties {
-	return limitedStringField(name, displayName, DOCUMENT_FILENAME_MAX, {
+	return limitedTextResourceLocatorField(name, displayName, DOCUMENT_FILENAME_MAX, {
 		displayOptions,
 		optional: true,
+		modeName: 'filename',
+		modeDisplayName: 'Filename',
 		description: 'Filename shown to the recipient for document messages',
 	});
 }
@@ -272,7 +361,7 @@ export function listSearchResourceLocatorMode(searchListMethod: string) {
 	};
 }
 
-export function idResourceLocatorMode(placeholder: string, maxLength: number) {
+export function idResourceLocatorMode(placeholder: string, maxLength: number, label?: string) {
 	return {
 		displayName: 'By ID',
 		name: 'id',
@@ -281,6 +370,7 @@ export function idResourceLocatorMode(placeholder: string, maxLength: number) {
 		typeOptions: {
 			maxLength,
 		} as unknown as INodePropertyModeTypeOptions,
+		validation: [maxLengthRegexValidation(maxLength, { optional: false, label: label ?? 'ID' })],
 	};
 }
 
@@ -385,7 +475,7 @@ export function productRetailerIdField(
 }
 
 export function flowCtaField(displayOptions?: INodeProperties['displayOptions']): INodeProperties {
-	return limitedStringField('flowCta', 'Flow Button Label', FLOW_CTA_MAX, {
+	return limitedTextResourceLocatorField('flowCta', 'Flow Button Label', FLOW_CTA_MAX, {
 		displayOptions,
 		optional: true,
 		description:
@@ -394,22 +484,17 @@ export function flowCtaField(displayOptions?: INodeProperties['displayOptions'])
 }
 
 export function flowTokenField(displayOptions?: INodeProperties['displayOptions']): INodeProperties {
-	return {
-		displayName: optionalLabel('Flow Token'),
-		name: 'flowToken',
-		type: 'string',
-		default: '',
-		// eslint-disable-next-line n8n-nodes-base/node-param-type-options-password-missing -- visible for copy/paste from Flow responses
-		typeOptions: {
-			maxLength: FLOW_TOKEN_MAX,
-		},
+	return limitedTextResourceLocatorField('flowToken', 'Flow Token', FLOW_TOKEN_MAX, {
 		displayOptions,
+		optional: true,
+		modeName: 'token',
+		modeDisplayName: 'Flow Token',
 		description: withKapsoDoc(
 			'Optional correlation token returned with Flow responses. Leave empty for the common path; Kapso will use the Flow ID so responses can be collected and stored automatically',
 			KAPSO_DOCS.sendFlow,
 			'Send Flow',
 		),
-	};
+	});
 }
 
 export function flowScreenField(displayOptions?: INodeProperties['displayOptions']): INodeProperties {
@@ -425,21 +510,37 @@ export function uuidStringField(
 	displayName: string,
 	options: LimitedFieldOptions & { description?: string } = {},
 ): INodeProperties {
-	const isRequired = options.required === true;
+	return uuidResourceLocatorField(name, displayName, options);
+}
 
+export function uuidResourceLocatorField(
+	name: string,
+	displayName: string,
+	options: LimitedFieldOptions & { description?: string } = {},
+): INodeProperties {
+	const isRequired = options.required === true;
+	const isOptional = !isRequired;
 	return {
 		displayName: isRequired ? displayName : optionalLabel(displayName),
 		name,
-		type: 'string',
-		default: '',
+		type: 'resourceLocator',
+		default: { mode: 'id', value: options.default ?? '' },
 		...(options.required !== undefined ? { required: options.required } : {}),
+		modes: [
+			{
+				displayName: options.modeDisplayName ?? 'UUID',
+				name: options.modeName ?? 'id',
+				type: 'string',
+				...(options.placeholder ? { placeholder: options.placeholder } : {}),
+				typeOptions: {
+					maxLength: UUID_MAX,
+				} as unknown as INodePropertyModeTypeOptions,
+				validation: [uuidRegexValidationFor({ optional: isOptional })],
+			},
+		],
 		...(options.description ? { description: options.description } : {}),
 		...(options.hint ? { hint: options.hint } : {}),
 		...(options.displayOptions ? { displayOptions: options.displayOptions } : {}),
-		...(options.placeholder ? { placeholder: options.placeholder } : {}),
-		typeOptions: {
-			maxLength: UUID_MAX,
-		},
 	};
 }
 
@@ -448,13 +549,23 @@ export function filterStringField(
 	displayName: string,
 	description?: string,
 ): INodeProperties {
-	return limitedStringField(name, displayName, FILTER_STRING_MAX, {
+	return filterTextResourceLocatorField(name, displayName, description);
+}
+
+export function filterTextResourceLocatorField(
+	name: string,
+	displayName: string,
+	description?: string,
+): INodeProperties {
+	return limitedTextResourceLocatorField(name, displayName, FILTER_STRING_MAX, {
 		optional: true,
+		modeName: 'text',
+		modeDisplayName: displayName,
 		description,
 	});
 }
 
-export function uuidResourceLocatorIdMode(placeholder: string) {
+export function uuidResourceLocatorIdMode(placeholder: string, optional = false) {
 	return {
 		displayName: 'By ID',
 		name: 'id',
@@ -463,8 +574,24 @@ export function uuidResourceLocatorIdMode(placeholder: string) {
 		typeOptions: {
 			maxLength: UUID_MAX,
 		} as unknown as INodePropertyModeTypeOptions,
-		validation: [uuidRegexValidation],
+		validation: [uuidRegexValidationFor({ optional })],
 	};
+}
+
+export function wamidResourceLocatorField(
+	name: string,
+	displayName: string,
+	displayOptions: INodeProperties['displayOptions'],
+	options: { description?: string } = {},
+): INodeProperties {
+	return limitedTextResourceLocatorField(name, displayName, WAMID_MAX_LENGTH, {
+		displayOptions,
+		required: true,
+		modeName: 'wamid',
+		modeDisplayName: 'Message ID',
+		placeholder: 'wamid.HBg...',
+		description: options.description ?? WAMID_HINT,
+	});
 }
 
 export function wamidStringField(
@@ -473,37 +600,20 @@ export function wamidStringField(
 	displayOptions: INodeProperties['displayOptions'],
 	options: { description?: string } = {},
 ): INodeProperties {
-	return {
-		displayName,
-		name,
-		type: 'string',
-		default: '',
-		required: true,
-		typeOptions: {
-			maxLength: WAMID_MAX_LENGTH,
-		},
-		displayOptions,
-		description: options.description ?? WAMID_HINT,
-	};
+	return wamidResourceLocatorField(name, displayName, displayOptions, options);
 }
 
 export function emojiStringField(displayOptions: INodeProperties['displayOptions']): INodeProperties {
-	return {
-		displayName: 'Emoji',
-		name: 'emoji',
-		type: 'string',
-		default: '👍',
-		required: true,
-		typeOptions: {
-			maxLength: EMOJI_MAX_LENGTH,
-		},
+	return limitedTextResourceLocatorField('emoji', 'Emoji', EMOJI_MAX_LENGTH, {
 		displayOptions,
+		required: true,
+		default: '👍',
 		description: 'Single emoji only (for example 👍). Text and letters are not accepted.',
-	};
+	});
 }
 
 export const textMessageField = (displayOptions: INodeProperties['displayOptions']): INodeProperties =>
-	limitedStringField('textBody', 'Text', TEXT_MESSAGE_MAX, {
+	limitedTextResourceLocatorField('textBody', 'Text', TEXT_MESSAGE_MAX, {
 		displayOptions,
 		required: true,
 		rows: 4,
@@ -516,7 +626,7 @@ export const interactiveBodyField = (
 	displayOptions: INodeProperties['displayOptions'],
 	options: { required?: boolean; hint?: string; description?: string; rows?: number } = {},
 ): INodeProperties =>
-	limitedStringField(name, displayName, INTERACTIVE_BODY_MAX, {
+	limitedTextResourceLocatorField(name, displayName, INTERACTIVE_BODY_MAX, {
 		displayOptions,
 		required: options.required ?? true,
 		rows: options.rows ?? 3,
@@ -537,7 +647,7 @@ export const promptMessageField = (
 		placeholder?: string;
 	} = {},
 ): INodeProperties =>
-	limitedStringField(name, displayName, INTERACTIVE_BODY_MAX, {
+	limitedTextResourceLocatorField(name, displayName, INTERACTIVE_BODY_MAX, {
 		displayOptions,
 		required: options.required ?? true,
 		placeholder: options.placeholder,
@@ -547,7 +657,7 @@ export const promptMessageField = (
 	});
 
 export const mediaCaptionField = (displayOptions: INodeProperties['displayOptions']): INodeProperties =>
-	limitedStringField('caption', 'Caption', MEDIA_CAPTION_MAX, {
+	limitedTextResourceLocatorField('caption', 'Caption', MEDIA_CAPTION_MAX, {
 		displayOptions,
 		optional: true,
 		description: `Plain-text caption shown below the media (max ${MEDIA_CAPTION_MAX} characters). Meta does not support preview_url on media captions — use Send Text with Link Preview if you need a rich URL card`,
@@ -558,7 +668,7 @@ export const interactiveHeaderTextField = (
 	displayName: string,
 	displayOptions?: INodeProperties['displayOptions'],
 ): INodeProperties =>
-	limitedStringField(name, displayName, INTERACTIVE_HEADER_MAX, {
+	limitedTextResourceLocatorField(name, displayName, INTERACTIVE_HEADER_MAX, {
 		displayOptions,
 		optional: true,
 		description: `Header text above the message body (max ${INTERACTIVE_HEADER_MAX} characters)`,
@@ -569,57 +679,57 @@ export const interactiveFooterTextField = (
 	displayName: string,
 	displayOptions?: INodeProperties['displayOptions'],
 ): INodeProperties =>
-	limitedStringField(name, displayName, INTERACTIVE_FOOTER_MAX, {
+	limitedTextResourceLocatorField(name, displayName, INTERACTIVE_FOOTER_MAX, {
 		displayOptions,
 		optional: true,
 		description: `Footer text below the interactive content (max ${INTERACTIVE_FOOTER_MAX} characters)`,
 	});
 
 export const buttonIdField = (): INodeProperties =>
-	limitedStringField('buttonId', 'Button ID', BUTTON_ID_MAX, {
+	limitedTextResourceLocatorField('buttonId', 'Button ID', BUTTON_ID_MAX, {
 		required: true,
 		description: 'Developer-defined ID returned in the webhook when this button is tapped',
 	});
 
 export const buttonTitleField = (): INodeProperties =>
-	limitedStringField('buttonTitle', 'Button Title', BUTTON_TITLE_MAX, {
+	limitedTextResourceLocatorField('buttonTitle', 'Button Title', BUTTON_TITLE_MAX, {
 		required: true,
 		description: `Label shown on the button (max ${BUTTON_TITLE_MAX} characters)`,
 	});
 
 export const listButtonTextField = (displayOptions: INodeProperties['displayOptions']): INodeProperties =>
-	limitedStringField('listButtonText', 'List Button Text', LIST_BUTTON_TEXT_MAX, {
+	limitedTextResourceLocatorField('listButtonText', 'List Button Text', LIST_BUTTON_TEXT_MAX, {
 		displayOptions,
 		required: true,
 		description: `Label on the button that opens the list menu (max ${LIST_BUTTON_TEXT_MAX} characters)`,
 	});
 
 export const listSectionTitleField = (): INodeProperties =>
-	limitedStringField('sectionTitle', 'Section Title', LIST_SECTION_TITLE_MAX, {
+	limitedTextResourceLocatorField('sectionTitle', 'Section Title', LIST_SECTION_TITLE_MAX, {
 		required: true,
 		description: `Section heading shown in the list menu (max ${LIST_SECTION_TITLE_MAX} characters)`,
 	});
 
 export const listRowIdField = (): INodeProperties =>
-	limitedStringField('rowId', 'Row ID', LIST_ROW_ID_MAX, {
+	limitedTextResourceLocatorField('rowId', 'Row ID', LIST_ROW_ID_MAX, {
 		required: true,
 		description: 'Developer-defined ID returned when this list row is selected',
 	});
 
 export const listRowTitleField = (): INodeProperties =>
-	limitedStringField('rowTitle', 'Row Title', LIST_ROW_TITLE_MAX, {
+	limitedTextResourceLocatorField('rowTitle', 'Row Title', LIST_ROW_TITLE_MAX, {
 		required: true,
 		description: `Row title shown in the list menu (max ${LIST_ROW_TITLE_MAX} characters)`,
 	});
 
 export const listRowDescriptionField = (): INodeProperties =>
-	limitedStringField('rowDescription', 'Row Description', LIST_ROW_DESCRIPTION_MAX, {
+	limitedTextResourceLocatorField('rowDescription', 'Row Description', LIST_ROW_DESCRIPTION_MAX, {
 		optional: true,
 		description: `Row subtitle (max ${LIST_ROW_DESCRIPTION_MAX} characters)`,
 	});
 
 export const ctaButtonLabelField = (displayOptions: INodeProperties['displayOptions']): INodeProperties =>
-	limitedStringField('ctaButtonLabel', 'Button Label', CTA_BUTTON_LABEL_MAX, {
+	limitedTextResourceLocatorField('ctaButtonLabel', 'Button Label', CTA_BUTTON_LABEL_MAX, {
 		displayOptions,
 		required: true,
 		description: `Call-to-action button label (max ${CTA_BUTTON_LABEL_MAX} characters)`,

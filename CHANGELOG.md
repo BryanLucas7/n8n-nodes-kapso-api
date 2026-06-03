@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.11.0 - 2026-06-03
+
+- **Meta/Kapso field limits**: migrated the remaining fixed message, list, button, WAMID, media ID, UUID, filter, location, contact, and Send-and-Wait fields to Resource Locator-backed inputs where native n8n Issues can enforce max-length/regex rules. Legacy plain-string workflow JSON remains supported at execution through `readStringParameterValue()`.
+- **Message send options**: added `biz_opaque_callback_data` as **Callback Data** with a 512-character guard, execute preflight, payload validation, and Send-and-Wait support.
+- **Template/Broadcast validation**: normalized Resource Locator values inside broadcast recipient components and validated template/broadcast header media URLs, media IDs, document filenames, and location header name/address values before payload construction.
+- **Contact messages**: added Meta's 257-contact per message guard in addition to formatted-name and phone validation.
+- **Fix**: template/broadcast MPM hint helper fields no longer appear on unrelated message operations (corrected inverted `displayOptions.hide` rules).
+- **Verification UX**: codex search aliases, `requiresDataPath` on media binary fields, community package scan in CI/publish workflows, npm publish with provenance.
+- **Docs**: refreshed `docs/META-FIELD-LIMITS-AUDIT.md` and `docs/RESOURCE-LOCATOR-UX-REFACTOR-ANALYSIS.md` so implemented fields, remaining skips, and validation layers are documented consistently.
+
+## 0.8.3 - 2026-06-03
+
+- **Field limits**: `limitedStringField` and resource-locator ID modes now attach native n8n `validation` regex rules for Meta max-length limits (in addition to `typeOptions.maxLength`). Execute-time checks in `parameterPreflight` are unchanged.
+- **Docs**: `docs/META-FIELD-LIMITS-AUDIT.md` — audit of Meta/Kapso limits vs node parameters.
+
 ## 0.8.1 - 2026-06-03
 
 - **Fix List Messages / Get / Mark Read**: `buildMessageRequest` no longer reads **Recipient Phone** for `list`, `get`, or `markRead` operations. Previously these admin operations failed with `Could not get parameter` (`recipient`) when the node had no recipient field configured.

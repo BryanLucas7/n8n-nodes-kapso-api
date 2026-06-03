@@ -1,5 +1,5 @@
 import { INodeProperties } from 'n8n-workflow';
-import { FILTER_STRING_MAX, filterStringField, limitedStringField } from './fieldConstraints';
+import { filterStringField, uuidStringField } from './fieldConstraints';
 import { optionalLabel } from './displayNames';
 
 export const contactListOptionsField: INodeProperties = {
@@ -17,10 +17,7 @@ export const contactListOptionsField: INodeProperties = {
 	},
 	options: [
 		filterStringField('listAfter', 'After Cursor', 'Cursor for the next page (from response paging.cursors.after)'),
-		limitedStringField('listBefore', 'Before Cursor', FILTER_STRING_MAX, {
-			optional: true,
-			description: 'Cursor for the previous page (from response paging.cursors.before)',
-		}),
+		filterStringField('listBefore', 'Before Cursor', 'Cursor for the previous page (from response paging.cursors.before)'),
 		filterStringField(
 			'contactBusinessScopedUserId',
 			'Business Scoped User ID',
@@ -45,7 +42,9 @@ export const contactListOptionsField: INodeProperties = {
 			'Customer External ID',
 			'Filter by Kapso customer external ID',
 		),
-		filterStringField('contactCustomerIdFilter', 'Customer ID', 'Filter by Kapso customer UUID'),
+		uuidStringField('contactCustomerIdFilter', 'Customer ID', {
+			description: 'Filter by Kapso customer UUID',
+		}),
 		{
 			displayName: optionalLabel('Has Customer'),
 			name: 'contactHasCustomer',
@@ -77,11 +76,10 @@ export const conversationListOptionsField: INodeProperties = {
 	},
 	options: [
 		filterStringField('listAfter', 'After Cursor', 'Cursor for the next page (from response paging.cursors.after)'),
-		filterStringField('conversationAssignedUserId', 'Assigned User ID', 'Filter by Kapso user UUID assigned to the conversation'),
-		limitedStringField('listBefore', 'Before Cursor', FILTER_STRING_MAX, {
-			optional: true,
-			description: 'Cursor for the previous page (from response paging.cursors.before)',
+		uuidStringField('conversationAssignedUserId', 'Assigned User ID', {
+			description: 'Filter by Kapso user UUID assigned to the conversation',
 		}),
+		filterStringField('listBefore', 'Before Cursor', 'Cursor for the previous page (from response paging.cursors.before)'),
 		{
 			displayName: optionalLabel('Created After'),
 			name: 'conversationCreatedAfter',
@@ -101,7 +99,9 @@ export const conversationListOptionsField: INodeProperties = {
 			'Filter Phone Number',
 			'Partial match on contact phone number',
 		),
-		filterStringField('conversationPhoneNumberId', 'Filter Phone Number ID', 'Filter by Kapso phone number UUID'),
+		uuidStringField('conversationPhoneNumberId', 'Filter Phone Number ID', {
+			description: 'Filter by Kapso phone number UUID',
+		}),
 		{
 			displayName: optionalLabel('Last Active After'),
 			name: 'conversationLastActiveAfter',

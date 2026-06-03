@@ -2,13 +2,23 @@ import type { IExecuteFunctions, INodeProperties, IWebhookFunctions } from 'n8n-
 import { SEND_AND_WAIT_OPERATION, updateDisplayOptions } from 'n8n-workflow';
 
 import { limitWaitTimeOption } from './descriptions';
-import { getReplyToMessageId } from '../actions/nodeHelpers';
+import {
+	getBizOpaqueCallbackData,
+	getReplyToMessageId,
+	readStringParameterValue,
+} from '../actions/nodeHelpers';
 import { KAPSO_DOCS, withKapsoDoc } from '../properties/expressionHints';
+import {
+	CTA_BUTTON_LABEL_MAX,
+	limitedTextResourceLocatorField,
+	TEXT_MESSAGE_MAX,
+} from '../properties/fieldConstraints';
 export type SendAndWaitConfig = {
 	message: string;
 	options: Array<{ label: string; url: string }>;
 	appendAttribution?: boolean;
 	replyToMessageId?: string;
+	bizOpaqueCallbackData?: string;
 };
 
 const ACTION_RECORDED_PAGE =
@@ -44,7 +54,9 @@ function isLikelyBot(userAgent?: string): boolean {
 }
 
 export function getSendAndWaitConfig(context: IExecuteFunctions): SendAndWaitConfig {
-	const message = escapeHtml(String(context.getNodeParameter('message', 0, '')).trim())
+	const message = escapeHtml(
+		readStringParameterValue(context.getNodeParameter('message', 0, '')).trim(),
+	)
 		.replace(/\\n/g, '\n')
 		.replace(/<br>/g, '\n');
 	const approvalOptions = context.getNodeParameter('approvalOptions.values', 0, {}) as {
@@ -59,6 +71,7 @@ export function getSendAndWaitConfig(context: IExecuteFunctions): SendAndWaitCon
 		options: [],
 		appendAttribution: options.appendAttribution === true,
 		replyToMessageId: getReplyToMessageId(context, 0),
+		bizOpaqueCallbackData: getBizOpaqueCallbackData(context, 0),
 	};
 
 	const approvedSignedResumeUrl = context.getSignedResumeUrl({ approved: 'true' });
@@ -66,16 +79,16 @@ export function getSendAndWaitConfig(context: IExecuteFunctions): SendAndWaitCon
 	if (approvalOptions.approvalType === 'double') {
 		const disapprovedSignedResumeUrl = context.getSignedResumeUrl({ approved: 'false' });
 		config.options.push({
-			label: escapeHtml(approvalOptions.disapproveLabel || '✗ Decline'),
+			label: escapeHtml(readStringParameterValue(approvalOptions.disapproveLabel) || '✗ Decline'),
 			url: disapprovedSignedResumeUrl,
 		});
 		config.options.push({
-			label: escapeHtml(approvalOptions.approveLabel || '✓ Approve'),
+			label: escapeHtml(readStringParameterValue(approvalOptions.approveLabel) || '✓ Approve'),
 			url: approvedSignedResumeUrl,
 		});
 	} else {
 		config.options.push({
-			label: escapeHtml(approvalOptions.approveLabel || '✓ Approve'),
+			label: escapeHtml(readStringParameterValue(approvalOptions.approveLabel) || '✓ Approve'),
 			url: approvedSignedResumeUrl,
 		});
 	}
@@ -118,21 +131,15 @@ export function getSendAndWaitProperties(): INodeProperties[] {
 			type: 'notice',
 			default: '',
 		},
-		{
-			displayName: 'Message',
-			name: 'message',
-			type: 'string',
-			default: '',
+		limitedTextResourceLocatorField('message', 'Message', TEXT_MESSAGE_MAX, {
 			required: true,
-			typeOptions: {
-				rows: 4,
-			},
+			rows: 4,
 			description: withKapsoDoc(
-				'Plain text sent before the workflow waits for approval',
+				`Plain text sent before the workflow waits for approval (max ${TEXT_MESSAGE_MAX} characters before links and attribution are appended)`,
 				KAPSO_DOCS.sendText,
 				'Send Text',
 			),
-		},
+		}),
 		{
 			displayName: 'Approval Options',
 			name: 'approvalOptions',
@@ -156,10 +163,7 @@ export function getSendAndWaitProperties(): INodeProperties[] {
 								{ name: 'Approve and Disapprove', value: 'double' },
 							],
 						},
-						{
-							displayName: 'Approve Button Label',
-							name: 'approveLabel',
-							type: 'string',
+						limitedTextResourceLocatorField('approveLabel', 'Approve Button Label', CTA_BUTTON_LABEL_MAX, {
 							default: '✓ Approve',
 							description: 'Label shown on the approve link or CTA button',
 							displayOptions: {
@@ -167,11 +171,8 @@ export function getSendAndWaitProperties(): INodeProperties[] {
 									approvalType: ['single', 'double'],
 								},
 							},
-						},
-						{
-							displayName: 'Disapprove Button Label',
-							name: 'disapproveLabel',
-							type: 'string',
+						}),
+						limitedTextResourceLocatorField('disapproveLabel', 'Disapprove Button Label', CTA_BUTTON_LABEL_MAX, {
 							default: '✗ Decline',
 							description: 'Label shown on the decline link when double approval is enabled',
 							displayOptions: {
@@ -179,7 +180,7 @@ export function getSendAndWaitProperties(): INodeProperties[] {
 									approvalType: ['double'],
 								},
 							},
-						},
+						}),
 					],
 				},
 			],

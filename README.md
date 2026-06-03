@@ -36,7 +36,7 @@ Install the generated tarball into an n8n custom extension directory:
 ```bash
 mkdir -p ~/.n8n/custom
 cd ~/.n8n/custom
-npm install /path/to/n8n-nodes-kapso-api-0.6.0.tgz
+npm install /path/to/n8n-nodes-kapso-api-0.11.0.tgz
 n8n start
 ```
 

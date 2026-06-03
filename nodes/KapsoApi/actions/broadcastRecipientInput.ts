@@ -3,7 +3,7 @@ import { loadBroadcastTemplateDefinition } from '../loadOptions/broadcastTemplat
 import { TemplateDefinition } from '../loadOptions/templateDefinition';
 import { mergeTemplateButtonParameterGroups, type TemplateButtonParameterCollection } from './templateButtonInput';
 import type { TemplateCarouselCardInput, TemplateComponentsInput } from './templateComponents';
-import { getString } from './nodeHelpers';
+import { getString, readStringParameterValue } from './nodeHelpers';
 import {
 	assertHeaderValuesForTemplate,
 	assertTemplateStructureSelection,
@@ -50,17 +50,22 @@ type BroadcastRecipientEntry = {
 };
 
 function readRecipientHeaderValues(entry: BroadcastRecipientEntry) {
+	const headerMediaUrl = readStringParameterValue(entry.recipientHeaderMediaUrl);
+	const headerMediaId = readStringParameterValue(entry.recipientHeaderMediaId);
+
 	return {
-		headerText: entry.recipientHeaderText,
+		headerText: readStringParameterValue(entry.recipientHeaderText),
 		headerMediaSource: resolveTemplateHeaderMediaSource(
-			entry.recipientHeaderMediaSource,
-			entry.recipientHeaderMediaUrl,
-			entry.recipientHeaderMediaId,
+			readStringParameterValue(entry.recipientHeaderMediaSource),
+			headerMediaUrl,
+			headerMediaId,
 		),
-		headerMediaUrl: entry.recipientHeaderMediaUrl,
-		headerMediaId: entry.recipientHeaderMediaId,
-		headerLatitude: entry.recipientHeaderLatitude,
-		headerLongitude: entry.recipientHeaderLongitude,
+		headerMediaUrl,
+		headerMediaId,
+		headerLatitude: readStringParameterValue(entry.recipientHeaderLatitude),
+		headerLongitude: readStringParameterValue(entry.recipientHeaderLongitude),
+		headerLocationName: readStringParameterValue(entry.recipientHeaderLocationName),
+		headerLocationAddress: readStringParameterValue(entry.recipientHeaderLocationAddress),
 	};
 }
 
@@ -89,9 +94,9 @@ function mapRecipientCarouselCards(
 
 		return {
 			cardIndex: card.cardIndex,
-			headerMediaSource: card.cardHeaderMediaSource || 'link',
-			headerMediaUrl: card.cardHeaderMediaUrl,
-			headerMediaId: card.cardHeaderMediaId,
+			headerMediaSource: readStringParameterValue(card.cardHeaderMediaSource) || 'link',
+			headerMediaUrl: readStringParameterValue(card.cardHeaderMediaUrl),
+			headerMediaId: readStringParameterValue(card.cardHeaderMediaId),
 			bodyParameters,
 			buttonParameters: mergeTemplateButtonParameterGroups(card.cardButtonParameters),
 		};
@@ -134,10 +139,10 @@ function buildRecipientComponentsInput(
 		headerMediaSource: headerValues.headerMediaSource,
 		headerMediaUrl: headerValues.headerMediaUrl,
 		headerMediaId: headerValues.headerMediaId,
-		headerLatitude: entry.recipientHeaderLatitude,
-		headerLongitude: entry.recipientHeaderLongitude,
-		headerLocationName: entry.recipientHeaderLocationName,
-		headerLocationAddress: entry.recipientHeaderLocationAddress,
+		headerLatitude: headerValues.headerLatitude,
+		headerLongitude: headerValues.headerLongitude,
+		headerLocationName: headerValues.headerLocationName,
+		headerLocationAddress: headerValues.headerLocationAddress,
 		bodyParameters: bodyParametersFromMapper(bodyMapper, definition),
 		buttonParameters: resolveButtonParametersFromSources(
 			mergeTemplateButtonParameterGroups(entry.recipientButtonParameters),

@@ -25,6 +25,7 @@ import { buildSendAndWaitMessagePayload } from '../../nodes/KapsoApi/sendAndWait
 import { parseJsonObject, parseJsonValue } from '../../nodes/KapsoApi/transport/json';
 import {
 	BUTTON_TITLE_MAX,
+	CONTACT_MESSAGE_MAX_CONTACTS,
 	INTERACTIVE_BODY_MAX,
 	PRODUCT_RETAILER_ID_MAX,
 	TEXT_MESSAGE_MAX,
@@ -1078,6 +1079,17 @@ describe('Kapso extended message payload builders', () => {
 				},
 			],
 		});
+	});
+
+	it('rejects contact messages above the Meta contact count limit', () => {
+		const contacts = Array.from({ length: CONTACT_MESSAGE_MAX_CONTACTS + 1 }, (_, index) => ({
+			formattedName: `Contact ${index + 1}`,
+			phones: { phoneValues: [{ phoneNumber: '+15550002222' }] },
+		}));
+
+		expect(() => buildContactMessage('15551234567', contacts)).toThrow(
+			`Contact messages support 1 to ${CONTACT_MESSAGE_MAX_CONTACTS} contacts.`,
+		);
 	});
 
 	it('builds template payloads from advanced JSON and without components', () => {

@@ -4,6 +4,7 @@ import { optionalLabel } from './displayNames';
 import {
 	catalogIdField,
 	ctaButtonLabelField,
+	e164PhoneResourceLocatorField,
 	interactiveFooterTextField,
 	interactiveHeaderTextField,
 	INTERACTIVE_HEADER_MAX,
@@ -12,8 +13,9 @@ import {
 	flowIdField,
 	flowScreenField,
 	flowTokenField,
+	limitedTextResourceLocatorField,
+	LOCATION_TEXT_MAX,
 	listSectionTitleField,
-	limitedStringField,
 	mediaIdStringField,
 	productRetailerIdField,
 	publicUrlStringField,
@@ -83,7 +85,7 @@ export const messageInteractiveHeaderFields: INodeProperties[] = [
 		},
 		description: 'Header format for the multi-product list message',
 	},
-	limitedStringField('productListHeaderText', 'Product List Header Text', INTERACTIVE_HEADER_MAX, {
+	limitedTextResourceLocatorField('productListHeaderText', 'Product List Header Text', INTERACTIVE_HEADER_MAX, {
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -92,7 +94,7 @@ export const messageInteractiveHeaderFields: INodeProperties[] = [
 			},
 		},
 		required: true,
-		description: 'Header text shown above the product sections',
+		description: `Header text shown above the product sections (max ${INTERACTIVE_HEADER_MAX} characters)`,
 	}),
 	...interactiveHeaderMediaFields('productList', ['sendProductList']),
 	flowModeField,
@@ -201,6 +203,8 @@ export const messageMediaAndLocationFields: INodeProperties[] = [
 		default: 0,
 		required: true,
 		typeOptions: {
+			minValue: -90,
+			maxValue: 90,
 			numberPrecision: 6,
 		},
 		displayOptions: {
@@ -222,6 +226,8 @@ export const messageMediaAndLocationFields: INodeProperties[] = [
 		default: 0,
 		required: true,
 		typeOptions: {
+			minValue: -180,
+			maxValue: 180,
 			numberPrecision: 6,
 		},
 		displayOptions: {
@@ -232,32 +238,26 @@ export const messageMediaAndLocationFields: INodeProperties[] = [
 		},
 		description: 'Longitude in decimal degrees (-180 to 180)',
 	},
-	{
-		displayName: optionalLabel('Location Name'),
-		name: 'locationName',
-		type: 'string',
-		default: '',
+	limitedTextResourceLocatorField('locationName', 'Location Name', LOCATION_TEXT_MAX, {
+		optional: true,
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendLocation'],
 			},
 		},
-		description: 'Optional location title shown in the map pin',
-	},
-	{
-		displayName: optionalLabel('Location Address'),
-		name: 'locationAddress',
-		type: 'string',
-		default: '',
+		description: `Optional location title shown in the map pin (max ${LOCATION_TEXT_MAX} characters)`,
+	}),
+	limitedTextResourceLocatorField('locationAddress', 'Location Address', LOCATION_TEXT_MAX, {
+		optional: true,
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendLocation'],
 			},
 		},
-		description: 'Optional street address shown under the location name',
-	},
+		description: `Optional street address shown under the location name (max ${LOCATION_TEXT_MAX} characters)`,
+	}),
 	{
 		displayName: 'Sticker Source',
 		name: 'stickerSource',
@@ -347,22 +347,18 @@ export const messageInteractiveActionFields: INodeProperties[] = [
 			'Buttons',
 		),
 	}),
-	{
-		displayName: 'Button Phone Number',
-		name: 'ctaButtonPhone',
-		type: 'string',
-		default: '',
-		required: true,
-		placeholder: '+15551234567',
-		description: 'E.164 phone number with + that opens in the dialer when the recipient taps the button',
-		displayOptions: {
+	e164PhoneResourceLocatorField(
+		'ctaButtonPhone',
+		'Button Phone Number',
+		{
 			show: {
 				resource: ['message'],
 				operation: ctaOps,
 				ctaType: ['phone'],
 			},
 		},
-	},
+		'E.164 phone number with + that opens in the dialer when the recipient taps the button',
+	),
 	{
 		displayName: 'Product Sections',
 		name: 'productSections',
