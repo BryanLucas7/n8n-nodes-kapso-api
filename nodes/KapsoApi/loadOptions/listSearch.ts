@@ -4,6 +4,7 @@ import {
 	kapsoLoadOptionsRequest,
 	LIST_SEARCH_INITIAL_SIZE,
 } from './helpers';
+import { encodeBroadcastValue } from './broadcastSelection';
 
 function parsePageToken(paginationToken?: string): number {
 	if (!paginationToken) {
@@ -266,7 +267,7 @@ export async function searchBroadcasts(
 		this,
 		'/whatsapp/broadcasts',
 		broadcastLabel,
-		(entry) => String(entry.id ?? ''),
+		encodeBroadcastValue,
 		filter,
 		paginationToken,
 		requiredStatus ? { status: requiredStatus } : {},

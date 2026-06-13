@@ -169,9 +169,9 @@ describe('kapsoNodeProperties', () => {
 		expect(names.indexOf('bodyText')).toBeLessThan(names.indexOf('buttons'));
 		expect(names.indexOf('buttons')).toBeLessThan(names.indexOf('footerText'));
 
-		expect(names.indexOf('ctaHeaderType')).toBeLessThan(names.indexOf('ctaType'));
-		expect(names.indexOf('bodyText')).toBeLessThan(names.indexOf('ctaType'));
-		expect(names.indexOf('ctaType')).toBeLessThan(names.indexOf('footerText'));
+		expect(names.indexOf('ctaHeaderType')).toBeLessThan(names.indexOf('ctaButtonLabel'));
+		expect(names.indexOf('bodyText')).toBeLessThan(names.indexOf('ctaButtonLabel'));
+		expect(names.indexOf('ctaButtonLabel')).toBeLessThan(names.indexOf('footerText'));
 
 		expect(names.indexOf('listHeaderType')).toBeLessThan(names.indexOf('sections'));
 		expect(names.indexOf('bodyText')).toBeLessThan(names.indexOf('listButtonText'));
@@ -229,6 +229,30 @@ describe('kapsoNodeProperties', () => {
 	it('uses expression-friendly string fields for markRead message IDs', () => {
 		const messageIdField = kapsoNodeProperties.find((property) => property.name === 'messageId');
 		expect(messageIdField?.type).toBe('string');
+	});
+
+	it('resolves markRead without requiring orphaned messageSendOptions children', () => {
+		expect(() =>
+			getNodeParameters(
+				kapsoNodeProperties,
+				{
+					resource: 'message',
+					operation: 'markRead',
+					phoneNumberId: '767542569782382',
+					messageId: "={{ $('Kapso Trigger1').item.json.message.id }}",
+					messageSendOptions: {},
+				},
+				true,
+				false,
+				null,
+				{ properties: kapsoNodeProperties },
+			),
+		).not.toThrow();
+
+		const replyTo = messageSendOptionsField.options?.find(
+			(field) => field.name === 'replyToMessageId',
+		);
+		expect(replyTo?.required).toBeUndefined();
 	});
 
 	it('does not use hide-only displayOptions on top-level helper fields', () => {

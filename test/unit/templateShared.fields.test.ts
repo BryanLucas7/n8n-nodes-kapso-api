@@ -42,4 +42,28 @@ describe('templateShared.fields', () => {
 		expect(field.typeOptions?.sortable).toBe(true);
 		expect(field.description).toContain('Index auto-fills');
 	});
+
+	it('uses resource locators for template button dynamic values', () => {
+		const urlOption = findOption('URL');
+		const quickReply = findOption('Quick Reply (Text)');
+		const copyCode = findOption('Copy Code');
+		const flowOption = findOption('Flow');
+
+		expect(urlOption?.values?.find((field) => field.name === 'buttonText')?.type).toBe(
+			'resourceLocator',
+		);
+		expect(quickReply?.values?.find((field) => field.name === 'buttonText')?.type).toBe(
+			'resourceLocator',
+		);
+		expect(copyCode?.values?.find((field) => field.name === 'buttonText')?.type).toBe(
+			'resourceLocator',
+		);
+		expect(flowOption?.values?.find((field) => field.name === 'flowActionData')?.type).toBe(
+			'fixedCollection',
+		);
+		const flowActionKey = flowOption?.values
+			?.find((field) => field.name === 'flowActionData')
+			?.options?.[0]?.values?.find((field) => field.name === 'key');
+		expect(flowActionKey?.type).toBe('resourceLocator');
+	});
 });

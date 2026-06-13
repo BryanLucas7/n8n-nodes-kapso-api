@@ -12,6 +12,8 @@ import {
 	listRowIdField,
 	listRowTitleField,
 	listSectionTitleField,
+	limitedTextResourceLocatorField,
+	LOCATION_TEXT_MAX,
 	maxLengthRegexValidation,
 	mediaCaptionField,
 	mediaIdStringField,
@@ -100,16 +102,31 @@ export const messagePrimaryFields: INodeProperties[] = [
 /** Buttons and list rows shown after body text. */
 export const messageInteractiveContentFields: INodeProperties[] = [
 	{
-		displayName: 'Buttons',
+		displayName:
+			'Quick-reply only — Meta accepts a maximum of 3 buttons per interactive message. Extra buttons will fail at send time. For URL/phone "Call" use Send CTA, for WhatsApp Flow use Send Flow, for copy-code coupons use Send Template.',
+		name: 'sendButtonsLimitNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendButtons'],
+			},
+		},
+	},
+	{
+		displayName: 'Buttons (Quick Reply)',
 		name: 'buttons',
 		type: 'fixedCollection',
+		placeholder: 'Add Button',
 		typeOptions: {
 			multipleValues: true,
 			maxValues: 3,
 		},
 		default: {},
 		required: true,
-		description: 'Reply buttons shown below the message body (1-3 buttons)',
+		description:
+			'Quick-reply buttons only (1-3 max, Meta limit). For URL/phone "Call" use Send CTA; for WhatsApp Flow use Send Flow; for copy-code coupons use Send Template.',
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -120,7 +137,7 @@ export const messageInteractiveContentFields: INodeProperties[] = [
 			{
 				displayName: 'Button',
 				name: 'buttonValues',
-				description: 'One quick-reply button on the message',
+				description: 'One quick-reply button on the message (max 3 per message)',
 				values: [buttonIdField(), buttonTitleField()],
 			},
 		],
@@ -135,6 +152,7 @@ export const messageInteractiveContentFields: INodeProperties[] = [
 		displayName: 'Sections',
 		name: 'sections',
 		type: 'fixedCollection',
+		placeholder: 'Add Section',
 		typeOptions: {
 			multipleValues: true,
 		},
@@ -185,6 +203,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 		displayName: 'Contacts',
 		name: 'contacts',
 		type: 'fixedCollection',
+		placeholder: 'Add Contact',
 		typeOptions: {
 			multipleValues: true,
 		},
@@ -258,69 +277,78 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			kapsoDocLink(KAPSO_DOCS.templateSimple, 'Templates'),
 	},
 	{
-		displayName:
-			'Header format and layout below are detected from the selected template. They drive which fields appear — reselect the template after syncing changes in Kapso if values look stale.',
-		name: 'templateDetectedStructureNotice',
-		type: 'notice',
+		displayName: 'Template Structure',
+		name: 'templateSummary',
+		type: 'options',
+		noDataExpression: true,
 		default: '',
+		typeOptions: {
+			loadOptionsMethod: 'getTemplateSummary',
+			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
+		},
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},
 		},
+		description:
+			'Auto-detected from the approved template. Reselect the template after syncing changes in Kapso if values look stale.',
 	},
 	{
-		displayName: 'Detected Template Header Format Name or ID',
+		displayName: 'Header Format',
 		name: 'templateDetectedHeaderFormat',
-		type: 'options',
-		default: '',
-		typeOptions: {
-			loadOptionsMethod: 'getTemplateDetectedHeaderFormat',
-			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
-		},
+		type: 'hidden',
+		default:
+			'={{ (($parameter["templateName"].value || "").split("|")[3]) || "none" }}',
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},
 		},
-		description: 'Read-only header type from the approved template (do not change unless troubleshooting). Drives header media and location fields below. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
-		displayName: 'Detected Template Layout Name or ID',
+		displayName: 'Layout',
 		name: 'templateDetectedComponentMode',
-		type: 'options',
-		default: '',
-		typeOptions: {
-			loadOptionsMethod: 'getTemplateDetectedComponentMode',
-			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
-		},
+		type: 'hidden',
+		default:
+			'={{ (($parameter["templateName"].value || "").split("|")[2]) || "standard" }}',
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},
 		},
-		description: 'Read-only layout from the approved template: Standard or Carousel (do not change unless troubleshooting). Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
-		displayName:
-			'Fill body placeholders at send time. If no mapper fields appear, the template has no body variables or uses carousel layout. Pick Text, Currency, or Date & Time per variable. ' +
-			kapsoDocLink(KAPSO_DOCS.templateSimple, 'Templates'),
-		name: 'templateBodyParametersNotice',
-		type: 'notice',
-		default: '',
+		displayName: 'Has Body Variables',
+		name: 'templateHasBodyVariables',
+		type: 'hidden',
+		default:
+			'={{ ((($parameter["templateName"].value || "").split("|"))[4] || "y") === "y" ? "yes" : "no" }}',
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
-				templateDetectedComponentMode: ['standard'],
 			},
 		},
 	},
 	{
-		displayName: 'Body Text Parameters',
+		displayName: 'Has Button Parameters',
+		name: 'templateHasButtonParameters',
+		type: 'hidden',
+		default:
+			'={{ ((($parameter["templateName"].value || "").split("|"))[5] || "y") === "y" ? "yes" : "no" }}',
+		displayOptions: {
+			show: {
+				resource: ['message'],
+				operation: ['sendTemplate'],
+			},
+		},
+	},
+	{
+		displayName: 'Body Parameters',
 		name: 'templateBodyParametersMapper',
 		type: 'resourceMapper',
 		noDataExpression: true,
@@ -333,6 +361,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				resource: ['message'],
 				operation: ['sendTemplate'],
 				templateDetectedComponentMode: ['standard'],
+				templateHasBodyVariables: ['yes'],
 			},
 		},
 		typeOptions: {
@@ -350,7 +379,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 			},
 		},
 		description:
-			'Map one value for each template body variable. The fields come from the approved template. For a simple inbound reply workflow, map the single variable to {{$json.kapso.content}} from Kapso Trigger. ' +
+			'Map one value for each template body variable. Pick Text, Currency, or Date & Time per variable. For a simple inbound reply workflow, map the single variable to {{$json.kapso.content}} from Kapso Trigger. ' +
 			withKapsoDoc(
 				'Pick the parameter type first; only the fields for that type are shown',
 				KAPSO_DOCS.templateSimple,
@@ -367,21 +396,17 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 		},
 	}),
 	{
-		displayName: 'Template Header Text Hint Name or ID',
+		displayName: 'Header Text Has Variable',
 		name: 'templateHeaderTextHasVariable',
-		type: 'options',
-		default: '',
-		typeOptions: {
-			loadOptionsMethod: 'getTemplateHeaderTextHasVariable',
-			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
-		},
+		type: 'hidden',
+		default:
+			'={{ ((($parameter["templateName"].value || "").split("|"))[7] || "y") === "y" ? "yes" : "no" }}',
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},
 		},
-		description: 'Loaded automatically from the selected template to show header text only when required. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Header Media Source',
@@ -538,11 +563,8 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 		},
 		description: 'Longitude in decimal degrees (-180 to 180)',
 	},
-	{
-		displayName: optionalLabel('Header Location Name'),
-		name: 'templateHeaderLocationName',
-		type: 'string',
-		default: '',
+	limitedTextResourceLocatorField('templateHeaderLocationName', 'Header Location Name', LOCATION_TEXT_MAX, {
+		optional: true,
 		displayOptions: {
 			show: {
 				resource: ['message'],
@@ -551,23 +573,25 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				templateDetectedHeaderFormat: ['location'],
 			},
 		},
-		description: 'Optional location title shown in the map pin',
-	},
-	{
-		displayName: optionalLabel('Header Location Address'),
-		name: 'templateHeaderLocationAddress',
-		type: 'string',
-		default: '',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ['sendTemplate'],
-				templateDetectedComponentMode: ['standard'],
-				templateDetectedHeaderFormat: ['location'],
+		description: `Optional location title shown in the map pin (max ${LOCATION_TEXT_MAX} characters)`,
+	}),
+	limitedTextResourceLocatorField(
+		'templateHeaderLocationAddress',
+		'Header Location Address',
+		LOCATION_TEXT_MAX,
+		{
+			optional: true,
+			displayOptions: {
+				show: {
+					resource: ['message'],
+					operation: ['sendTemplate'],
+					templateDetectedComponentMode: ['standard'],
+					templateDetectedHeaderFormat: ['location'],
+				},
 			},
+			description: `Optional street address shown under the location name (max ${LOCATION_TEXT_MAX} characters)`,
 		},
-		description: 'Optional street address shown under the location name',
-	},
+	),
 	{
 		displayName:
 			'Fill carousel card body placeholders at send time. Pick Text, Currency, or Date & Time per variable. ' +
@@ -648,6 +672,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 		displayName: 'Carousel Cards',
 		name: 'templateCarouselCards',
 		type: 'fixedCollection',
+		placeholder: 'Add Card',
 		typeOptions: {
 			multipleValues: true,
 		},
@@ -735,27 +760,24 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Template MPM Hint Name or ID',
+		displayName: 'Has MPM Buttons',
 		name: 'templateMpmButtonHint',
-		type: 'options',
-		default: '',
-		typeOptions: {
-			loadOptionsMethod: 'getTemplateMpmButtonHint',
-			loadOptionsDependsOn: ['phoneNumberId', 'templateName'],
-		},
+		type: 'hidden',
+		default:
+			'={{ ((($parameter["templateName"].value || "").split("|"))[6] || "n") === "y" ? "yes" : "no" }}',
 		displayOptions: {
 			show: {
 				resource: ['message'],
 				operation: ['sendTemplate'],
 			},
 		},
-		description: 'Loaded automatically from the selected template to show the MPM button notice when needed. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	templateButtonParametersField('templateButtonParameters', {
 		show: {
 			resource: ['message'],
 			operation: ['sendTemplate'],
 			templateDetectedComponentMode: ['standard'],
+			templateMpmButtonHint: ['yes'],
 		},
 	}),
 	{
@@ -772,6 +794,7 @@ export const messageTemplateAndAdminFields: INodeProperties[] = [
 				resource: ['message'],
 				operation: ['sendTemplate'],
 				templateDetectedComponentMode: ['standard'],
+				templateHasButtonParameters: ['yes'],
 			},
 		},
 		typeOptions: {

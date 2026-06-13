@@ -12,4 +12,4 @@ When agents or scripts write Kapso **sendList** nodes into n8n workflow JSON, us
 
 Flat arrays and per-row wrapper arrays work at **runtime** in `extractListRows()` but **do not display** in the n8n parameter editor.
 
-See `/root/relatorio-migracao-api-oficial/KAPSO-N8N-PARIDADE.md` for WAHA porting and webhook v2 shim notes.
+See `/root/Projetos/n8n/migracao-kapso/KAPSO-N8N-PARIDADE.md` for WAHA porting and webhook v2 shim notes.

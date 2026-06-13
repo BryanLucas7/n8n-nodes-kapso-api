@@ -110,7 +110,7 @@ describe('loadOptions getMessageTemplates', () => {
 		expect(await getMessageTemplates.call(context)).toEqual([
     {
      name: 'hello_world · en_US · APPROVED',
-     value: 'hello_world|en_US',
+     value: 'hello_world|en_US|standard|none|n|n|n|n',
     },
 		]);
 	});

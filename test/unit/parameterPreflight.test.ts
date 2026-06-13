@@ -115,4 +115,30 @@ describe('parameterPreflight', () => {
 
 		expect(() => assertKapsoMetaFieldLimits(ef, 0)).not.toThrow();
 	});
+
+	it('counts emoji row titles by Unicode code point (Meta grapheme limit)', () => {
+		const rowTitle = 'Tabela serviços avulsos💵';
+		expect(rowTitle.length).toBe(25);
+		expect([...rowTitle].length).toBe(24);
+
+		const issues = collectKapsoMetaLimitIssues({
+			resource: 'message',
+			operation: 'sendList',
+			bodyText: 'Choose an option',
+			listButtonText: 'View options',
+			listHeaderType: 'none',
+			sections: {
+				sectionValues: [
+					{
+						sectionTitle: 'Menu',
+						rowValues: {
+							row: [{ rowId: 'menu-principal2', rowTitle }],
+						},
+					},
+				],
+			},
+		});
+
+		expect(issues).toHaveLength(0);
+	});
 });

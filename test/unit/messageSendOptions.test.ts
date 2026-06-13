@@ -8,9 +8,11 @@ describe('messageSendOptionsField', () => {
 		expect(linkPreview).toBeUndefined();
 	});
 
-	it('keeps Reply To Message ID in the collection without nested displayOptions', () => {
+	it('keeps Reply To Message ID optional in the collection without nested displayOptions', () => {
 		const replyTo = messageSendOptionsField.options?.find((field) => field.name === 'replyToMessageId');
 		expect(replyTo?.displayOptions).toBeUndefined();
+		expect(replyTo?.type).toBe('string');
+		expect(replyTo?.required).toBeUndefined();
 		expect(messageSendOptionsField.displayOptions?.show?.operation).toContain('sendAudio');
 		expect(messageSendOptionsField.displayOptions?.show?.operation).toContain('sendContact');
 		expect(messageSendOptionsField.displayOptions?.show?.operation).not.toContain('sendTemplate');

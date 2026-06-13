@@ -19,6 +19,7 @@ import {
 	LIST_ROW_TITLE_MAX,
 	LIST_SECTION_TITLE_MAX,
 	MEDIA_CAPTION_MAX,
+	metaVisibleTextLength,
 	PRODUCT_RETAILER_ID_MAX,
 	TEXT_MESSAGE_MAX,
 } from '../properties/fieldConstraints';
@@ -76,7 +77,8 @@ function checkStringLength(
 		return undefined;
 	}
 
-	if (trimmed.length <= max) {
+	const actual = metaVisibleTextLength(trimmed);
+	if (actual <= max) {
 		return undefined;
 	}
 
@@ -84,7 +86,7 @@ function checkStringLength(
 		path,
 		label,
 		max,
-		actual: trimmed.length,
+		actual,
 		preview: previewText(trimmed),
 	};
 }

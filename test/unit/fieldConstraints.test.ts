@@ -80,6 +80,8 @@ describe('fieldConstraints', () => {
 		expect(maxLengthOf(listRowTitleField())).toBe(LIST_ROW_TITLE_MAX);
 		expect(maxLengthOf(listRowDescriptionField())).toBe(LIST_ROW_DESCRIPTION_MAX);
 		expect(textMessageField({ show: {} }).type).toBe('resourceLocator');
+		expect(listRowTitleField().type).toBe('resourceLocator');
+		expect(buttonTitleField().type).toBe('resourceLocator');
 	});
 
 	it('applies media ID max length to header media fields', () => {
@@ -123,8 +125,11 @@ describe('fieldConstraints', () => {
 	});
 
 	it('applies phase 2 URL and catalog field limits', () => {
-		expect(maxLengthOf(httpUrlStringField('ctaButtonUrl', 'Button URL', { show: {} }))).toBe(URL_FIELD_MAX);
-		expect(httpUrlStringField('ctaButtonUrl', 'Button URL', { show: {} }).hint).toBeUndefined();
+		const ctaUrl = httpUrlStringField('ctaButtonUrl', 'Button URL', { show: {} });
+		expect(maxLengthOf(ctaUrl)).toBe(URL_FIELD_MAX);
+		expect(ctaUrl.type).toBe('resourceLocator');
+		expect(ctaUrl.hint).toBeUndefined();
+		expect(ctaUrl.modes?.[0]?.validation?.some((entry) => entry.type === 'regex')).toBe(true);
 		expect(catalogIdField({ show: {} }).type).toBe('resourceLocator');
 		expect(catalogIdField({ show: {} }).description).toContain('Catalog');
 		expect(productRetailerIdField().type).toBe('resourceLocator');

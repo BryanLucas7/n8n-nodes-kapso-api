@@ -12,7 +12,23 @@ describe('templateSelection', () => {
 				name: 'order_update',
 				language: 'en_US',
 			}),
-		).toBe('order_update|en_US');
+		).toBe('order_update|en_US|standard|none|n|n|n|n');
+	});
+
+	it('encodes detected metadata when entry has parameter format and body text', () => {
+		const value = encodeMessageTemplateValue({
+			name: 'order_update',
+			language: 'en_US',
+			parameter_format: 'NAMED',
+			components: [
+				{ type: 'BODY', text: 'Hello {{customer_name}}, your order {{order_id}} is ready.' },
+				{
+					type: 'BUTTONS',
+					buttons: [{ type: 'URL', text: 'Track', url: 'https://example.com/{{1}}' }],
+				},
+			],
+		});
+		expect(value).toBe('order_update|en_US|standard|none|y|y|n|n');
 	});
 
 	it('parses composite template selection values', () => {

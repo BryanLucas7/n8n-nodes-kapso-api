@@ -1,6 +1,8 @@
 import { INodeProperties } from 'n8n-workflow';
 import {
 	flowTokenField,
+	flowActionDataKeyField,
+	flowActionDataValueField,
 	limitedTextResourceLocatorField,
 	listSectionTitleField,
 	LOCATION_TEXT_MAX,
@@ -8,6 +10,10 @@ import {
 	PRODUCT_RETAILER_ID_MAX,
 	productRetailerIdField,
 	publicUrlStringField,
+	templateButtonUrlSuffixField,
+	templateCopyCodeField,
+	templateQuickReplyPayloadField,
+	templateQuickReplyTextField,
 } from './fieldConstraints';
 import { optionalLabel } from './displayNames';
 import { KAPSO_DOCS, withKapsoDoc } from './expressionHints';
@@ -51,24 +57,7 @@ const flowActionDataFields: INodeProperties = {
 			displayName: 'Field',
 			name: 'fieldValues',
 			description: 'One key-value pair passed to the Flow when the button is tapped',
-			values: [
-				{
-					displayName: 'Key',
-					name: 'key',
-					type: 'string',
-					default: '',
-					required: true,
-					description: 'Data key sent to the Flow action',
-				},
-				{
-					displayName: 'Value',
-					name: 'value',
-					type: 'string',
-					default: '',
-					required: true,
-					description: 'Data value sent to the Flow action',
-				},
-			],
+			values: [flowActionDataKeyField(), flowActionDataValueField()],
 		},
 	],
 };
@@ -119,34 +108,13 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 		displayName: 'URL',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
 		description: 'Dynamic URL suffix appended to the static template URL',
-		values: [
-			templateButtonKindField('url'),
-			buttonIndexField,
-			{
-				displayName: 'URL Suffix',
-				name: 'buttonText',
-				type: 'string',
-				default: '',
-				description: 'Dynamic suffix appended to the static URL defined in the template',
-			},
-		],
+		values: [templateButtonKindField('url'), buttonIndexField, templateButtonUrlSuffixField()],
 	},
 	{
 		displayName: 'Quick Reply (Text)',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
 		description: 'Quick-reply button with a dynamic visible label',
-		values: [
-			templateButtonKindField('quick_reply_text'),
-			buttonIndexField,
-			{
-				displayName: 'Text',
-				name: 'buttonText',
-				type: 'string',
-				default: '',
-				required: true,
-				description: 'Visible quick-reply label when the template uses a text parameter',
-			},
-		],
+		values: [templateButtonKindField('quick_reply_text'), buttonIndexField, templateQuickReplyTextField()],
 	},
 	{
 		displayName: 'Quick Reply (Payload)',
@@ -155,14 +123,7 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 		values: [
 			templateButtonKindField('quick_reply_payload'),
 			buttonIndexField,
-			{
-				displayName: 'Payload',
-				name: 'buttonPayload',
-				type: 'string',
-				default: '',
-				required: true,
-				description: 'Developer-defined payload returned when the button is tapped',
-			},
+			templateQuickReplyPayloadField(),
 		],
 	},
 	{
@@ -175,18 +136,7 @@ export const templateButtonParameterCollectionOptions: INodeProperties['options'
 		displayName: 'Copy Code',
 		name: TEMPLATE_BUTTON_PARAMETER_ENTRY_KEY,
 		description: 'Copy-code button that copies a coupon or offer code',
-		values: [
-			templateButtonKindField('copy_code'),
-			buttonIndexField,
-			{
-				displayName: 'Coupon Code',
-				name: 'buttonText',
-				type: 'string',
-				default: '',
-				required: true,
-				description: 'Coupon or offer code copied when the recipient taps the button',
-			},
-		],
+		values: [templateButtonKindField('copy_code'), buttonIndexField, templateCopyCodeField()],
 	},
 	{
 		displayName: 'Catalog',

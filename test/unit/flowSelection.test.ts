@@ -35,6 +35,7 @@ describe('flowSelection', () => {
 			singleScreen: false,
 			flowsEncryptionConfigured: false,
 			previewUrl: 'https://example.com/preview',
+			hasInitialDataFields: false,
 		});
 	});
 

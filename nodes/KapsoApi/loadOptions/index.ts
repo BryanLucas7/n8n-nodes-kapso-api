@@ -1,16 +1,6 @@
 export { getPhoneNumbers } from './phoneNumbers';
 export { getBroadcastTemplates, getMessageTemplates, getTemplateLanguages } from './templates';
-export {
-	getBroadcastDetectedComponentMode,
-	getBroadcastDetectedHeaderFormat,
-	getBroadcastMpmButtonHint,
-} from './broadcastStructureOptions';
-export {
-	getTemplateDetectedComponentMode,
-	getTemplateDetectedHeaderFormat,
-	getTemplateHeaderTextHasVariable,
-	getTemplateMpmButtonHint,
-} from './templateStructureOptions';
+export { getTemplateSummary } from './templateStructureOptions';
 export {
 	getBroadcastTemplateSummaryNotice,
 	getBroadcastSendPreflightNotice,

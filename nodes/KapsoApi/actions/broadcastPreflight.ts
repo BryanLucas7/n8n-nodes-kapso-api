@@ -1,5 +1,6 @@
 import { ApplicationError, IExecuteFunctions } from 'n8n-workflow';
 import { kapsoApiRequest } from '../transport/request';
+import { extractBroadcastUuid } from '../loadOptions/broadcastSelection';
 import { getString } from './nodeHelpers';
 
 type BroadcastPreflight = {
@@ -36,7 +37,7 @@ export async function assertBroadcastDraftForRecipients(
 	ef: IExecuteFunctions,
 	itemIndex: number,
 ): Promise<void> {
-	const broadcastId = getString(ef, 'broadcastId', itemIndex);
+	const broadcastId = extractBroadcastUuid(getString(ef, 'broadcastId', itemIndex));
 	const preflight = await fetchBroadcastPreflight(ef, broadcastId, itemIndex);
 
 	if (preflight.status !== 'draft') {
@@ -50,7 +51,7 @@ export async function assertBroadcastReadyToSend(
 	ef: IExecuteFunctions,
 	itemIndex: number,
 ): Promise<void> {
-	const broadcastId = getString(ef, 'broadcastId', itemIndex);
+	const broadcastId = extractBroadcastUuid(getString(ef, 'broadcastId', itemIndex));
 	const preflight = await fetchBroadcastPreflight(ef, broadcastId, itemIndex);
 
 	if (preflight.status !== 'draft') {
@@ -70,7 +71,7 @@ export async function assertBroadcastScheduledForCancel(
 	ef: IExecuteFunctions,
 	itemIndex: number,
 ): Promise<void> {
-	const broadcastId = getString(ef, 'broadcastId', itemIndex);
+	const broadcastId = extractBroadcastUuid(getString(ef, 'broadcastId', itemIndex));
 	const preflight = await fetchBroadcastPreflight(ef, broadcastId, itemIndex);
 
 	if (preflight.status !== 'scheduled') {

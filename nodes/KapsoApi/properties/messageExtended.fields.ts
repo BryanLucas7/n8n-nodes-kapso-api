@@ -4,7 +4,6 @@ import { optionalLabel } from './displayNames';
 import {
 	catalogIdField,
 	ctaButtonLabelField,
-	e164PhoneResourceLocatorField,
 	interactiveFooterTextField,
 	interactiveHeaderTextField,
 	INTERACTIVE_HEADER_MAX,
@@ -32,6 +31,7 @@ import {
 	hideWhenFlowNavigateOnly,
 	hideWhenFlowSingleScreen,
 	showWhenFlowEncryptionWarning,
+	showWhenFlowHasInitialDataFields,
 	showWhenFlowPreviewAvailable,
 	showWhenFlowSelected,
 	showWhenFlowSingleScreenNotice,
@@ -311,23 +311,6 @@ export const messageMediaAndLocationFields: INodeProperties[] = [
 
 /** Action fields shown after body text (buttons, CTA target, flow action, product sections). */
 export const messageInteractiveActionFields: INodeProperties[] = [
-	{
-		displayName: 'CTA Type',
-		name: 'ctaType',
-		type: 'options',
-		options: [
-			{ name: 'URL', value: 'url' },
-			{ name: 'Phone Call', value: 'phone' },
-		],
-		default: 'url',
-		displayOptions: {
-			show: {
-				resource: ['message'],
-				operation: ctaOps,
-			},
-		},
-		description: 'Whether the button opens a URL or starts a phone call',
-	},
 	ctaButtonLabelField({
 		show: {
 			resource: ['message'],
@@ -338,7 +321,6 @@ export const messageInteractiveActionFields: INodeProperties[] = [
 		show: {
 			resource: ['message'],
 			operation: ctaOps,
-			ctaType: ['url'],
 		},
 	}, {
 		description: withKapsoDoc(
@@ -347,18 +329,6 @@ export const messageInteractiveActionFields: INodeProperties[] = [
 			'Buttons',
 		),
 	}),
-	e164PhoneResourceLocatorField(
-		'ctaButtonPhone',
-		'Button Phone Number',
-		{
-			show: {
-				resource: ['message'],
-				operation: ctaOps,
-				ctaType: ['phone'],
-			},
-		},
-		'E.164 phone number with + that opens in the dialer when the recipient taps the button',
-	),
 	{
 		displayName: 'Product Sections',
 		name: 'productSections',
@@ -481,6 +451,7 @@ export const messageInteractiveActionFields: INodeProperties[] = [
 				resource: ['message'],
 				operation: ['sendFlow'],
 				...showWhenFlowSelected,
+				...showWhenFlowHasInitialDataFields,
 			},
 		},
 		typeOptions: {

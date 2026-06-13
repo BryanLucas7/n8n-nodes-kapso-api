@@ -23,11 +23,21 @@ function carouselShow(): ShowRules {
 }
 
 export function broadcastRecipientBodyMapperShow(): ShowRules {
-	return standardShow();
+	return {
+		show: {
+			broadcastDetectedComponentMode: ['standard'],
+			broadcastHasBodyVariables: ['yes'],
+		},
+	};
 }
 
 export function broadcastRecipientButtonMapperShow(): ShowRules {
-	return standardShow();
+	return {
+		show: {
+			broadcastDetectedComponentMode: ['standard'],
+			broadcastHasButtonParameters: ['yes'],
+		},
+	};
 }
 
 export function broadcastRecipientHeaderTextShow(): ShowRules {
@@ -84,5 +94,10 @@ export function broadcastRecipientMpmButtonsNoticeShow(): ShowRules {
 }
 
 export function broadcastRecipientStructuredButtonParametersShow(): ShowRules {
-	return standardShow();
+	return {
+		show: {
+			broadcastDetectedComponentMode: ['standard'],
+			broadcastMpmButtonHint: ['yes'],
+		},
+	};
 }

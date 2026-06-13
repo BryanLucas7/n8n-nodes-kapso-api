@@ -56,7 +56,7 @@ export const operationOptionsByResource: Record<string, INodePropertyOptions[]> 
 		{ name: 'Send Sticker', value: 'sendSticker', action: 'Send a sticker message' },
 		{ name: 'Send Location', value: 'sendLocation', action: 'Send a location pin' },
 		{ name: 'Request Location', value: 'requestLocation', action: 'Ask the user to share their location' },
-		{ name: 'Send Buttons', value: 'sendButtons', action: 'Send an interactive button message' },
+		{ name: 'Send Buttons (Quick Reply)', value: 'sendButtons', action: 'Send a quick-reply interactive message (1-3 reply buttons)' },
 		{ name: 'Send List', value: 'sendList', action: 'Send an interactive list message' },
 		{ name: 'Send CTA', value: 'sendCta', action: 'Send an interactive call-to-action button (URL or phone)' },
 		{ name: 'Send Product', value: 'sendProduct', action: 'Send a single catalog product message' },

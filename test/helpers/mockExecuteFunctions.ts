@@ -108,7 +108,6 @@ const defaultParameters: Record<string, unknown> = {
 	ingestPhoneNumberId: TEST_PHONE_NUMBER_ID,
 	ingestSourceUrl: 'https://example.com/image.png',
 	ingestDelivery: 'meta_media',
-	ctaType: 'url',
 	catalogId: { mode: 'id', value: 'CATALOG_ID', __rl: true },
 	productRetailerId: { mode: 'id', value: 'SKU_1234', __rl: true },
 	catalogThumbnailProductId: { mode: 'id', value: 'SKU_THUMB', __rl: true },

@@ -10,6 +10,19 @@ export const hideWhenFlowSingleScreen: NonNullable<IDisplayOptions['hide']> = {
 	flowId: [flowIdPartMatches(7, '1')],
 };
 
+/**
+ * Show only when the encoded flow indicates the default screen has initial data fields
+ * (part index 10). Legacy flow values (length < 11 parts) match nothing here, so callers
+ * should treat absence as "show by default" via the showWhenFlowSelected gate elsewhere.
+ */
+export const showWhenFlowHasInitialDataFields: NonNullable<IDisplayOptions['show']> = {
+	flowId: [
+		flowIdPartMatches(10, '1'),
+		// Legacy values (no slot 10) still show the mapper for backward compat.
+		{ _cnd: { regex: '^([^|]*\\|){0,9}[^|]*$' } },
+	],
+};
+
 /** Hide when the flow has no data endpoint (navigate-only, part index 4). */
 export const hideWhenFlowNavigateOnly: NonNullable<IDisplayOptions['hide']> = {
 	flowId: [flowIdPartMatches(4, '0')],

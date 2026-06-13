@@ -11,6 +11,7 @@ export type ParsedFlowSelection = {
 	singleScreen?: boolean;
 	flowsEncryptionConfigured?: boolean;
 	previewUrl?: string;
+	hasInitialDataFields?: boolean;
 };
 
 function sanitizeFlowSelectionPart(value: string): string {
@@ -28,6 +29,7 @@ export function encodeFlowSelection(entry: {
 	singleScreen?: boolean;
 	flowsEncryptionConfigured?: boolean;
 	previewUrl?: string | null;
+	hasInitialDataFields?: boolean;
 }): string {
 	const parts = [
 		entry.kapsoUuid,
@@ -40,6 +42,7 @@ export function encodeFlowSelection(entry: {
 		entry.singleScreen ? '1' : '0',
 		entry.flowsEncryptionConfigured ? '1' : '0',
 		entry.previewUrl ? encodeURIComponent(String(entry.previewUrl)) : '',
+		entry.hasInitialDataFields ? '1' : '0',
 	];
 	return parts.join(FLOW_SELECTION_SEPARATOR);
 }
@@ -72,6 +75,7 @@ export function parseFlowSelection(raw: string): ParsedFlowSelection {
 			singleScreen: parts.length >= 8 ? parts[7] === '1' : undefined,
 			flowsEncryptionConfigured: parts.length >= 9 ? parts[8] === '1' : undefined,
 			previewUrl,
+			hasInitialDataFields: parts.length >= 11 ? parts[10] === '1' : undefined,
 		};
 	}
 

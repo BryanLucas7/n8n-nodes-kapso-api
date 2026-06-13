@@ -11,7 +11,6 @@ import {
 	buildCatalogMessage,
 	buildContactMessage,
 	buildCtaUrlMessage,
-	buildCtaCallMessage,
 	buildFlowMessage,
 	buildListMessage,
 	buildLocationMessage,
@@ -47,6 +46,7 @@ import {
 } from '../loadOptions/flowSelection';
 import { readFlowModeFromExecuteParameters } from '../loadOptions/flowModeHelpers';
 import { enrichFlowSelectionForExecute } from '../loadOptions/flowAssets';
+import { extractBroadcastUuid } from '../loadOptions/broadcastSelection';
 import {
 	getBoolean,
 	getFixedCollectionItems,
@@ -429,34 +429,6 @@ export function buildMessageRequest(
 	}
 
 	if (operation === 'sendCta') {
-		const ctaType = getString(ef, 'ctaType', itemIndex) || 'url';
-
-		if (ctaType === 'phone') {
-			return {
-				api: 'whatsapp',
-				method: 'POST' as IHttpRequestMethods,
-				path: phonePath,
-				body: applyOutboundMessageOptions(
-					ef,
-					itemIndex,
-					buildCtaCallMessage(
-						to,
-						getString(ef, 'bodyText', itemIndex),
-						getString(ef, 'ctaButtonLabel', itemIndex),
-						getString(ef, 'ctaButtonPhone', itemIndex),
-						getString(ef, 'ctaHeaderType', itemIndex) as CtaHeaderType,
-						getString(ef, 'ctaHeaderText', itemIndex) || undefined,
-						(getString(ef, 'ctaHeaderMediaSource', itemIndex) || 'link') as 'link' | 'id',
-						getString(ef, 'ctaHeaderMediaUrl', itemIndex) || undefined,
-						getString(ef, 'ctaHeaderMediaId', itemIndex) || undefined,
-						getString(ef, 'ctaHeaderDocumentFilename', itemIndex) || undefined,
-						getString(ef, 'footerText', itemIndex) || undefined,
-						replyToMessageId,
-					),
-				),
-			};
-		}
-
 		return {
 			api: 'whatsapp',
 			method: 'POST' as IHttpRequestMethods,
@@ -779,7 +751,8 @@ export function buildRequest(
 	const conversationId = () => pathUuidId(getString(ef, 'conversationId', itemIndex), 'Conversation ID');
 	const contactIdentifier = () =>
 		pathId(getString(ef, 'contactIdentifier', itemIndex), 'Contact Identifier');
-	const broadcastId = () => pathUuidId(getString(ef, 'broadcastId', itemIndex), 'Broadcast ID');
+	const broadcastId = () =>
+		pathUuidId(extractBroadcastUuid(getString(ef, 'broadcastId', itemIndex)), 'Broadcast ID');
 	const mediaId = () => pathId(getString(ef, 'mediaId', itemIndex), 'Media ID');
 
 	if (resource === 'message') {
@@ -961,7 +934,7 @@ export async function buildBroadcastAddRecipientsRequest(
 	return {
 		api: 'platform',
 		method: 'POST' as IHttpRequestMethods,
-		path: `/whatsapp/broadcasts/${pathUuidId(getString(ef, 'broadcastId', itemIndex), 'Broadcast ID')}/recipients`,
+		path: `/whatsapp/broadcasts/${pathUuidId(extractBroadcastUuid(getString(ef, 'broadcastId', itemIndex)), 'Broadcast ID')}/recipients`,
 		body: await buildBroadcastAddRecipientsBody(ef, itemIndex),
 	};
 }

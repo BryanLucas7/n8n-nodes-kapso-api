@@ -313,14 +313,11 @@ export const broadcastFields: INodeProperties[] = [
 		description: 'Optional input item JSON key for an existing Kapso contact UUID. Used when no phone is present on the item.',
 	},
 	{
-		displayName: 'Detected Template Header Format Name or ID',
+		displayName: 'Header Format',
 		name: 'broadcastDetectedHeaderFormat',
-		type: 'options',
-		default: '',
-		typeOptions: {
-			loadOptionsMethod: 'getBroadcastDetectedHeaderFormat',
-			loadOptionsDependsOn: ['broadcastId'],
-		},
+		type: 'hidden',
+		default:
+			'={{ (($parameter["broadcastId"].value || "").split("|")[2]) || "none" }}',
 		displayOptions: {
 			show: {
 				resource: ['broadcast'],
@@ -328,17 +325,13 @@ export const broadcastFields: INodeProperties[] = [
 				broadcastRecipientSource: ['builder'],
 			},
 		},
-		description: 'Read-only header type loaded from the broadcast template. If stale, reselect the broadcast after syncing template changes. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
-		displayName: 'Detected Template Layout Name or ID',
+		displayName: 'Layout',
 		name: 'broadcastDetectedComponentMode',
-		type: 'options',
-		default: '',
-		typeOptions: {
-			loadOptionsMethod: 'getBroadcastDetectedComponentMode',
-			loadOptionsDependsOn: ['broadcastId'],
-		},
+		type: 'hidden',
+		default:
+			'={{ (($parameter["broadcastId"].value || "").split("|")[1]) || "standard" }}',
 		displayOptions: {
 			show: {
 				resource: ['broadcast'],
@@ -346,33 +339,41 @@ export const broadcastFields: INodeProperties[] = [
 				broadcastRecipientSource: ['builder'],
 			},
 		},
-		description: 'Read-only layout loaded from the broadcast template: standard body fields or carousel cards. If stale, reselect the broadcast after syncing template changes. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
-		displayName:
-			'Templates with MPM (multi-product) buttons require the structured Button Parameters collection on each recipient. The resource mapper does not support MPM sections.',
-		name: 'broadcastMpmButtonsNotice',
-		type: 'notice',
-		default: '',
+		displayName: 'Has Body Variables',
+		name: 'broadcastHasBodyVariables',
+		type: 'hidden',
+		default:
+			'={{ ((($parameter["broadcastId"].value || "").split("|"))[3] || "y") === "y" ? "yes" : "no" }}',
 		displayOptions: {
 			show: {
 				resource: ['broadcast'],
 				operation: ['addRecipients'],
 				broadcastRecipientSource: ['builder'],
-				broadcastDetectedComponentMode: ['standard'],
-				broadcastMpmButtonHint: ['yes'],
 			},
 		},
 	},
 	{
-		displayName: 'Broadcast MPM Hint Name or ID',
+		displayName: 'Has Button Parameters',
+		name: 'broadcastHasButtonParameters',
+		type: 'hidden',
+		default:
+			'={{ ((($parameter["broadcastId"].value || "").split("|"))[4] || "y") === "y" ? "yes" : "no" }}',
+		displayOptions: {
+			show: {
+				resource: ['broadcast'],
+				operation: ['addRecipients'],
+				broadcastRecipientSource: ['builder'],
+			},
+		},
+	},
+	{
+		displayName: 'Has MPM Buttons',
 		name: 'broadcastMpmButtonHint',
-		type: 'options',
-		default: '',
-		typeOptions: {
-			loadOptionsMethod: 'getBroadcastMpmButtonHint',
-			loadOptionsDependsOn: ['broadcastId'],
-		},
+		type: 'hidden',
+		default:
+			'={{ ((($parameter["broadcastId"].value || "").split("|"))[5] || "n") === "y" ? "yes" : "no" }}',
 		displayOptions: {
 			show: {
 				resource: ['broadcast'],
@@ -380,12 +381,12 @@ export const broadcastFields: INodeProperties[] = [
 				broadcastRecipientSource: ['builder'],
 			},
 		},
-		description: 'Loaded automatically from the broadcast template to show the MPM button notice when needed. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 	},
 	{
 		displayName: 'Recipients',
 		name: 'broadcastRecipients',
 		type: 'fixedCollection',
+		placeholder: 'Add Recipient',
 		typeOptions: {
 			multipleValues: true,
 		},
@@ -467,6 +468,7 @@ export const broadcastFields: INodeProperties[] = [
 					templateButtonParametersField('recipientButtonParameters', {
 						show: {
 							broadcastDetectedComponentMode: ['standard'],
+							broadcastMpmButtonHint: ['yes'],
 						},
 					}),
 					interactiveHeaderTextField(
@@ -620,6 +622,7 @@ export const broadcastFields: INodeProperties[] = [
 						displayName: 'Carousel Cards',
 						name: 'recipientCarouselCards',
 						type: 'fixedCollection',
+						placeholder: 'Add Card',
 						typeOptions: {
 							multipleValues: true,
 						},

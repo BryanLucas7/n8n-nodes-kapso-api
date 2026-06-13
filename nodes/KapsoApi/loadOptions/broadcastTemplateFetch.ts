@@ -3,20 +3,22 @@ import { kapsoApiRequest } from '../transport/request';
 import { parseTemplateDefinition, TemplateDefinition } from './templateDefinition';
 import { kapsoLoadOptionsRequest } from './helpers';
 import { readNodeParameterString } from './resourceLocatorHelpers';
+import { extractBroadcastUuid } from './broadcastSelection';
 
 type TemplateSelectionContext = ILoadOptionsFunctions | IExecuteFunctions;
 
 function readBroadcastId(context: TemplateSelectionContext, itemIndex = 0): string {
 	if ('getCurrentNodeParameter' in context) {
-		return readNodeParameterString(context, 'broadcastId');
+		return extractBroadcastUuid(readNodeParameterString(context, 'broadcastId'));
 	}
 
 	const raw = context.getNodeParameter('broadcastId', itemIndex);
-	if (raw && typeof raw === 'object' && 'value' in raw) {
-		return String((raw as { value?: string }).value ?? '').trim();
-	}
+	const rawString =
+		raw && typeof raw === 'object' && 'value' in raw
+			? String((raw as { value?: string }).value ?? '').trim()
+			: String(raw ?? '').trim();
 
-	return String(raw ?? '').trim();
+	return extractBroadcastUuid(rawString);
 }
 
 export async function fetchBroadcastEntry(

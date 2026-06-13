@@ -1,4 +1,5 @@
 import { ApplicationError } from 'n8n-workflow';
+import { stripWhatsAppFormatting } from './whatsappFormatting';
 import {
 	BUTTON_ID_MAX,
 	BUTTON_TITLE_MAX,
@@ -13,6 +14,7 @@ import {
 	E164_PHONE_REGEX,
 	EMOJI_MAX_LENGTH,
 	FILTER_STRING_MAX,
+	metaVisibleTextLength,
 	FLOW_CTA_MAX,
 	FLOW_ID_MAX,
 	FLOW_SCREEN_MAX,
@@ -213,7 +215,7 @@ export function assertReactionEmoji(value: string): string {
 }
 
 export function assertMaxLength(value: string, max: number, label: string): string {
-	if (value.length > max) {
+	if (metaVisibleTextLength(value) > max) {
 		throw new ApplicationError(`${label} must be at most ${max} characters.`);
 	}
 
@@ -273,7 +275,8 @@ export function validateMediaCaption(caption: string | undefined): string | unde
 }
 
 export function validateInteractiveHeaderText(text: string): string {
-	return assertMaxLength(requireNonEmptyString(text, 'Header Text'), INTERACTIVE_HEADER_MAX, 'Header Text');
+	const plain = stripWhatsAppFormatting(requireNonEmptyString(text, 'Header Text').trim());
+	return assertMaxLength(plain, INTERACTIVE_HEADER_MAX, 'Header Text');
 }
 
 export function validateInteractiveFooterText(text: string | undefined): string | undefined {
@@ -326,10 +329,6 @@ export function validateListRowDescription(description: string | undefined): str
 		LIST_ROW_DESCRIPTION_MAX,
 		'Row Description',
 	);
-}
-
-export function validateCtaPhoneNumber(phone: string, fieldLabel = 'Button Phone Number'): string {
-	return assertE164Phone(requireNonEmptyString(phone, fieldLabel), fieldLabel);
 }
 
 export function validateCtaButtonLabel(label: string, fieldLabel = 'Button Label'): string {

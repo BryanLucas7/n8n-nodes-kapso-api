@@ -6,7 +6,12 @@ import {
 	requireLoadOptionsDependency,
 } from './helpers';
 import { encodeFlowSelection } from './flowSelection';
-import { fetchFlowVersionDetail, readFlowAssets, resolvePreferredFlowStatus } from './flowAssets';
+import {
+	extractScreenDataSchema,
+	fetchFlowVersionDetail,
+	readFlowAssets,
+	resolvePreferredFlowStatus,
+} from './flowAssets';
 import { readFlowModeFromOptions } from './flowModeHelpers';
 
 function matchesFilter(entry: IDataObject, filter?: string): boolean {
@@ -40,6 +45,7 @@ async function buildFlowSelectionValue(
 	let flowsEncryptionConfigured = false;
 	let previewUrl: string | undefined;
 	let hasDataEndpoint: boolean | undefined;
+	let hasInitialDataFields = false;
 	try {
 		const assets = await fetchFlowVersionDetail(
 			context,
@@ -51,6 +57,9 @@ async function buildFlowSelectionValue(
 		flowsEncryptionConfigured = Boolean(assets.flowsEncryptionConfigured);
 		previewUrl = assets.previewUrl;
 		hasDataEndpoint = assets.hasDataEndpoint;
+		if (assets.flowJson && defaultScreen) {
+			hasInitialDataFields = extractScreenDataSchema(assets.flowJson, defaultScreen).length > 0;
+		}
 	} catch {
 		defaultScreen = undefined;
 	}
@@ -65,6 +74,7 @@ async function buildFlowSelectionValue(
 		singleScreen,
 		flowsEncryptionConfigured,
 		previewUrl: previewUrl ?? (entry.preview_url ? String(entry.preview_url) : null),
+		hasInitialDataFields,
 	});
 }
 

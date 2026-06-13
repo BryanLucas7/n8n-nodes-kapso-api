@@ -4,15 +4,6 @@ import {
 	requireLoadOptionsDependency,
 } from './helpers';
 import { fetchSelectedTemplateDefinition } from './templateFetch';
-import {
-	detectedComponentModeOptions,
-	detectedHeaderFormatOptions,
-} from './detectedTemplateStructureOptions';
-
-const TEMPLATE_MPM_HINT_NO = 'no';
-const TEMPLATE_MPM_HINT_YES = 'yes';
-const TEMPLATE_HEADER_TEXT_HINT_NO = 'no';
-const TEMPLATE_HEADER_TEXT_HINT_YES = 'yes';
 
 async function loadDefinition(context: ILoadOptionsFunctions) {
 	await assertKapsoLoadOptionsReady(context);
@@ -22,51 +13,49 @@ async function loadDefinition(context: ILoadOptionsFunctions) {
 	return fetchSelectedTemplateDefinition(context, 'phoneNumberId');
 }
 
-export async function getTemplateDetectedHeaderFormat(
+export async function getTemplateSummary(
 	this: ILoadOptionsFunctions,
 ): Promise<INodePropertyOptions[]> {
 	const definition = await loadDefinition(this);
-	return detectedHeaderFormatOptions(definition);
+
+	if (!definition) {
+		return [{ name: 'Select a template to see detected structure', value: 'pending' }];
+	}
+
+	const parts: string[] = [];
+	parts.push(`layout ${definition.componentMode === 'carousel' ? 'Carousel' : 'Standard'}`);
+
+	const headerFormat = definition.headerFormat;
+	const headerLabel =
+		headerFormat === 'text'
+			? definition.headerTextHasVariable
+				? 'Text (with variable)'
+				: 'Text'
+			: headerFormat === 'image' || headerFormat === 'video' || headerFormat === 'document'
+				? headerFormat.charAt(0).toUpperCase() + headerFormat.slice(1)
+				: 'None';
+	parts.push(`header ${headerLabel}`);
+
+	const varCount = definition.bodyVariables.length;
+	if (varCount === 0) {
+		parts.push('no body variables');
+	} else {
+		const format = definition.parameterFormat === 'named' ? 'named' : 'positional';
+		const names = definition.bodyVariables
+			.slice(0, 3)
+			.map((v) => `{{${v.parameterName ?? v.positionalIndex ?? v.id}}}`)
+			.join(', ');
+		const extra = varCount > 3 ? `, +${varCount - 3} more` : '';
+		parts.push(`body ${varCount} ${format} (${names}${extra})`);
+	}
+
+	const dynamicButtons = definition.buttonSlots.filter((slot) => slot.dynamicKind);
+	if (dynamicButtons.length === 0) {
+		parts.push('no dynamic buttons');
+	} else {
+		const kinds = dynamicButtons.map((slot) => slot.dynamicKind).join(', ');
+		parts.push(`${dynamicButtons.length} dynamic button${dynamicButtons.length > 1 ? 's' : ''} (${kinds})`);
+	}
+
+	return [{ name: `✓ ${parts.join(' · ')}`, value: 'detected' }];
 }
-
-export async function getTemplateDetectedComponentMode(
-	this: ILoadOptionsFunctions,
-): Promise<INodePropertyOptions[]> {
-	const definition = await loadDefinition(this);
-	return detectedComponentModeOptions(definition);
-}
-
-export async function getTemplateMpmButtonHint(
-	this: ILoadOptionsFunctions,
-): Promise<INodePropertyOptions[]> {
-	const definition = await loadDefinition(this);
-	const hasMpm = definition?.buttonSlots.some((slot) => slot.dynamicKind === 'mpm') ?? false;
-
-	return [
-		{
-			name: hasMpm ? 'MPM buttons detected' : 'No MPM buttons',
-			value: hasMpm ? TEMPLATE_MPM_HINT_YES : TEMPLATE_MPM_HINT_NO,
-		},
-	];
-}
-
-export async function getTemplateHeaderTextHasVariable(
-	this: ILoadOptionsFunctions,
-): Promise<INodePropertyOptions[]> {
-	const definition = await loadDefinition(this);
-	const hasVariable = definition?.headerTextHasVariable ?? false;
-
-	return [
-		{
-			name: hasVariable ? 'Header has variable' : 'Static header',
-			value: hasVariable ? TEMPLATE_HEADER_TEXT_HINT_YES : TEMPLATE_HEADER_TEXT_HINT_NO,
-		},
-	];
-}
-
-export {
-	TEMPLATE_MPM_HINT_NO,
-	TEMPLATE_MPM_HINT_YES,
-	TEMPLATE_HEADER_TEXT_HINT_NO,
-	TEMPLATE_HEADER_TEXT_HINT_YES,
-};

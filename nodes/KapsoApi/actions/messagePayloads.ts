@@ -18,7 +18,6 @@ import {
 	validateCatalogId,
 	validateContactFormattedName,
 	validateCtaButtonLabel,
-	validateCtaPhoneNumber,
 	validateDocumentFilename,
 	validateFlowCta,
 	validateFlowId,
@@ -760,69 +759,6 @@ export function buildCtaUrlMessage(
 			parameters: {
 				display_text: validatedLabel,
 				url: validatedUrl,
-			},
-		},
-	};
-
-	const header = resolveInteractiveHeader(
-		headerType,
-		headerText,
-		headerMediaSource,
-		headerMediaUrl,
-		headerMediaId,
-		headerDocumentFilename,
-	);
-	if (header) {
-		interactive.header = header;
-	}
-
-	if (validatedFooter) {
-		interactive.footer = {
-			text: validatedFooter,
-		};
-	}
-
-	return withReplyContext(
-		{
-			messaging_product: 'whatsapp',
-			recipient_type: 'individual',
-			to,
-			type: 'interactive',
-			interactive,
-		},
-		replyToMessageId,
-	);
-}
-
-export function buildCtaCallMessage(
-	to: string,
-	bodyText: string,
-	buttonLabel: string,
-	buttonPhoneNumber: string,
-	headerType: CtaHeaderType,
-	headerText?: string,
-	headerMediaSource: 'link' | 'id' = 'link',
-	headerMediaUrl?: string,
-	headerMediaId?: string,
-	headerDocumentFilename?: string,
-	footer?: string,
-	replyToMessageId?: string,
-): IDataObject {
-	const validatedBody = validateInteractiveBodyText(readStringParameterValue(bodyText));
-	const validatedLabel = validateCtaButtonLabel(readStringParameterValue(buttonLabel));
-	const validatedPhone = validateCtaPhoneNumber(readStringParameterValue(buttonPhoneNumber));
-	const validatedFooter = validateInteractiveFooterText(readStringParameterValue(footer) || undefined);
-
-	const interactive: IDataObject = {
-		type: 'cta_call',
-		body: {
-			text: validatedBody,
-		},
-		action: {
-			name: 'cta_call',
-			parameters: {
-				display_text: validatedLabel,
-				phone_number: validatedPhone,
 			},
 		},
 	};

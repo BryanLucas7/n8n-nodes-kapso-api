@@ -54,6 +54,12 @@ export const JSON_PAYLOAD_MAX_BYTES = 65536;
 export const CUSTOMER_ID_MAX = 36;
 export const CONTACT_FORMATTED_NAME_MAX = 200;
 export const LOCATION_TEXT_MAX = 256;
+export const TEMPLATE_URL_SUFFIX_MAX = 2000;
+export const TEMPLATE_QUICK_REPLY_TEXT_MAX = 25;
+export const TEMPLATE_BUTTON_PAYLOAD_MAX = 128;
+export const TEMPLATE_COPY_CODE_MAX = 15;
+export const FLOW_ACTION_DATA_KEY_MAX = 256;
+export const FLOW_ACTION_DATA_VALUE_MAX = 1024;
 export const CONTACT_MESSAGE_MAX_CONTACTS = 257;
 
 export const MEDIA_ID_HINT = 'Digits only (ID returned by Upload Media or Kapso Trigger media attachment)';
@@ -65,6 +71,11 @@ export const WAMID_MAX_LENGTH = 256;
 
 export const EMOJI_FORMAT_HINT = 'Single emoji only (for example 👍)';
 export const EMOJI_MAX_LENGTH = 8;
+
+/** Meta visible character count (Unicode code points). Emojis count as 1, unlike UTF-16 `.length`. */
+export function metaVisibleTextLength(value: string): number {
+	return [...value].length;
+}
 
 type LimitedFieldOptions = {
 	displayOptions?: INodeProperties['displayOptions'];
@@ -78,6 +89,7 @@ type LimitedFieldOptions = {
 	modeName?: string;
 	modeDisplayName?: string;
 	password?: boolean;
+	additionalValidations?: Array<ReturnType<typeof maxLengthRegexValidation>>;
 };
 
 export const metaPhoneRegexValidation = {
@@ -93,6 +105,15 @@ export const e164PhoneRegexValidation = {
 	properties: {
 		regex: E164_PHONE_REGEX,
 		errorMessage: 'Use E.164 format with + (for example +15551234567)',
+	},
+};
+
+/** Anchored by n8n in validateResourceLocatorParameter — pair with maxLengthRegexValidation. */
+export const httpUrlRegexValidation = {
+	type: 'regex' as const,
+	properties: {
+		regex: String.raw`https?://\S+`,
+		errorMessage: 'Must be a valid http:// or https:// URL',
 	},
 };
 
@@ -196,13 +217,34 @@ export function limitedTextResourceLocatorField(
 					...(options.rows ? { rows: options.rows } : {}),
 					...(options.password ? { password: options.password } : {}),
 				} as unknown as INodePropertyModeTypeOptions,
-				validation: [maxLengthRegexValidation(maxLength, { optional: isOptional, label: displayName })],
+				validation: [
+					maxLengthRegexValidation(maxLength, { optional: isOptional, label: displayName }),
+					...(options.additionalValidations ?? []),
+				],
 			},
 		],
 		...(options.description ? { description: options.description } : {}),
 		...(options.hint ? { hint: options.hint } : {}),
 		...(options.displayOptions ? { displayOptions: options.displayOptions } : {}),
 	};
+}
+
+export function httpUrlResourceLocatorField(
+	name: string,
+	displayName: string,
+	displayOptions: INodeProperties['displayOptions'],
+	options: { required?: boolean; description?: string; placeholder?: string; hint?: string } = {},
+): INodeProperties {
+	return limitedTextResourceLocatorField(name, displayName, URL_FIELD_MAX, {
+		displayOptions,
+		required: options.required ?? true,
+		modeName: 'url',
+		modeDisplayName: 'URL',
+		placeholder: options.placeholder ?? 'https://example.com/media.jpg',
+		description: options.description ?? 'Public HTTPS URL',
+		hint: options.hint,
+		additionalValidations: [httpUrlRegexValidation],
+	});
 }
 
 export function metaPhoneResourceLocatorField(
@@ -295,20 +337,11 @@ export function publicUrlStringField(
 	description = 'Public HTTPS URL of the media file',
 	hint?: string,
 ): INodeProperties {
-	return {
-		displayName,
-		name,
-		type: 'string',
-		default: '',
-		required: true,
-		validateType: 'url',
-		typeOptions: {
-			maxLength: URL_FIELD_MAX,
-		},
-		displayOptions,
+	return httpUrlResourceLocatorField(name, displayName, displayOptions, {
 		description,
-		...(hint ? { hint } : {}),
-	};
+		hint,
+		required: true,
+	});
 }
 
 export function httpUrlStringField(
@@ -317,21 +350,7 @@ export function httpUrlStringField(
 	displayOptions: INodeProperties['displayOptions'],
 	options: { required?: boolean; description?: string; placeholder?: string; hint?: string } = {},
 ): INodeProperties {
-	return {
-		displayName,
-		name,
-		type: 'string',
-		default: '',
-		validateType: 'url',
-		typeOptions: {
-			maxLength: URL_FIELD_MAX,
-		},
-		displayOptions,
-		...(options.hint ? { hint: options.hint } : {}),
-		...(options.required !== undefined ? { required: options.required } : { required: true }),
-		...(options.description ? { description: options.description } : {}),
-		...(options.placeholder ? { placeholder: options.placeholder } : {}),
-	};
+	return httpUrlResourceLocatorField(name, displayName, displayOptions, options);
 }
 
 export function documentFilenameField(
@@ -582,11 +601,13 @@ export function wamidResourceLocatorField(
 	name: string,
 	displayName: string,
 	displayOptions: INodeProperties['displayOptions'],
-	options: { description?: string } = {},
+	options: { description?: string; optional?: boolean } = {},
 ): INodeProperties {
+	const isOptional = options.optional ?? false;
 	return limitedTextResourceLocatorField(name, displayName, WAMID_MAX_LENGTH, {
 		displayOptions,
-		required: true,
+		required: !isOptional,
+		optional: isOptional,
 		modeName: 'wamid',
 		modeDisplayName: 'Message ID',
 		placeholder: 'wamid.HBg...',
@@ -598,7 +619,7 @@ export function wamidStringField(
 	name: string,
 	displayName: string,
 	displayOptions: INodeProperties['displayOptions'],
-	options: { description?: string } = {},
+	options: { description?: string; optional?: boolean } = {},
 ): INodeProperties {
 	return wamidResourceLocatorField(name, displayName, displayOptions, options);
 }
@@ -608,15 +629,16 @@ export function wamidExpressionStringField(
 	name: string,
 	displayName: string,
 	displayOptions: INodeProperties['displayOptions'],
-	options: { description?: string } = {},
+	options: { description?: string; optional?: boolean } = {},
 ): INodeProperties {
+	const isOptional = options.optional ?? false;
 	return {
-		displayName,
+		displayName: isOptional ? optionalLabel(displayName) : displayName,
 		name,
 		type: 'string',
 		default: '',
-		required: true,
-		displayOptions,
+		...(isOptional ? {} : { required: true }),
+		...(displayOptions ? { displayOptions } : {}),
 		placeholder: 'wamid.HBg...',
 		description: options.description ?? WAMID_HINT,
 	};
@@ -705,13 +727,15 @@ export const interactiveFooterTextField = (
 	});
 
 export const buttonIdField = (): INodeProperties =>
-	limitedStringField('buttonId', 'Button ID', BUTTON_ID_MAX, {
+	limitedTextResourceLocatorField('buttonId', 'Button ID', BUTTON_ID_MAX, {
 		required: true,
+		modeName: 'id',
+		modeDisplayName: 'Button ID',
 		description: 'Developer-defined ID returned in the webhook when this button is tapped',
 	});
 
 export const buttonTitleField = (): INodeProperties =>
-	limitedStringField('buttonTitle', 'Button Title', BUTTON_TITLE_MAX, {
+	limitedTextResourceLocatorField('buttonTitle', 'Button Title', BUTTON_TITLE_MAX, {
 		required: true,
 		description: `Label shown on the button (max ${BUTTON_TITLE_MAX} characters)`,
 	});
@@ -724,25 +748,27 @@ export const listButtonTextField = (displayOptions: INodeProperties['displayOpti
 	});
 
 export const listSectionTitleField = (): INodeProperties =>
-	limitedStringField('sectionTitle', 'Section Title', LIST_SECTION_TITLE_MAX, {
+	limitedTextResourceLocatorField('sectionTitle', 'Section Title', LIST_SECTION_TITLE_MAX, {
 		required: true,
 		description: `Section heading shown in the list menu (max ${LIST_SECTION_TITLE_MAX} characters)`,
 	});
 
 export const listRowIdField = (): INodeProperties =>
-	limitedStringField('rowId', 'Row ID', LIST_ROW_ID_MAX, {
+	limitedTextResourceLocatorField('rowId', 'Row ID', LIST_ROW_ID_MAX, {
 		required: true,
+		modeName: 'id',
+		modeDisplayName: 'Row ID',
 		description: 'Developer-defined ID returned when this list row is selected',
 	});
 
 export const listRowTitleField = (): INodeProperties =>
-	limitedStringField('rowTitle', 'Row Title', LIST_ROW_TITLE_MAX, {
+	limitedTextResourceLocatorField('rowTitle', 'Row Title', LIST_ROW_TITLE_MAX, {
 		required: true,
 		description: `Row title shown in the list menu (max ${LIST_ROW_TITLE_MAX} characters)`,
 	});
 
 export const listRowDescriptionField = (): INodeProperties =>
-	limitedStringField('rowDescription', 'Row Description', LIST_ROW_DESCRIPTION_MAX, {
+	limitedTextResourceLocatorField('rowDescription', 'Row Description', LIST_ROW_DESCRIPTION_MAX, {
 		optional: true,
 		description: `Row subtitle (max ${LIST_ROW_DESCRIPTION_MAX} characters)`,
 	});
@@ -752,4 +778,49 @@ export const ctaButtonLabelField = (displayOptions: INodeProperties['displayOpti
 		displayOptions,
 		required: true,
 		description: `Call-to-action button label (max ${CTA_BUTTON_LABEL_MAX} characters)`,
+	});
+
+export const templateButtonUrlSuffixField = (): INodeProperties =>
+	limitedTextResourceLocatorField('buttonText', 'URL Suffix', TEMPLATE_URL_SUFFIX_MAX, {
+		modeName: 'suffix',
+		modeDisplayName: 'URL Suffix',
+		description: `Dynamic suffix appended to the static URL defined in the template (max ${TEMPLATE_URL_SUFFIX_MAX} characters)`,
+	});
+
+export const templateQuickReplyTextField = (): INodeProperties =>
+	limitedTextResourceLocatorField('buttonText', 'Text', TEMPLATE_QUICK_REPLY_TEXT_MAX, {
+		required: true,
+		description: `Visible quick-reply label when the template uses a text parameter (max ${TEMPLATE_QUICK_REPLY_TEXT_MAX} characters)`,
+	});
+
+export const templateQuickReplyPayloadField = (): INodeProperties =>
+	limitedTextResourceLocatorField('buttonPayload', 'Payload', TEMPLATE_BUTTON_PAYLOAD_MAX, {
+		required: true,
+		modeName: 'payload',
+		modeDisplayName: 'Payload',
+		description: `Developer-defined payload returned when the button is tapped (max ${TEMPLATE_BUTTON_PAYLOAD_MAX} characters)`,
+	});
+
+export const templateCopyCodeField = (): INodeProperties =>
+	limitedTextResourceLocatorField('buttonText', 'Coupon Code', TEMPLATE_COPY_CODE_MAX, {
+		required: true,
+		modeName: 'code',
+		modeDisplayName: 'Coupon Code',
+		description: `Coupon or offer code copied when the recipient taps the button (max ${TEMPLATE_COPY_CODE_MAX} characters)`,
+	});
+
+export const flowActionDataKeyField = (): INodeProperties =>
+	limitedTextResourceLocatorField('key', 'Key', FLOW_ACTION_DATA_KEY_MAX, {
+		required: true,
+		modeName: 'key',
+		modeDisplayName: 'Key',
+		description: `Data key sent to the Flow action (max ${FLOW_ACTION_DATA_KEY_MAX} characters)`,
+	});
+
+export const flowActionDataValueField = (): INodeProperties =>
+	limitedTextResourceLocatorField('value', 'Value', FLOW_ACTION_DATA_VALUE_MAX, {
+		required: true,
+		modeName: 'value',
+		modeDisplayName: 'Value',
+		description: `Data value sent to the Flow action (max ${FLOW_ACTION_DATA_VALUE_MAX} characters)`,
 	});

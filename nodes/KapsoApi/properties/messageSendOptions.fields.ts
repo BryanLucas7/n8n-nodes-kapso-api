@@ -4,7 +4,7 @@ import { KAPSO_DOCS, withKapsoDoc } from './expressionHints';
 import {
 	BIZ_OPAQUE_CALLBACK_DATA_MAX,
 	limitedTextResourceLocatorField,
-	wamidStringField,
+	wamidExpressionStringField,
 } from './fieldConstraints';
 
 export const messageSendOptionsField: INodeProperties = {
@@ -21,7 +21,8 @@ export const messageSendOptionsField: INodeProperties = {
 		},
 	},
 	options: [
-		wamidStringField('replyToMessageId', 'Reply To Message ID', undefined, {
+		wamidExpressionStringField('replyToMessageId', 'Reply To Message ID', undefined, {
+			optional: true,
 			description: withKapsoDoc(
 				'WAMID of the message to reply to. Use message.id from Kapso Trigger, List Messages, or Get Message',
 				KAPSO_DOCS.sendText,

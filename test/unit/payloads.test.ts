@@ -5,7 +5,6 @@ import {
 	buildButtonsMessage,
 	buildCatalogMessage,
 	buildContactMessage,
-	buildCtaCallMessage,
 	buildCtaUrlMessage,
 	buildFlowMessage,
 	buildListMessage,
@@ -451,28 +450,6 @@ describe('Kapso extended message payload builders', () => {
 					parameters: {
 						display_text: 'Open',
 						url: 'https://example.com',
-					},
-				},
-			},
-		});
-
-		expect(
-			buildCtaCallMessage(
-				'15551234567',
-				'Call us',
-				'Call',
-				'+15559876543',
-				'none',
-			),
-		).toMatchObject({
-			type: 'interactive',
-			interactive: {
-				type: 'cta_call',
-				action: {
-					name: 'cta_call',
-					parameters: {
-						display_text: 'Call',
-						phone_number: '+15559876543',
 					},
 				},
 			},

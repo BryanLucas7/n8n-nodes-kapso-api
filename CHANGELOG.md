@@ -2,6 +2,57 @@
 
 ## Unreleased
 
+## 0.12.0 - 2026-06-13
+
+### Send Buttons (Quick Reply) UX
+- **Rename**: `Send Buttons` → `Send Buttons (Quick Reply)` with explicit `1-3 reply buttons` action. Inline notice clarifies that URL/Phone Call needs `Send CTA`, WhatsApp Flow needs `Send Flow`, and copy-code coupons need `Send Template`.
+- **Limit**: Added `maxValues: 3` enforcement plus runtime assertion via `assertInteractiveButtonCount`. n8n hides the **Add Button** action once 3 buttons are reached.
+- **Placeholders**: 13 `fixedCollection` fields (buttons, sections, contacts, recipients, blocked users, contact phones/emails/urls/addresses, customApi query parameters, carousel cards) now use specific placeholders (`Add Button`, `Add Section`, etc.) instead of generic `Choose...`.
+
+### Send CTA cleanup
+- **Removed**: `cta_call` (Phone Call CTA in non-template interactive messages). Kapso’s public API only documents `cta_url`, `call_permission_request`, `list`, `flow`, etc. — `cta_call` was an unsupported pass-through. Use the `PHONE_NUMBER` button in an approved template via **Send Template** instead. ⚠️ Workflows that selected `Send CTA → Phone Call` need to switch to **Send Template**.
+
+### Send Template — metadata-driven UI
+- **Removed visual clutter**: the four `Detected ... Name or ID` dropdowns and the always-on body/MPM notices are gone from the field list.
+- **New top-level summary** (`Template Structure`): single auto-detected field showing `✓ layout Standard · header None · body 2 named ({{customer_name}}, {{order_id}}) · 1 dynamic button (url_suffix)` once a template is selected.
+- **Metadata embedded in the template value**: `searchMessageTemplates` now encodes `name|language|layout|headerFormat|hasBody|hasButton|hasMpm|headerTextHasVar`. The six gates that drive `displayOptions` are `type: 'hidden'` fields whose `default` is an expression reading `$parameter["templateName"].value.split("|")[N]`. Same pattern n8n core uses on the Notion node and on this project’s existing `flowId` encoding.
+- **Conditional mappers**: `Body Parameters`, `Button Parameters`, and the structured MPM collection only render when the selected template actually has the corresponding fields. Empty mappers no longer appear.
+- **Backward compatible**: manual/legacy template values with only `name|language` still work — gates default to `yes` so mappers stay visible, and the execute path revalidates by refetching the template definition.
+
+### Broadcast → Add Recipients — same refactor
+- **Removed**: `Detected Template Header Format Name or ID`, `Detected Template Layout Name or ID`, `Broadcast MPM Hint Name or ID`, and the MPM notice. Removed the obsolete `broadcastStructureOptions.ts` load methods.
+- **Metadata embedded in the broadcast value**: `searchBroadcasts` now returns `uuid|layout|headerFormat|hasBody|hasButton|hasMpm`. New `extractBroadcastUuid` helper strips the metadata before path building (used by routing and preflight).
+- **Gates**: five `type: 'hidden'` fields derive layout/header/hasBody/hasButton/hasMpm from the broadcast value.
+- **Conditional mappers**: `Body Text Parameters`, `Button Parameters` (mapper) and `Button Parameters` (structured MPM collection) only render when applicable. Carousel mapper unchanged.
+- **Backward compatible**: legacy/manual `uuid` values still work via fallback gates.
+
+### Send Flow — initial data gating
+- **New encoded slot**: `flowId` value gains a `hasInitialDataFields` flag (slot index 10). `searchWhatsappFlows` computes it from the default screen’s data schema (zero extra API calls — uses the `flowJson` it already fetched).
+- **Conditional mapper**: `Flow Initial Data` mapper is hidden when the selected flow’s default screen has no data fields. Legacy flow values (length < 11 parts) keep the previous behavior (mapper shown).
+
+### Tests
+- 565+ unit tests cover the new value encoding, gating, and helper paths. All green.
+
+## 0.11.7 - 2026-06-03
+
+- **Fix**: Interactive message header text (Send List, Send Buttons, CTA, Flow) automatically strips WhatsApp formatting markers (`*bold*`, `_italic_`, etc.) before send. Meta rejects markdown in header text (error 131009); body text still supports formatting.
+
+## 0.11.6 - 2026-06-01
+
+- **Fix**: Meta text length checks (preflight + execute validation) count Unicode code points (`[...str].length`) instead of UTF-16 code units, so row/button titles with emojis at the Meta grapheme limit (e.g. `Tabela serviços avulsos💵`) are not rejected as one character over.
+
+## 0.11.5 - 2026-06-03
+
+- **Fix**: Send Template location header name/address, all public/HTTP URL fields, and template button parameters (URL suffix, quick reply text/payload, copy code, flow action data) use Resource Locator so n8n **Issues** enforce Meta max-length and URL format in the editor. Legacy plain-string JSON remains supported at execute time.
+
+## 0.11.4 - 2026-06-03
+
+- **Fix**: Send List rows, section titles, and Send Buttons fields inside `fixedCollection` use Resource Locator again so n8n **Issues** show Meta max-length violations in the editor (plain `string` + `validation` regex is not checked by n8n on nested fields). Legacy plain-string JSON remains supported at execute time.
+
+## 0.11.3 - 2026-06-03
+
+- **Fix**: **Reply To Message ID** in Message Send Options is optional again. Legacy workflows that still store `messageSendOptions: {}` on **Mark as Read** (and other non-send operations) no longer show a false “Reply To Message ID is required” issue in the node editor.
+
 ## 0.11.2 - 2026-06-03
 
 - **Fix**: `messageId` on **Get** / **Mark as Read** (and `reactionMessageId`) back to plain string fields so trigger expressions like `={{ $('Kapso Trigger1').item.json.message.id }}` no longer fail NDV validation after the Resource Locator migration. WAMID format is still enforced at execute time.

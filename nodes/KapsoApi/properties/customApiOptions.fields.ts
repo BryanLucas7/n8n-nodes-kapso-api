@@ -20,6 +20,7 @@ export const customApiOptionsField: INodeProperties = {
 			displayName: optionalLabel('Query Parameters'),
 			name: 'customQueryParameters',
 			type: 'fixedCollection',
+			placeholder: 'Add Parameter',
 			typeOptions: {
 				multipleValues: true,
 				sortable: true,

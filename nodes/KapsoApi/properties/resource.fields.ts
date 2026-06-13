@@ -304,6 +304,7 @@ export const resourceFields: INodeProperties[] = [
 		displayName: 'Users',
 		name: 'blockedUsers',
 		type: 'fixedCollection',
+		placeholder: 'Add User',
 		typeOptions: {
 			multipleValues: true,
 		},
